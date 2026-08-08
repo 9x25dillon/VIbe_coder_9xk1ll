@@ -6,7 +6,12 @@
     vibecoder status                progression, stars and global score
     vibecoder replay <run-id>       slow-motion playback of a recorded run
     vibecoder verify                run every level's reference against its tests
+    vibecoder showcase              render every visual element
     vibecoder reset                 delete the local profile
+
+All output is drawn through the renderer in ``ui.py``, which detects what the
+output stream can take. Piping any command produces plain text with no escape
+sequences; ``NO_COLOR=1`` does the same on a terminal.
 """
 
 from __future__ import annotations
@@ -28,26 +33,30 @@ from .runner import reference_benchmark, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
 from .session import Session
 from .replay import play as play_replay
+from .ui import (
+    ACCENT,
+    BAD,
+    FAINT,
+    GOLD,
+    GOOD,
+    INK,
+    MUTED,
+    VIOLET,
+    WARN,
+    renderer_for,
+    wrap,
+)
 
-BOLD = "\033[1m"
-DIM = "\033[2m"
-GREEN = "\033[32m"
-RED = "\033[31m"
-YELLOW = "\033[33m"
-RESET = "\033[0m"
+# One renderer per process, built from whatever the output stream turns out to
+# be. Every escape code in this module goes through it -- see T6.
+UI = renderer_for()
 
 
-def _colour(text: str, code: str) -> str:
-    return text if os.environ.get("NO_COLOR") else f"{code}{text}{RESET}"
+def heat_for(total: float) -> tuple[int, int, int]:
+    """Colour a final score by how close it is to a three-star clear."""
+    from .ui import heat
 
-
-def _stars(count: int) -> str:
-    return "*" * count + "." * (3 - count)
-
-
-def _bar(value: float, width: int = 24) -> str:
-    filled = int(round(width * max(0.0, min(100.0, value)) / 100.0))
-    return "#" * filled + "-" * (width - filled)
+    return heat(min(1.0, total / 95.0))
 
 
 # --------------------------------------------------------------------------
@@ -65,37 +74,50 @@ def cmd_profile(args: argparse.Namespace) -> int:
         print(json.dumps(vibe.to_json(), indent=2))
         return 0
 
-    print(_colour("\n  VIBE VECTOR", BOLD))
-    print(f"  source          {session.vibe_source}")
-    print(f"  files           {vibe.files}")
-    print(f"  functions       {vibe.functions}")
-    print(f"  code lines      {vibe.code_lines}")
-    print(f"  avg func lines  {vibe.avg_function_lines}")
-    print(f"  max complexity  {vibe.max_complexity}")
-    print(f"  docstrings      {vibe.docstring_ratio:.0%} of functions")
+    print()
+    print(UI.rule("VIBE VECTOR", width=64))
+    stats = [
+        f"{'source':<16}{session.vibe_source}",
+        f"{'files':<16}{vibe.files}",
+        f"{'functions':<16}{vibe.functions}",
+        f"{'code lines':<16}{vibe.code_lines}",
+        f"{'avg func lines':<16}{vibe.avg_function_lines}",
+        f"{'max complexity':<16}{vibe.max_complexity}",
+        f"{'docstrings':<16}{vibe.docstring_ratio:.0%} of functions",
+    ]
+    for line in UI.box(stats, width=64):
+        print(line)
 
     if vibe.libraries:
-        print(_colour("\n  LIBRARIES", BOLD))
-        for name, count in list(vibe.libraries.items())[:8]:
-            print(f"    {name:<16} {count}")
+        print(f"\n  {UI.paint('LIBRARIES', INK, bold=True)}")
+        top = list(vibe.libraries.items())[:8]
+        ceiling = max(count for _, count in top)
+        for line in UI.bar_chart(top, maximum=ceiling, suffix="", width=18):
+            print(line)
 
     if vibe.patterns:
-        print(_colour("\n  PATTERNS", BOLD))
-        for name, share in sorted(
-            vibe.patterns.items(), key=lambda kv: -kv[1]
-        )[:8]:
-            print(f"    {name:<18} {_bar(share * 100, 18)} {share:.0%}")
+        print(f"\n  {UI.paint('PATTERNS', INK, bold=True)}")
+        ranked = sorted(vibe.patterns.items(), key=lambda kv: -kv[1])[:8]
+        for line in UI.bar_chart([(k, v * 100) for k, v in ranked]):
+            print(line)
 
     if vibe.naming:
-        top = ", ".join(f"{k} {v:.0%}" for k, v in list(vibe.naming.items())[:3])
-        print(_colour("\n  NAMING", BOLD) + f"\n    {top}")
+        print(f"\n  {UI.paint('NAMING', INK, bold=True)}")
+        for name, share in list(vibe.naming.items())[:3]:
+            print(f"    {name:<18} {UI.gauge(share * 100, width=22, rgb=VIOLET)} {share:5.0%}")
 
     if vibe.exceptions_caught:
-        caught = ", ".join(f"{k} ({v})" for k, v in vibe.exceptions_caught.items())
-        print(_colour("\n  EXCEPTIONS HANDLED", BOLD) + f"\n    {caught}")
+        print(f"\n  {UI.paint('EXCEPTIONS HANDLED', INK, bold=True)}")
+        caught = "  ".join(
+            UI.badge(f"{name} {count}", WARN)
+            for name, count in list(vibe.exceptions_caught.items())[:6]
+        )
+        print(f"    {caught}")
 
-    print(_colour("\n  TAGS", BOLD) + f"\n    {', '.join(vibe.tags) or '(none)'}")
-    print(f"\n  saved to {session.path}\n")
+    print(f"\n  {UI.paint('TAGS', INK, bold=True)}")
+    tags = "  ".join(UI.badge(tag, ACCENT) for tag in vibe.tags) or "(none)"
+    print(f"    {tags}")
+    print(f"\n  {UI.paint(f'saved to {session.path}', FAINT)}\n")
     return 0
 
 
@@ -107,6 +129,25 @@ def cmd_levels(args: argparse.Namespace) -> int:
     session = Session.load()
     all_levels = list(level_registry.all_levels())
 
+    if args.map:
+        print()
+        entries = [
+            {
+                "world": lvl.world,
+                "world_title": lvl.world_title,
+                "id": lvl.id,
+                "title": lvl.title,
+                "stars": session.levels[lvl.id].best_stars
+                if lvl.id in session.levels
+                else 0,
+            }
+            for lvl in all_levels
+        ]
+        for line in UI.level_map(entries):
+            print(line)
+        print()
+        return 0
+
     if session.vibe and not args.campaign:
         ordered = recommend(all_levels, session.vibe)
         heading = "RECOMMENDED FOR YOUR VIBE"
@@ -114,22 +155,30 @@ def cmd_levels(args: argparse.Namespace) -> int:
         ordered = all_levels
         heading = "CAMPAIGN ORDER"
 
-    print(_colour(f"\n  {heading}", BOLD))
+    print()
+    print(UI.rule(heading, width=76))
     current_world = None
     for level in ordered:
         if args.campaign and level.world != current_world:
             current_world = level.world
-            print(_colour(f"\n  World {level.world} - {level.world_title}", DIM))
+            print(
+                f"\n  {UI.paint(f'World {level.world}', ACCENT, bold=True)} "
+                f"{UI.paint(level.world_title, MUTED)}"
+            )
         record = session.levels.get(level.id)
-        stars = _stars(record.best_stars if record else 0)
+        stars = UI.stars(record.best_stars if record else 0)
         best = f"{record.best_total:6.1f}" if record else "     -"
-        tags = ",".join(level.tags)
-        print(f"    [{stars}] {best}  {level.id:<16} {level.title:<28} {DIM}{tags}{RESET}")
+        tags = UI.paint(",".join(level.tags), FAINT)
+        print(f"    {stars}  {best}  {level.id:<16} {level.title:<28} {tags}")
 
     if not session.vibe:
         print(
-            f"\n  {DIM}No Vibe Vector yet. Run "
-            f"`vibecoder profile <path>` to personalise this ordering.{RESET}"
+            "\n  "
+            + UI.paint(
+                "No Vibe Vector yet. Run `vibecoder profile <path>` to "
+                "personalise this ordering.",
+                FAINT,
+            )
         )
     print()
     return 0
@@ -141,21 +190,31 @@ def cmd_levels(args: argparse.Namespace) -> int:
 
 def _print_results(result: RunResult) -> None:
     if result.fatal:
-        print(f"\n  {_colour(result.error_type or 'Error', RED)}: {result.error}")
+        print(f"\n  {UI.badge(result.error_type or 'ERROR', BAD)} {result.error}")
         return
     print()
     for outcome in result.outcomes:
         if outcome.passed:
-            print(f"  {_colour('PASS', GREEN)}  {outcome.name}")
+            mark = UI.paint(UI.glyph("tick"), GOOD)
+            print(f"  {mark} {UI.paint('PASS', GOOD)}  {outcome.name}")
         else:
             detail = outcome.error or f"got {outcome.got}, expected {outcome.expected}"
-            print(f"  {_colour('FAIL', RED)}  {outcome.name}  {DIM}{detail}{RESET}")
+            mark = UI.paint(UI.glyph("cross"), BAD)
+            print(
+                f"  {mark} {UI.paint('FAIL', BAD)}  {outcome.name}  "
+                f"{UI.paint(detail, FAINT)}"
+            )
+
+    ratio = result.passed_count / max(1, result.total_count)
     print(
-        f"\n  {result.passed_count}/{result.total_count} passed"
-        f"   {result.ops} ops   {result.peak_bytes / 1024:.1f} KiB peak"
+        f"\n  {UI.gauge(ratio * 100, width=result.total_count * 2)}  "
+        f"{result.passed_count}/{result.total_count} passed   "
+        + UI.paint(
+            f"{result.ops} ops   {result.peak_bytes / 1024:.1f} KiB peak", MUTED
+        )
     )
     if result.stdout.strip():
-        print(f"\n  {DIM}stdout:{RESET}\n{result.stdout.rstrip()}")
+        print(f"\n  {UI.paint('stdout:', FAINT)}\n{result.stdout.rstrip()}")
 
 
 def _edit(path: Path) -> None:
@@ -177,13 +236,19 @@ def cmd_play(args: argparse.Namespace) -> int:
     seed = args.seed if args.seed is not None else session.next_seed(level.id)
     tests = level.tests_for(seed)
 
-    print(_colour(f"\n  {level.title}", BOLD) + f"  {DIM}({level.id}, variant {seed}){RESET}")
-    print(f"  World {level.world} - {level.world_title}")
-    print(f"\n  {level.brief}\n")
+    print()
+    print(UI.rule(f"WORLD {level.world}  {level.world_title}", width=76))
+    print(
+        f"\n  {UI.paint(level.title, INK, bold=True)}  "
+        + UI.paint(f"({level.id}, variant {seed})", FAINT)
+        + "\n"
+    )
+    for line in wrap(level.brief, 74):
+        print(UI.paint(line, MUTED))
     if level.style_goals:
         goals = "; ".join(style.DESCRIPTIONS[g] for g in level.style_goals)
-        print(f"  {_colour('Style goal (+5%)', YELLOW)}: {goals}\n")
-    print(f"  {DIM}par time: {level.par_seconds / 60:.0f} min{RESET}\n")
+        print(f"\n  {UI.badge('STYLE GOAL +5%', GOLD)} {UI.paint(goals, WARN)}")
+    print(f"\n  {UI.paint(f'par time: {level.par_seconds / 60:.0f} min', FAINT)}\n")
 
     workspace = Path(args.solution) if args.solution else None
     if workspace is None:
@@ -193,7 +258,7 @@ def cmd_play(args: argparse.Namespace) -> int:
         handle.write(level.starter)
         handle.close()
         workspace = Path(handle.name)
-        print(f"  editing {workspace}\n")
+        print(f"  {UI.paint(f'editing {workspace}', FAINT)}\n")
 
     ref_ops, ref_peak = reference_benchmark(level, seed)
 
@@ -216,7 +281,8 @@ def cmd_play(args: argparse.Namespace) -> int:
         if result.all_passed or args.solution:
             break
         try:
-            again = input(f"\n  {DIM}[enter] keep editing, 'q' to give up: {RESET}")
+            prompt = UI.paint("[enter] keep editing, 'q' to give up: ", FAINT)
+            again = input(f"\n  {prompt}")
         except EOFError:
             break
         if again.strip().lower().startswith("q"):
@@ -269,38 +335,61 @@ def cmd_play(args: argparse.Namespace) -> int:
     if not practice:
         session.save()
 
-    print(_colour("\n  SCORE", BOLD))
-    print(
-        f"    accuracy    {_bar(score.accuracy)} {score.accuracy:6.1f}"
-        f"  x{weights.accuracy:.2f}"
-    )
+    print()
+    print(UI.rule("SCORE", width=76))
+    print()
+
+    # Each axis animates in as it is revealed; on a pipe these collapse to the
+    # same final lines, so the transcript is identical either way.
+    UI.reveal_gauge("accuracy", score.accuracy, weights.accuracy)
     if practice:
-        print(f"    speed       {DIM}{'not measured in practice mode':<24}{RESET}")
-    else:
         print(
-            f"    speed       {_bar(score.speed)} {score.speed:6.1f}"
-            f"  x{weights.speed:.2f}  ({elapsed:.0f}s vs {level.par_seconds:.0f}s par)"
+            f"    {'speed':<11} "
+            + UI.paint("not measured in practice mode", FAINT)
         )
-    print(
-        f"    functional  {_bar(score.functional)} {score.functional:6.1f}"
-        f"  x{weights.functional:.2f}  ({result.ops} ops vs {ref_ops} reference)"
+    else:
+        UI.reveal_gauge(
+            "speed",
+            score.speed,
+            weights.speed,
+            f"({elapsed:.0f}s vs {level.par_seconds:.0f}s par)",
+        )
+    UI.reveal_gauge(
+        "functional",
+        score.functional,
+        weights.functional,
+        f"({result.ops} ops vs {ref_ops} reference)",
     )
-    print(f"    {DIM}subtotal{RESET}    {score.subtotal:.1f}")
+
+    print(f"\n    {UI.paint('subtotal', MUTED)}    {score.subtotal:.1f}")
     for name, rate in score.bonuses.items():
-        print(f"    {_colour('bonus', GREEN)}       +{rate:.0%}  {name}")
-    print(f"\n    {_colour('TOTAL', BOLD)}       {score.total:.1f}   [{_stars(score.stars)}]")
+        print(f"    {UI.badge(f'+{rate:.0%}', GOOD)} {UI.paint(name, GOOD)}")
+
+    print(f"\n    {UI.paint('TOTAL', INK, bold=True)}       "
+          f"{UI.paint(f'{score.total:.1f}', heat_for(score.total), bold=True)}")
+    UI.star_burst(score.stars)
+
     if practice:
         print(
-            f"    {DIM}practice run - not banked. Pass --elapsed <seconds> "
-            f"to score a ranked attempt.{RESET}"
+            "    "
+            + UI.paint(
+                "practice run - not banked. Pass --elapsed <seconds> to score "
+                "a ranked attempt.",
+                FAINT,
+            )
         )
 
     if outcome["improved"]:
-        print(f"    {_colour('new personal best', GREEN)}")
+        print(f"    {UI.badge('NEW PERSONAL BEST', GOOD)}")
     if outcome["streak"] > 1:
+        flames = UI.paint(UI.glyph("arrow") * min(outcome["streak"], 8), GOLD)
         print(
-            f"    streak {outcome['streak']} "
-            f"(x{streak_multiplier(outcome['streak']):.1f} on the next perfect clear)"
+            f"    {flames} streak {outcome['streak']} "
+            + UI.paint(
+                f"(x{streak_multiplier(outcome['streak']):.1f} on the next "
+                f"perfect clear)",
+                MUTED,
+            )
         )
 
     advice = tips.generate(
@@ -312,11 +401,25 @@ def cmd_play(args: argparse.Namespace) -> int:
         style_results=style_results,
     )
     if advice:
-        print(_colour("\n  VIBE TIPS", BOLD))
+        print()
+        print(UI.rule("VIBE TIPS", width=76))
         for tip in advice:
-            print(f"    - {tip}")
+            print()
+            for index, line in enumerate(wrap(tip, 72, indent="      ")):
+                if index == 0:
+                    marker = UI.paint(UI.glyph("arrow"), VIOLET)
+                    print(f"    {marker} {line.lstrip()}")
+                else:
+                    print(line)
 
-    print(f"\n  {DIM}run saved as {run_id} - replay it with `vibecoder replay {run_id}`{RESET}\n")
+    print(
+        "\n  "
+        + UI.paint(
+            f"run saved as {run_id} - replay it with `vibecoder replay {run_id}`",
+            FAINT,
+        )
+        + "\n"
+    )
     return 0
 
 
@@ -330,26 +433,54 @@ def cmd_status(args: argparse.Namespace) -> int:
     cleared = sum(1 for r in session.levels.values() if r.best_stars > 0)
     stars = sum(r.best_stars for r in session.levels.values())
 
-    print(_colour("\n  PROGRESSION", BOLD))
-    print(f"    global score   {session.total_score:.1f}")
-    print(f"    levels cleared {cleared}/{len(all_levels)}")
-    print(f"    stars          {stars}/{len(all_levels) * 3}")
-    print(f"    streak         {session.streak}")
-    print(f"    tokens         " + ", ".join(f"{k} x{v}" for k, v in session.tokens.items()))
-    print(f"    vibe source    {session.vibe_source or '(not profiled)'}")
+    total_stars = len(all_levels) * 3
+
+    print()
+    for line in UI.banner():
+        print("  " + line)
+    print()
+    print(UI.rule("PROGRESSION", width=76))
+    print()
+    print(f"    {'global score':<15}{UI.paint(f'{session.total_score:.1f}', GOLD, bold=True)}")
+    print(
+        f"    {'levels cleared':<15}"
+        f"{UI.gauge(cleared, width=24, maximum=max(1, len(all_levels)))} "
+        f"{cleared}/{len(all_levels)}"
+    )
+    print(
+        f"    {'stars':<15}"
+        f"{UI.gauge(stars, width=24, maximum=max(1, total_stars), rgb=GOLD)} "
+        f"{stars}/{total_stars}"
+    )
+    print(f"    {'streak':<15}{session.streak}")
+    print(
+        f"    {'tokens':<15}"
+        + "  ".join(UI.badge(f"{k} x{v}", VIOLET) for k, v in session.tokens.items())
+    )
+    print(
+        f"    {'vibe source':<15}"
+        + UI.paint(session.vibe_source or "(not profiled)", MUTED)
+    )
 
     if session.levels:
-        print(_colour("\n  LEVELS", BOLD))
+        print()
+        print(UI.rule("LEVELS", width=76))
         for level in all_levels:
             record = session.levels.get(level.id)
             if not record:
                 continue
+            history = [h["total"] for h in record.history][-12:]
+            trend = UI.sparkline(history) if len(history) > 1 else ""
             print(
-                f"    [{_stars(record.best_stars)}] {record.best_total:6.1f}  "
-                f"{level.id:<16} {DIM}{record.attempts} attempts, "
-                f"{len(record.seeds_played)} variants{RESET}"
+                f"    {UI.stars(record.best_stars)}  {record.best_total:6.1f}  "
+                f"{level.id:<16} {trend:<14} "
+                + UI.paint(
+                    f"{record.attempts} attempts, {len(record.seeds_played)} variants",
+                    FAINT,
+                )
             )
-    print(f"\n  {DIM}profile: {session.path}{RESET}\n")
+
+    print(f"\n  {UI.paint(f'profile: {session.path}', FAINT)}\n")
     return 0
 
 
@@ -372,9 +503,11 @@ def cmd_replay(args: argparse.Namespace) -> int:
         raise SystemExit(str(exc))
 
     trace = payload.get("result", {}).get("trace", [])
+    print()
+    print(UI.rule(f"REPLAY  {args.run_id}", width=76))
     print(
-        f"\n  replaying {args.run_id} "
-        f"{DIM}(variant {payload.get('seed')}, {len(trace)} steps){RESET}"
+        "  "
+        + UI.paint(f"variant {payload.get('seed')}, {len(trace)} steps", FAINT)
     )
     play_replay(
         payload["code"],
@@ -398,16 +531,105 @@ def cmd_verify(args: argparse.Namespace) -> int:
                 ops, peak = reference_benchmark(level, seed)
             except RuntimeError as exc:
                 failures += 1
-                print(f"  {_colour('FAIL', RED)}  {level.id} seed {seed}: {exc}")
+                print(
+                    f"  {UI.paint(UI.glyph('cross'), BAD)} "
+                    f"{UI.paint('FAIL', BAD)}  {level.id} seed {seed}: {exc}"
+                )
                 continue
             if args.verbose:
                 print(
-                    f"  {_colour('OK', GREEN)}    {level.id} seed {seed}: "
-                    f"{ops} ops, {peak / 1024:.1f} KiB"
+                    f"  {UI.paint(UI.glyph('tick'), GOOD)} "
+                    f"{UI.paint('OK', GOOD)}    {level.id} seed {seed}: "
+                    + UI.paint(f"{ops} ops, {peak / 1024:.1f} KiB", MUTED)
                 )
     total = len(level_registry.all_levels()) * args.seeds
-    print(f"\n  {total - failures}/{total} reference runs clean\n")
+    clean = total - failures
+    print(
+        f"\n  {UI.gauge(clean, width=30, maximum=max(1, total))}  "
+        f"{clean}/{total} reference runs clean\n"
+    )
     return 1 if failures else 0
+
+
+def cmd_showcase(args: argparse.Namespace) -> int:
+    """Render every visual element at once.
+
+    Exists so the presentation layer can be eyeballed without playing a level,
+    and so a terminal's actual capabilities are visible at a glance. Piping this
+    to a file is the quickest check that no escape codes leak.
+    """
+    caps = UI.caps
+    print()
+    for line in UI.banner():
+        print("  " + line)
+
+    print()
+    print(UI.rule("DETECTED CAPABILITIES", width=76))
+    detected = [
+        f"{'colour depth':<16}{caps.depth.name}",
+        f"{'unicode':<16}{caps.unicode}",
+        f"{'animation':<16}{caps.animate}",
+        f"{'width':<16}{caps.width}",
+    ]
+    for line in UI.box(detected, width=64):
+        print(line)
+
+    print()
+    print(UI.rule("GAUGES", width=76))
+    print()
+    for value in (12.0, 38.0, 61.0, 84.0, 100.0):
+        print(
+            f"    {value:5.0f}  {UI.gradient_gauge(value, width=40)}  "
+            f"{UI.stars(3 if value >= 95 else 2 if value >= 80 else 1 if value >= 60 else 0)}"
+        )
+
+    print()
+    print(UI.rule("SCORE BREAKDOWN", width=76))
+    print()
+    print(UI.axis_row("accuracy", 100.0, 0.50))
+    print(UI.axis_row("speed", 72.0, 0.25, "(250s vs 180s par)"))
+    print(UI.axis_row("functional", 33.1, 0.25, "(49590 ops vs 2184 reference)"))
+
+    print()
+    print(UI.rule("BOSS HEALTH", width=76))
+    print()
+    for current in (100, 64, 28, 0):
+        print(UI.health_bar(current, 100, width=44))
+
+    print()
+    print(UI.rule("SPARKLINES", width=76))
+    print()
+    print(f"    rising     {UI.sparkline([1, 3, 4, 8, 12, 18, 25, 31, 44, 60])}")
+    print(f"    volatile   {UI.sparkline([40, 12, 55, 20, 70, 30, 88, 42, 95, 51])}")
+    print(f"    flat       {UI.sparkline([50] * 10)}")
+
+    print()
+    print(UI.rule("LEVEL MAP", width=76))
+    demo = [
+        {"world": 1, "world_title": "Data Wrangler", "id": "a", "title": "a", "stars": 3},
+        {"world": 1, "world_title": "Data Wrangler", "id": "b", "title": "b", "stars": 2},
+        {"world": 1, "world_title": "Data Wrangler", "id": "c", "title": "c", "stars": 0},
+        {"world": 2, "world_title": "Algorithm Architect", "id": "d", "title": "d", "stars": 1},
+        {"world": 2, "world_title": "Algorithm Architect", "id": "e", "title": "e", "stars": 0},
+    ]
+    for line in UI.level_map(demo):
+        print(line)
+
+    print()
+    print(UI.rule("BADGES", width=76))
+    print()
+    print(
+        "    "
+        + "  ".join(
+            UI.badge(text, rgb)
+            for text, rgb in (
+                ("PASS", GOOD), ("FAIL", BAD), ("STYLE GOAL", GOLD),
+                ("data", ACCENT), ("async", VIOLET), ("PARTIAL", WARN),
+            )
+        )
+    )
+    print()
+    return 0
 
 
 def cmd_reset(args: argparse.Namespace) -> int:
@@ -449,6 +671,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_levels.add_argument(
         "--campaign", action="store_true", help="campaign order instead of vibe order"
     )
+    p_levels.add_argument(
+        "--map", action="store_true", help="draw the world map instead of a list"
+    )
     p_levels.set_defaults(func=cmd_levels)
 
     p_play = sub.add_parser("play", help="play a level")
@@ -477,6 +702,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("--seeds", type=int, default=3)
     p_verify.add_argument("--verbose", "-v", action="store_true")
     p_verify.set_defaults(func=cmd_verify)
+
+    p_showcase = sub.add_parser(
+        "showcase", help="render every visual element and detected capabilities"
+    )
+    p_showcase.set_defaults(func=cmd_showcase)
 
     p_reset = sub.add_parser("reset", help="delete the local profile")
     p_reset.add_argument("--force", action="store_true")

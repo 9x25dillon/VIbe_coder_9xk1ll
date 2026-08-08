@@ -1,0 +1,274 @@
+{
+  "id": "S002",
+  "date": "2026-08-08",
+  "duration_minutes": null,
+  "trajectory": "T6",
+  "competency_band": "Create",
+  "journal": "journal/2026-08-08-S002-presentation.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "Output detects what it is talking to instead of assuming a terminal",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 2,
+      "statement": "Colour never changes what is on the screen, only how it looks",
+      "result": "met",
+      "note": "Failed on first measurement; see M4"
+    },
+    {
+      "id": 3,
+      "statement": "The score reveal reads as feedback rather than a table",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 4,
+      "statement": "Progression is visible at a glance: world map, star totals, score trend",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 5,
+      "statement": "Every element degrades to ASCII on a non-UTF-8 terminal",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 6,
+      "statement": "S001's recorded friction about hard-coded ANSI codes is resolved",
+      "result": "met",
+      "note": "cli.py now contains zero escape sequences"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/ui.py",
+      "kind": "module",
+      "note": "Capability detection, palette, elements, animation; the only emitter of escape codes"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "Rewritten to draw through the renderer; adds showcase and levels --map"
+    },
+    {
+      "path": "tests/test_ui.py",
+      "kind": "test",
+      "note": "63 tests; depth invariance, width, glyph fallback, animation degradation"
+    },
+    {
+      "path": "docs/UI.md",
+      "kind": "doc",
+      "note": "The one rule, capability resolution order, how to add an element"
+    },
+    {
+      "path": "docs/trajectories/T6-presentation.md",
+      "kind": "doc",
+      "note": "Exit criteria written before the work"
+    },
+    {
+      "path": "journal/2026-08-08-S002-presentation.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Piped output contains no escape sequences",
+      "method": "python3 -m vibecoder.cli showcase | grep -c $'\\033'",
+      "result": "0",
+      "verdict": "verified"
+    },
+    {
+      "claim": "NO_COLOR overrides FORCE_COLOR",
+      "method": "tests/test_ui.py::TestCapabilityDetection::test_no_color_beats_force_color",
+      "result": "Depth.NONE",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Colour depth never changes visible output",
+      "method": "tests/test_ui.py::TestDepthInvariance",
+      "result": "11 elements identical across 4 depths after stripping escapes",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Gauges are exactly their requested width",
+      "method": "tests/test_ui.py::TestWidth",
+      "result": "Holds for values 0-500 and widths 1-60, including a zero maximum",
+      "verdict": "verified"
+    },
+    {
+      "claim": "ASCII terminals receive no Unicode",
+      "method": "tests/test_ui.py::TestGlyphFallback",
+      "result": "isascii() holds across gauges, stars and the banner",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Animation never runs without a TTY and never blocks",
+      "method": "tests/test_ui.py::TestAnimation",
+      "result": "5 tests; no carriage returns emitted without a TTY",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Animated and static paths agree on the final frame",
+      "method": "tests/test_ui.py::test_reveal_matches_the_static_row",
+      "result": "Identical to axis_row output",
+      "verdict": "verified"
+    },
+    {
+      "claim": "No third-party dependency was added",
+      "method": "Import scan across vibecoder/*.py",
+      "result": "Every import is stdlib",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The layer looks good on a real 24-bit terminal emulator",
+      "method": "Not attempted; rendered and inspected here only",
+      "result": null,
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M4",
+      "believed": "A background-filled badge is a clean degradation of a bracketed one: same width, better appearance where colour is supported.",
+      "revealed_by": "The depth-invariance check across all four colour depths. Every element matched except the badge row: '[PASS]  [FAIL]' versus ' PASS    FAIL '.",
+      "corrected_to": "Brackets at every depth, with colour applied to the brackets too, so escape-stripped output is genuinely identical.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The failure was cheap; the temptation was the lesson. Exit criterion 6 said 'same layout', and the filled badge did preserve layout - one word of amendment would have declared it clean. Noticing the urge to edit the criterion instead of the code is the skill N7 is trying to build."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D7",
+      "decision": "Detect stream capabilities rather than assume a terminal",
+      "alternatives": [
+        "Always emit colour",
+        "A --color flag only"
+      ],
+      "rationale": "Escape codes in a log file are a bug; detection also yields Unicode and animation gating for free.",
+      "reversible": true,
+      "seam": "vibecoder/ui.py::detect"
+    },
+    {
+      "id": "D8",
+      "decision": "Colour applied last, layout computed first",
+      "alternatives": [
+        "Paint inline while building strings"
+      ],
+      "rationale": "Makes depth invariance achievable at all, and lets tests compare readable text.",
+      "reversible": false,
+      "seam": "The shape of every element method"
+    },
+    {
+      "id": "D9",
+      "decision": "Width is a parameter, never read at draw time",
+      "alternatives": [
+        "Call get_terminal_size() inside each element"
+      ],
+      "rationale": "Testable at any width; nothing silently depends on the 80-column fallback.",
+      "reversible": true,
+      "seam": "Element signatures"
+    },
+    {
+      "id": "D10",
+      "decision": "Badges are bracketed at every colour depth",
+      "alternatives": [
+        "Background-filled pill when colour is available"
+      ],
+      "rationale": "Preserves the invariant that colour never changes visible text.",
+      "reversible": true,
+      "seam": "vibecoder/ui.py::Renderer.badge"
+    },
+    {
+      "id": "D11",
+      "decision": "Build the boss health bar now, before T3 needs it",
+      "alternatives": [
+        "Wait until the boss engine exists"
+      ],
+      "rationale": "The boss fight then renders through the same layer instead of growing a parallel one.",
+      "reversible": true,
+      "seam": "vibecoder/ui.py::Renderer.health_bar"
+    },
+    {
+      "id": "D12",
+      "decision": "Hand-rolled ANSI rather than curses",
+      "alternatives": [
+        "curses, which is stdlib and would satisfy N1"
+      ],
+      "rationale": "curses takes over the screen and cannot degrade to a pipe. The game prints; it does not own the terminal.",
+      "reversible": true,
+      "seam": "vibecoder/ui.py"
+    }
+  ],
+  "friction": [
+    {
+      "description": "io.StringIO cannot test capability detection: encoding is read-only and isatty() always returns False. Two tests failed on the harness rather than the code.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "mock.patch.dict rejects None values, breaking the first attempt at unsetting environment variables.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Whether the layer actually looks good cannot be verified without a human at a real terminal emulator.",
+      "impact": "medium",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T6 LANDED, all eight exit criteria verified. vibecoder/ui.py is the only emitter of escape codes; cli.py contains none. 194 tests green, verify clean on 18 reference runs. New commands: showcase, levels --map. The engine is unchanged and T1 remains LANDED.",
+    "next_action": "Unchanged from S001: T2 W1, the container-backed runner behind run_code. T6 was a detour, taken because the friction it resolved was cheap now and expensive once a web front-end exists.",
+    "blockers": [
+      "T2 W4 (GitHub OAuth) needs a registered OAuth application",
+      "T2 W4 needs the client-versus-server profiling decision, which has a privacy consequence"
+    ],
+    "context_required": [
+      "docs/UI.md before adding any visual element",
+      "Misconception M4 before changing how an element degrades",
+      "docs/SCORING.md before touching any weight or curve"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q8",
+      "question": "Should the renderer be injected rather than a module-level UI singleton in cli.py? A web front-end or an output-capturing test has to monkey-patch it today.",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q9",
+      "question": "Animation is fixed at roughly 0.35s per axis. Does that stay pleasant after ten levels, or become something to sit through? Needs a real player.",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q10",
+      "question": "The banner is a hand-written ASCII grid. Worth a small figlet-style renderer so world titles can use it too, or is one banner enough?",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 194,
+    "tests_passing": 194,
+    "test_runtime_seconds": 4.214,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 12,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "ui_tests": 63,
+    "escape_codes_outside_ui_module": 0
+  }
+}
