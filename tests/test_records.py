@@ -248,5 +248,56 @@ class TestInternalLinks(unittest.TestCase):
                 )
 
 
+class TestWorkingAgreement(unittest.TestCase):
+    """CLAUDE.md and README.md quote figures that will drift.
+
+    Only *living* documents are checked. Journal entries and data records quote
+    numbers that were true when written and are deliberately not updated -- they
+    are evidence, not status.
+    """
+
+    LIVING = ("CLAUDE.md", "README.md")
+    COUNT = re.compile(r"(\d+)\s+tests")
+
+    def actual_test_count(self) -> int:
+        """Counts what `unittest discover -s tests` would run, without running it."""
+        return unittest.TestLoader().discover(str(ROOT / "tests")).countTestCases()
+
+    def test_the_working_agreement_exists(self):
+        self.assertTrue((ROOT / "CLAUDE.md").exists())
+
+    def test_living_docs_quote_the_real_test_count(self):
+        actual = self.actual_test_count()
+        for name in self.LIVING:
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for quoted in self.COUNT.findall(text):
+                with self.subTest(document=name, quoted=quoted):
+                    self.assertEqual(
+                        int(quoted),
+                        actual,
+                        f"{name} says {quoted} tests; discovery finds {actual}",
+                    )
+
+    def test_the_working_agreement_names_the_real_gates(self):
+        """The two commands it tells you to run must be the ones that exist."""
+        text = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn("python3 -m unittest discover -s tests", text)
+        self.assertIn("python3 -m vibecoder.cli verify", text)
+
+    def test_referenced_docs_exist(self):
+        """Guards against pointing a future session at a file that is gone."""
+        text = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        for required in (
+            "docs/SCORING.md",
+            "docs/ARCHITECTURE.md",
+            "docs/LEVEL_AUTHORING.md",
+            "journal/TEMPLATE.md",
+            "SCHEDULE.md",
+        ):
+            with self.subTest(path=required):
+                self.assertIn(required, text)
+                self.assertTrue((ROOT / required).exists())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -32,7 +32,7 @@ $ vibecoder play w1-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 127 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 131 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -152,13 +152,20 @@ vibecoder/            The game. 11 modules, no dependencies.
 ├── profiler.py       Pure-ast codebase analysis
 └── levels/           One file per level, auto-discovered
 
-tests/                127 tests, stdlib unittest
+tests/                131 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T5
 journal/              Chronological session reviews, with handoffs
 data/                 Machine-readable records: session data, measurement baselines
 SCHEDULE.md           Calendar plan through 18 Oct 2026
+CLAUDE.md             Working agreement — invariants, session protocol, gates
 ```
+
+[`CLAUDE.md`](CLAUDE.md) is the contributor's operating procedure: how to start a
+session, the invariants that must not be broken, and the definition of done. It
+is loaded automatically by Claude Code and worth reading first if you are
+human — the "Scars" section explains why several odd-looking decisions are the
+way they are.
 
 ## Trajectories
 
