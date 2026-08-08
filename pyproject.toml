@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibecoder"
+version = "0.1.0"
+description = "A Python puzzle game that adapts to how you already write code."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["education", "python", "game", "static-analysis", "puzzle"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Games/Entertainment :: Puzzle Games",
+]
+
+# Deliberately empty, and defended as a project property. Every metric the game
+# reports is computed in this repository rather than borrowed, which keeps it
+# inspectable and keeps the game runnable anywhere a Python interpreter is.
+# Adding a dependency requires a journal entry justifying it -- see SCHEDULE.md,
+# "Working assumptions".
+dependencies = []
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+vibecoder = "vibecoder.cli:main"
+
+[project.urls]
+Repository = "https://github.com/9x25dillon/vibe_coder_9xk1ll"
+
+[tool.setuptools.packages.find]
+include = ["vibecoder*"]
+
+[tool.setuptools.package-data]
+vibecoder = ["levels/*.py"]

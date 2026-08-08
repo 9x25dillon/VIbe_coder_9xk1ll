@@ -1,0 +1,469 @@
+{
+  "id": "S001",
+  "date": "2026-08-08",
+  "duration_minutes": null,
+  "trajectory": "T1",
+  "competency_band": "Create",
+  "journal": "journal/2026-08-08-S001-core-loop.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "A level can be played end to end and produce a three-axis score",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 2,
+      "statement": "The Functional axis measurably separates a naive solution from an optimal one",
+      "result": "met",
+      "note": "89.3 vs 120.0 on w1-l3-join at identical accuracy"
+    },
+    {
+      "id": 3,
+      "statement": "The sandbox contains everything a learner can do wrong",
+      "result": "met",
+      "note": "Contains accidents, not attacks; hostile code is T2's problem"
+    },
+    {
+      "id": 4,
+      "statement": "A real codebase can be profiled into a Vibe Vector with usable tags",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 5,
+      "statement": "Replaying a level yields genuinely different test data",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 6,
+      "statement": "The whole thing runs with no third-party dependency",
+      "result": "met",
+      "note": null
+    },
+    {
+      "id": 7,
+      "statement": "Boss fights are playable",
+      "result": "deferred",
+      "note": "Deferred to T3. Trace-replay playback shipped instead, validating the trace format the live engine will consume."
+    },
+    {
+      "id": 8,
+      "statement": "The project carries a record system that cannot rot silently",
+      "result": "met",
+      "note": "Added mid-session. Enforced by tests/test_records.py rather than by convention."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/models.py",
+      "kind": "module",
+      "note": "Dataclasses; JSON round-trip without a serialisation library"
+    },
+    {
+      "path": "vibecoder/scoring.py",
+      "kind": "module",
+      "note": "Three axes, bonuses, stars, streak multiplier"
+    },
+    {
+      "path": "vibecoder/_harness.py",
+      "kind": "module",
+      "note": "Sandbox child; stdlib only, never imports the package"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "Parent driver; the seam a container runner replaces in T2"
+    },
+    {
+      "path": "vibecoder/profiler.py",
+      "kind": "module",
+      "note": "Pure ast analysis; executes nothing"
+    },
+    {
+      "path": "vibecoder/style.py",
+      "kind": "module",
+      "note": "Style-goal checkers behind the elegance bonus"
+    },
+    {
+      "path": "vibecoder/tips.py",
+      "kind": "module",
+      "note": "Conservative rule-based coaching"
+    },
+    {
+      "path": "vibecoder/session.py",
+      "kind": "module",
+      "note": "Atomic-write progression state"
+    },
+    {
+      "path": "vibecoder/replay.py",
+      "kind": "module",
+      "note": "Slow-motion playback; playback only, not edit-and-resume"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "profile/levels/play/status/replay/verify/reset"
+    },
+    {
+      "path": "vibecoder/levels/",
+      "kind": "level",
+      "note": "6 levels across 2 worlds, seeded variants"
+    },
+    {
+      "path": "tests/",
+      "kind": "test",
+      "note": "127 tests, stdlib unittest"
+    },
+    {
+      "path": "docs/trajectories/",
+      "kind": "doc",
+      "note": "T1-T5 forward plan"
+    },
+    {
+      "path": "journal/2026-08-08-S001-core-loop.md",
+      "kind": "doc",
+      "note": "This session"
+    },
+    {
+      "path": "tests/test_records.py",
+      "kind": "test",
+      "note": "15 tests enforcing schema validity, journal/data pairing, and internal link resolution"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "kind": "doc",
+      "note": "Module map, execution boundary, op counting, extension points"
+    },
+    {
+      "path": "docs/SCORING.md",
+      "kind": "doc",
+      "note": "Curve derivations and the reasoning behind each weight"
+    },
+    {
+      "path": "docs/VIBE_PROFILER.md",
+      "kind": "doc",
+      "note": "Signals extracted, normalisation, gaps-over-comfort recommendation"
+    },
+    {
+      "path": "docs/LEVEL_AUTHORING.md",
+      "kind": "doc",
+      "note": "The level contract, enforced by tests/test_levels.py"
+    },
+    {
+      "path": "docs/GLOSSARY.md",
+      "kind": "doc",
+      "note": "Precise definitions; Speed vs Functional is the commonly confused pair"
+    },
+    {
+      "path": "journal/README.md",
+      "kind": "doc",
+      "note": "The educational rubric every session review is structured against"
+    },
+    {
+      "path": "data/schema/session-review.schema.json",
+      "kind": "data",
+      "note": "Structure of a session record"
+    },
+    {
+      "path": "data/schema/baseline.schema.json",
+      "kind": "data",
+      "note": "Structure of a measurement baseline"
+    },
+    {
+      "path": "data/baselines/2026-08-08-t1-reference-baseline.json",
+      "kind": "data",
+      "note": "Reference op counts and peak memory, per level per seed, at T1 landing"
+    },
+    {
+      "path": "SCHEDULE.md",
+      "kind": "doc",
+      "note": "Week-by-week calendar plan through 2026-10-18"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": null
+    },
+    {
+      "path": "pyproject.toml",
+      "kind": "config",
+      "note": "Zero dependencies, defended as a project property"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Three-axis scoring works end to end",
+      "method": "python3 -m vibecoder.cli play w1-l3-join --solution good_join.py --seed 1",
+      "result": "Full breakdown printed: accuracy 100.0, functional 100.0, total 120.0, 3 stars",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The Functional axis separates naive from optimal solutions",
+      "method": "Same level and seed, nested-loop join vs dict-lookup join",
+      "result": "Functional 33.1 vs 100.0; 49590 ops vs 1761 ops against a 2184-op reference",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The sandbox contains infinite loops, syntax errors, sys.exit and module-level raises",
+      "method": "tests/test_runner.py::TestFailureModes",
+      "result": "6 cases pass; parent process unaffected in every case",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Every level reference passes its own generated tests across variants",
+      "method": "tests/test_levels.py::test_every_reference_solves_every_variant",
+      "result": "24 level x seed combinations clean",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Reference solutions satisfy the style goals their levels declare",
+      "method": "tests/test_levels.py::test_every_reference_meets_its_own_style_goals",
+      "result": "All declared goals met",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Starter templates cannot pass by accident",
+      "method": "tests/test_levels.py::test_the_starter_is_not_already_the_answer",
+      "result": "All 6 starters fail their own tests",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The profiler produces usable tags from a real codebase",
+      "method": "python3 -m vibecoder.cli profile vibecoder",
+      "result": "18 files, 120 functions, 2412 code lines; tags typing/numeric/io/oop/data/serialisation/functional",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Idiomatic code produces no nagging tips",
+      "method": "tests/test_style_and_tips.py::test_idiomatic_code_earns_no_tips",
+      "result": "Zero tips returned",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite runs with no third-party dependency",
+      "method": "python3 -m unittest discover -s tests on a clean 3.11 interpreter",
+      "result": "127 tests, 4.409s, OK",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The op count is a good complexity proxy for all level shapes",
+      "method": "Not attempted; only the six built levels were examined",
+      "result": null,
+      "verdict": "unverified"
+    },
+    {
+      "claim": "Every session record validates against its schema and pairs with a journal entry",
+      "method": "tests/test_records.py::TestSessionRecords",
+      "result": "9 tests pass; ids contiguous, trajectories resolve, metrics self-consistent",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Every relative Markdown link in the repository resolves",
+      "method": "tests/test_records.py::TestInternalLinks::test_all_relative_links_resolve",
+      "result": "Caught one broken link on first run (a TEMPLATE.md placeholder, now excluded by name); clean thereafter",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Recorded reference op counts still reproduce",
+      "method": "tests/test_records.py::TestBaselines::test_recorded_op_counts_still_reproduce",
+      "result": "All 18 level x seed op counts match the committed baseline exactly",
+      "verdict": "verified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M1",
+      "believed": "Scoring a solution file from disk can reuse the interactive timing path.",
+      "revealed_by": "Running a deliberately naive O(n*m) join through --solution: it scored 95.8 and three stars, because elapsed time was ~40ms from process start.",
+      "corrected_to": "There is no honest solve time when scoring a file. Practice mode drops the Speed axis, renormalises accuracy and functional preserving their 2:1 ratio, and does not bank the run. A front-end supplies real time via --elapsed for a ranked run.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Test a scoring system with a bad solution, not just a good one. A scorer that has only seen correct input has not been tested."
+    },
+    {
+      "id": "M2",
+      "believed": "File-level pattern frequency can be normalised as min(1.0, occurrences / files).",
+      "revealed_by": "Self-profiling reported exactly 100% for four separate patterns, including try_except and fstring.",
+      "corrected_to": "File-level patterns are the share of files containing the pattern, bounded by construction. Per-function patterns keep a per-function denominator. Post-fix spread: type_hints 97%, fstring 89%, comprehension 78%, try_except 44%, class 28%.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A normalisation that saturates has destroyed exactly the signal it was meant to expose. Check the output distribution, not just the range."
+    },
+    {
+      "id": "M3",
+      "believed": "Session.submit() could take a single score multiplier.",
+      "revealed_by": "Writing the call site: multipliers are per-world, so one submission's multiplier was being applied to every banked best.",
+      "corrected_to": "submit() takes a mapping of level id to multiplier; unknown levels default to 1.0 so a profile referencing a deleted level still totals cleanly.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A scalar parameter that is really a per-entity value shows up the moment the first real call site is written."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "decision": "Count traced line executions inside the submitted file as 'ops'",
+      "alternatives": [
+        "Wall-clock time",
+        "Bytecode instruction counting",
+        "Hand-annotated big-O per level"
+      ],
+      "rationale": "Deterministic, dependency-free, and charges one op for a builtin call versus hundreds for a hand-rolled equivalent, which is precisely the lesson the Functional axis exists to teach.",
+      "reversible": true,
+      "seam": "vibecoder/_harness.py::_count_ops"
+    },
+    {
+      "id": "D2",
+      "decision": "Subprocess isolation rather than containers for Phase 0",
+      "alternatives": [
+        "Docker from day one",
+        "In-process exec with resource limits"
+      ],
+      "rationale": "Phase 0 runs the player's own code on their own machine, where the threat is a runaway loop rather than an attacker. Blocking on Docker would have stopped the core loop being testable today.",
+      "reversible": true,
+      "seam": "vibecoder/runner.py::run_code"
+    },
+    {
+      "id": "D3",
+      "decision": "Seeded test generation instead of static fixtures",
+      "alternatives": [
+        "Fixed test lists per level"
+      ],
+      "rationale": "Makes replayability real rather than cosmetic, and hands T4 its difficulty knob for free.",
+      "reversible": false,
+      "seam": "Level.make_tests signature"
+    },
+    {
+      "id": "D4",
+      "decision": "Practice mode drops the Speed axis rather than faking a value",
+      "alternatives": [
+        "Award 100",
+        "Award 0",
+        "Require --elapsed always"
+      ],
+      "rationale": "An axis that cannot be measured honestly must not be scored. Renormalising keeps the remaining axes meaningful instead of diluting them.",
+      "reversible": true,
+      "seam": "vibecoder/scoring.py::Weights.without_speed"
+    },
+    {
+      "id": "D5",
+      "decision": "Bonuses may push a total above 100, to a maximum of 120",
+      "alternatives": [
+        "Cap the total at 100"
+      ],
+      "rationale": "The design specifies percentage bonuses on top of the weighted score. Capping would make first-try success worth nothing to a strong player, which inverts the incentive.",
+      "reversible": true,
+      "seam": "vibecoder/scoring.py::score_submission"
+    },
+    {
+      "id": "D6",
+      "decision": "No third-party dependencies at all",
+      "alternatives": [
+        "pytest for tests",
+        "radon for complexity",
+        "pylint for style"
+      ],
+      "rationale": "Portability, and every metric stays inspectable rather than borrowed. Cyclomatic complexity is ~30 lines of ast walking.",
+      "reversible": true,
+      "seam": "pyproject.toml"
+    }
+  ],
+  "friction": [
+    {
+      "description": "pytest unavailable in the environment; suite written against stdlib unittest",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Every test case executes twice (untraced for timing, traced for ops), roughly doubling run cost",
+      "impact": "medium",
+      "resolved": false
+    },
+    {
+      "description": "ANSI colour codes hard-coded in the CLI; wrong for any embedded or non-tty consumer",
+      "impact": "low",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T1 LANDED, all six exit criteria verified. 11 modules, 6 levels across 2 worlds, 127 tests green, verify clean on 18 reference runs. No boss fights, no network code. Profile state at $VIBECODER_HOME or ~/.vibecoder.",
+    "next_action": "T2 W1: put a container-backed runner behind the existing run_code signature, keeping _harness.py as the in-container entrypoint. Nothing above runner.py should need to change.",
+    "blockers": [
+      "T2 W4 (GitHub OAuth) needs a registered OAuth application",
+      "T2 W4 needs a decision on whether profiling runs client-side or server-side; this has a privacy consequence and must not be made incidentally"
+    ],
+    "context_required": [
+      "docs/SCORING.md before touching any weight or curve",
+      "docs/ARCHITECTURE.md for module boundaries and the runner seam",
+      "Misconception M1 before altering how Speed is measured"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q1",
+      "question": "Should the Functional axis weight memory at all? tracemalloc peak is dominated by interpreter noise on 4 of 6 levels at current input sizes.",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q2",
+      "question": "Does the op count stay a good proxy for levels involving I/O or generators, where most work happens outside the traced file?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q3",
+      "question": "Star thresholds of 60/80/95 are guesses. What score distribution do they actually produce over real play?",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q4",
+      "question": "Should w2-l2-window's reference be the O(n) sliding window, given it sets the bar every player is measured against?",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q5",
+      "question": "Does profiling belong on the client or the server once GitHub ingestion lands?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q6",
+      "question": "Reference op counts span 76 (w2-l3-wordfreq, delegating to re and Counter) to 5958 (w2-l2-window, pure Python). Op counts are therefore not comparable across levels, and a reference that delegates to C makes its Functional axis nearly unwinnable for readable Python. Should references be required to stay in Python, or should the axis be normalised per level?",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q7",
+      "question": "The record system adds a per-session documentation cost. Does it stay proportionate once sessions are small and incremental, or does the rubric need a lightweight variant for short sessions?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 127,
+    "tests_passing": 127,
+    "test_runtime_seconds": 4.409,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 11,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "code_lines": 2412,
+    "functions": 120,
+    "doc_pages": 13,
+    "baselines": 1
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/9x25dillon/vibe_coder_9xk1ll/data/schema/session-review.schema.json",
+  "title": "Session review",
+  "description": "Structured twin of a journal entry. Carries the facts of one working session; the Markdown entry carries the reasoning. See journal/README.md for the educational rubric these fields implement.",
+  "type": "object",
+  "required": [
+    "id", "date", "trajectory", "competency_band", "journal",
+    "objectives", "artifacts", "evidence", "misconceptions",
+    "decisions", "friction", "handoff", "open_questions", "metrics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^S[0-9]{3}$",
+      "description": "Session identifier, monotonically increasing."
+    },
+    "date": { "type": "string", "format": "date" },
+    "duration_minutes": { "type": ["integer", "null"], "minimum": 0 },
+    "trajectory": {
+      "type": "string",
+      "pattern": "^T[0-9]+$",
+      "description": "The trajectory this session advanced."
+    },
+    "competency_band": {
+      "type": "string",
+      "enum": ["Recall", "Understand", "Apply", "Analyse", "Evaluate", "Create"],
+      "description": "Bloom-style band of the session's dominant work."
+    },
+    "journal": { "type": "string", "description": "Path to the Markdown entry." },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "Session id this record corrects, if any. Records are immutable; corrections supersede."
+    },
+
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "statement": {
+            "type": "string",
+            "description": "An observable outcome, never an activity."
+          },
+          "result": { "type": "string", "enum": ["met", "partial", "missed", "deferred"] },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["module", "test", "level", "doc", "data", "config"]
+          },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "evidence": {
+      "type": "array",
+      "description": "Every claim traceable to something that was run.",
+      "items": {
+        "type": "object",
+        "required": ["claim", "method", "verdict"],
+        "additionalProperties": false,
+        "properties": {
+          "claim": { "type": "string" },
+          "method": { "type": "string", "description": "Command or test that establishes it." },
+          "result": { "type": ["string", "null"] },
+          "verdict": { "type": "string", "enum": ["verified", "unverified", "refuted"] }
+        }
+      }
+    },
+
+    "misconceptions": {
+      "type": "array",
+      "description": "The highest-value field: what was believed and turned out wrong.",
+      "items": {
+        "type": "object",
+        "required": ["id", "believed", "revealed_by", "corrected_to"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^M[0-9]+$" },
+          "believed": { "type": "string" },
+          "revealed_by": { "type": "string" },
+          "corrected_to": { "type": "string" },
+          "cost_minutes": { "type": ["integer", "null"], "minimum": 0 },
+          "caught_before_shipping": { "type": "boolean" },
+          "generalisable_lesson": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "decision", "rationale", "reversible"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^D[0-9]+$" },
+          "decision": { "type": "string" },
+          "alternatives": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string" },
+          "reversible": { "type": "boolean" },
+          "seam": {
+            "type": ["string", "null"],
+            "description": "Where the decision is isolated, if it is reversible."
+          }
+        }
+      }
+    },
+
+    "friction": {
+      "type": "array",
+      "description": "Effort that produced no artefact. Empty array means none observed.",
+      "items": {
+        "type": "object",
+        "required": ["description", "impact"],
+        "additionalProperties": false,
+        "properties": {
+          "description": { "type": "string" },
+          "impact": { "type": "string", "enum": ["low", "medium", "high"] },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+
+    "handoff": {
+      "type": "object",
+      "required": ["state", "next_action", "blockers", "context_required"],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "type": "string" },
+        "next_action": { "type": "string" },
+        "blockers": { "type": "array", "items": { "type": "string" } },
+        "context_required": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "owner", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^Q[0-9]+$" },
+          "question": { "type": "string" },
+          "owner": { "type": "string", "pattern": "^T[0-9]+$" },
+          "status": { "type": "string", "enum": ["open", "answered", "dismissed"] },
+          "answer": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "metrics": {
+      "type": "object",
+      "description": "Countable state of the repository at session end.",
+      "additionalProperties": true,
+      "properties": {
+        "tests_total": { "type": "integer", "minimum": 0 },
+        "tests_passing": { "type": "integer", "minimum": 0 },
+        "levels": { "type": "integer", "minimum": 0 },
+        "worlds": { "type": "integer", "minimum": 0 },
+        "modules": { "type": "integer", "minimum": 0 },
+        "dependencies": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
