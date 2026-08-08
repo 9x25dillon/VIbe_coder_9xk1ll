@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/9x25dillon/vibe_coder_9xk1ll/data/schema/baseline.schema.json",
+  "title": "Measurement baseline",
+  "description": "Numbers measured at a point in time, kept immutable so later changes can be compared against something real. A new measurement is a new file, never an edit to an existing one - that is what makes a regression visible.",
+  "type": "object",
+  "required": ["name", "date", "session", "description", "measured_with", "levels"],
+  "additionalProperties": true,
+  "properties": {
+    "name": { "type": "string", "description": "Short slug identifying what was measured." },
+    "date": { "type": "string", "format": "date" },
+    "session": { "type": "string", "pattern": "^S[0-9]{3}$" },
+    "description": {
+      "type": "string",
+      "description": "What this measures and what a future reader should compare against it."
+    },
+    "measured_with": {
+      "type": "string",
+      "description": "The exact command that produced these numbers, so they can be reproduced."
+    },
+    "python_version": { "type": "string" },
+    "supersedes": { "type": ["string", "null"] },
+
+    "levels": {
+      "type": "object",
+      "description": "Keyed by level id.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["world", "title", "reference_ops_by_seed"],
+        "additionalProperties": true,
+        "properties": {
+          "world": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "par_seconds": { "type": "number", "exclusiveMinimum": 0 },
+          "test_count": { "type": "integer", "minimum": 1 },
+          "reference_ops_by_seed": {
+            "type": "object",
+            "description": "Keyed by seed. Op counts must be stable for a given seed; drift means the instrumentation or the generator changed.",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["ops", "peak_bytes"],
+              "additionalProperties": false,
+              "properties": {
+                "ops": { "type": "integer", "minimum": 0 },
+                "peak_bytes": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "reference_ops_spread": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Max minus min ops across seeds. A large spread means variants differ in difficulty, which players will feel as inconsistent scoring."
+          }
+        }
+      }
+    }
+  }
+}

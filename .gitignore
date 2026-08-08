@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Player state. Never commit a profile: it is derived from someone's private
+# codebase, and run artifacts contain the code they wrote.
+.vibecoder/
+profile.json
+profile.*.json
+runs/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+.DS_Store

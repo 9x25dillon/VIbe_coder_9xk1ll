@@ -1,0 +1,165 @@
+{
+  "name": "t1-reference-baseline",
+  "date": "2026-08-08",
+  "session": "S001",
+  "description": "Reference-solution op counts and peak memory per level per variant seed, measured at T1 landing. Any later change to a reference solution, a level's generated data, or the op-counting instrumentation should be compared against this file.",
+  "measured_with": "python3 -m vibecoder.cli verify --seeds 3",
+  "python_version": "3.11.15",
+  "levels": {
+    "w1-l1-revenue": {
+      "world": 1,
+      "title": "Revenue Above Threshold",
+      "tags": [
+        "data",
+        "tabular",
+        "functional"
+      ],
+      "par_seconds": 180.0,
+      "test_count": 5,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 442,
+          "peak_bytes": 872
+        },
+        "2": {
+          "ops": 442,
+          "peak_bytes": 872
+        },
+        "3": {
+          "ops": 442,
+          "peak_bytes": 872
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w1-l2-groupby": {
+      "world": 1,
+      "title": "Group and Total",
+      "tags": [
+        "data",
+        "tabular",
+        "datastructures"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 1042,
+          "peak_bytes": 680
+        },
+        "2": {
+          "ops": 1070,
+          "peak_bytes": 696
+        },
+        "3": {
+          "ops": 1052,
+          "peak_bytes": 680
+        }
+      },
+      "reference_ops_spread": 28
+    },
+    "w1-l3-join": {
+      "world": 1,
+      "title": "Join Without the Nested Loop",
+      "tags": [
+        "data",
+        "datastructures",
+        "algorithms"
+      ],
+      "par_seconds": 300.0,
+      "test_count": 5,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 2184,
+          "peak_bytes": 68352
+        },
+        "2": {
+          "ops": 2176,
+          "peak_bytes": 68768
+        },
+        "3": {
+          "ops": 2174,
+          "peak_bytes": 68200
+        }
+      },
+      "reference_ops_spread": 10
+    },
+    "w2-l1-flatten": {
+      "world": 2,
+      "title": "Flatten Anything",
+      "tags": [
+        "algorithms",
+        "recursion"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 237,
+          "peak_bytes": 728
+        },
+        "2": {
+          "ops": 222,
+          "peak_bytes": 744
+        },
+        "3": {
+          "ops": 273,
+          "peak_bytes": 736
+        }
+      },
+      "reference_ops_spread": 51
+    },
+    "w2-l2-window": {
+      "world": 2,
+      "title": "Sliding Window",
+      "tags": [
+        "algorithms",
+        "numeric"
+      ],
+      "par_seconds": 300.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 5958,
+          "peak_bytes": 768
+        },
+        "2": {
+          "ops": 5958,
+          "peak_bytes": 768
+        },
+        "3": {
+          "ops": 5958,
+          "peak_bytes": 768
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w2-l3-wordfreq": {
+      "world": 2,
+      "title": "Top Words",
+      "tags": [
+        "text",
+        "regex",
+        "datastructures",
+        "algorithms"
+      ],
+      "par_seconds": 360.0,
+      "test_count": 7,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 76,
+          "peak_bytes": 56389
+        },
+        "2": {
+          "ops": 75,
+          "peak_bytes": 56524
+        },
+        "3": {
+          "ops": 75,
+          "peak_bytes": 56418
+        }
+      },
+      "reference_ops_spread": 1
+    }
+  }
+}
