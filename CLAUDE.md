@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 131 tests, ~4s
+   python3 -m unittest discover -s tests      # 194 tests, ~4s
    python3 -m vibecoder.cli verify --seeds 3  # 18/18 reference runs clean
    ```
    If either is red before you change anything, say so and fix that first. Never
@@ -71,6 +71,11 @@ python3 -m vibecoder.cli verify --seeds 5 -v      # per-level ops and memory
 python3 -m vibecoder.cli play w1-l1-revenue
 python3 -m vibecoder.cli play w1-l3-join --solution /tmp/attempt.py --seed 1
 python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
+
+# Presentation. The last one must print 0 -- escape codes in a pipe are a bug.
+python3 -m vibecoder.cli showcase                 # every element + detected caps
+python3 -m vibecoder.cli levels --map             # world map
+python3 -m vibecoder.cli showcase | grep -c $'\033'
 ```
 
 Set `VIBECODER_HOME` to a scratch directory when testing anything that writes
@@ -136,6 +141,11 @@ Full map in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - **The trace format is load-bearing.** `replay.py` consumes it today and T3's
   live engine will consume the same shape. Changing it is a cross-trajectory
   decision, not a local one.
+- **`ui.py` is the only module that may emit an escape sequence.** Never write
+  `\033` anywhere else — draw through the renderer. Every element computes its
+  plain-text layout first and paints last, which is what keeps escape-stripped
+  output identical at every colour depth. Read [`docs/UI.md`](docs/UI.md) before
+  adding a visual element.
 
 ---
 

@@ -32,7 +32,7 @@ $ vibecoder play w1-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 131 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 194 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -104,6 +104,62 @@ that only serves what you are already good at is a leaderboard, not a teacher.
 Details, including the normalisation bug that shaped the design:
 [`docs/VIBE_PROFILER.md`](docs/VIBE_PROFILER.md).
 
+## Visuals
+
+All output is drawn through [`vibecoder/ui.py`](vibecoder/ui.py), which detects
+what it is talking to. A truecolor terminal gets gradients and an animated score
+reveal; a pipe gets plain text with **zero** escape sequences; a non-UTF-8
+terminal gets ASCII. The layout is identical in every case — that invariant is
+asserted across eleven elements and four colour depths in `tests/test_ui.py`.
+
+```
+── GAUGES ──────────────────────────────────────────────────────────────────
+
+       12  █████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  ☆☆☆
+       38  ███████████████░░░░░░░░░░░░░░░░░░░░░░░░░  ☆☆☆
+       61  ████████████████████████░░░░░░░░░░░░░░░░  ★☆☆
+       84  ██████████████████████████████████░░░░░░  ★★☆
+      100  ████████████████████████████████████████  ★★★
+
+── SCORE BREAKDOWN ─────────────────────────────────────────────────────────
+
+    accuracy    ████████████████████████  100.0  x0.50
+    speed       █████████████████░░░░░░░   72.0  x0.25  (250s vs 180s par)
+    functional  ████████░░░░░░░░░░░░░░░░   33.1  x0.25  (49590 ops vs 2184 reference)
+
+── BOSS HEALTH ─────────────────────────────────────────────────────────────
+
+  BOSS  ████████████████████████████████████████████  100/100
+  BOSS  ████████████████████████████░░░░░░░░░░░░░░░░  64/100
+  BOSS  ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  28/100
+  BOSS  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  0/100
+
+── SPARKLINES ──────────────────────────────────────────────────────────────
+
+    rising     ▁▁▁▂▂▃▄▅▆█
+    volatile   ▃▁▅▂▆▃▇▄█▄
+    flat       ▁▁▁▁▁▁▁▁▁▁
+
+── LEVEL MAP ───────────────────────────────────────────────────────────────
+
+  WORLD 1  Data Wrangler
+     ◆─────◆─────◇
+    ★★★   ★★☆   ☆☆☆
+
+  WORLD 2  Algorithm Architect
+     ◆─────◇
+    ★☆☆   ☆☆☆
+```
+
+See it all, and what your terminal actually supports:
+
+```bash
+python3 -m vibecoder.cli showcase
+python3 -m vibecoder.cli levels --map
+```
+
+Details and how to add an element: [`docs/UI.md`](docs/UI.md).
+
 ## Slow-motion replay
 
 Every run records a line-by-line trace with a snapshot of locals at each step:
@@ -133,11 +189,12 @@ consume.
 | Command | Does |
 | --- | --- |
 | `profile <path>` | Build a Vibe Vector from a codebase (`--json` for raw) |
-| `levels` | List levels, ordered by your vibe (`--campaign` for story order) |
+| `levels` | List levels, ordered by your vibe (`--campaign` for story order, `--map` for the world map) |
 | `play <id>` | Play a level (`--seed` for a specific variant, `--solution` to score a file) |
 | `status` | Progression, stars, streak, global score |
 | `replay [run-id]` | Slow-motion playback (`--step` to advance manually) |
 | `verify` | Run every level's reference against its own tests |
+| `showcase` | Render every visual element and the detected terminal capabilities |
 | `reset` | Delete the local profile |
 
 State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
@@ -145,14 +202,15 @@ State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
 ## Repository layout
 
 ```
-vibecoder/            The game. 11 modules, no dependencies.
+vibecoder/            The game. 12 modules, no dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — the seam a container runner replaces
 ├── scoring.py        The three axes
 ├── profiler.py       Pure-ast codebase analysis
+├── ui.py             Capability-aware rendering; every escape code goes through it
 └── levels/           One file per level, auto-discovered
 
-tests/                131 tests, stdlib unittest
+tests/                194 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T5
 journal/              Chronological session reviews, with handoffs
@@ -180,6 +238,7 @@ destination is committed, the path is expected to bend.
 | [T3](docs/trajectories/T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | `PLOTTED` | 2026-09-20 |
 | [T4](docs/trajectories/T4-adaptive.md) | Adaptive difficulty | `PLOTTED` | 2026-10-04 |
 | [T5](docs/trajectories/T5-community.md) | Daily challenges, leaderboards, level editor | `PLOTTED` | 2026-10-18 |
+| [T6](docs/trajectories/T6-presentation.md) | Presentation layer: capability-aware terminal rendering | `LANDED` | 2026-08-08 |
 
 Week-by-week dates: [`SCHEDULE.md`](SCHEDULE.md).
 

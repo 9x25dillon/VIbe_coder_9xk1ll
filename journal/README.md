@@ -85,6 +85,7 @@ Each one has an owner trajectory.
 | Session | Date | Focus | Trajectory | Band |
 | --- | --- | --- | --- | --- |
 | [S001](2026-08-08-S001-core-loop.md) | 2026-08-08 | Phase 0 core loop, end to end | T1 | `Create` |
+| [S002](2026-08-08-S002-presentation.md) | 2026-08-08 | Capability-aware terminal rendering | T6 | `Create` |
 
 ## Writing a new entry
 
