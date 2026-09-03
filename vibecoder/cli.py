@@ -26,6 +26,7 @@ import time
 from pathlib import Path
 
 from . import levels as level_registry
+from . import sandbox
 from . import style, tips
 from .models import Level, RunResult
 from .profiler import profile_path, recommend
@@ -551,6 +552,41 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+def cmd_sandbox(args: argparse.Namespace) -> int:
+    """Report which execution backends this machine can offer.
+
+    Worth surfacing because the answer changes what the game is allowed to
+    run: with no isolating backend, a community level has nowhere safe to
+    execute and must be refused rather than run on the host.
+    """
+    rows = sandbox.describe()
+    print()
+    print(f"  {UI.rule('execution backends', width=52)}")
+    for name, isolating, available in rows:
+        mark = UI.glyph("tick") if available else UI.glyph("cross")
+        colour = GOOD if available else BAD
+        kind = "isolating" if isolating else "host process"
+        print(
+            f"  {UI.paint(mark, colour)} {name:<12}"
+            f"{UI.paint(kind, MUTED if isolating else BAD)}"
+        )
+
+    usable = [name for name, iso, ok in rows if iso and ok]
+    print()
+    if usable:
+        print(
+            f"  untrusted code runs under {UI.paint(usable[0], GOOD)}"
+            + (f"  (fallback: {', '.join(usable[1:])})" if usable[1:] else "")
+        )
+    else:
+        print(
+            f"  {UI.paint('no isolating backend', BAD)} - untrusted code will be "
+            "refused.\n  Install bubblewrap, or start the Docker daemon."
+        )
+    print(UI.paint("\n  pin one with VIBECODER_SANDBOX=<name>\n", MUTED))
+    return 0 if usable else 1
+
+
 def cmd_showcase(args: argparse.Namespace) -> int:
     """Render every visual element at once.
 
@@ -707,6 +743,11 @@ def build_parser() -> argparse.ArgumentParser:
         "showcase", help="render every visual element and detected capabilities"
     )
     p_showcase.set_defaults(func=cmd_showcase)
+
+    p_sandbox = sub.add_parser(
+        "sandbox", help="show which execution backends are available"
+    )
+    p_sandbox.set_defaults(func=cmd_sandbox)
 
     p_reset = sub.add_parser("reset", help="delete the local profile")
     p_reset.add_argument("--force", action="store_true")

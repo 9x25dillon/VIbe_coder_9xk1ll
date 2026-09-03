@@ -30,15 +30,24 @@ Each trajectory document has the same five sections.
 | ID | Trajectory | Design phase | Status | Target |
 | --- | --- | --- | --- | --- |
 | [T1](T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | Phase 0 | `LANDED` | 2026-08-08 |
-| [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `CLEARED` | 2026-08-30 |
+| [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
 | [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `PLOTTED` | 2026-09-20 |
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
+| [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `PLOTTED` | — |
 
 T6 is cross-cutting rather than tied to a design phase: it presents whatever the
 other trajectories build, and it landed early because T1's output was already
-leaking escape codes into pipes.
+leaking escape codes into pipes. T7 extends it from *drawing* to *interacting*
+and is likewise cross-cutting; it was opened out of sequence at the user's
+request while T2 is still in flight, which is a schedule fact recorded in
+[S003](../../journal/2026-09-03-S003-sandbox-seam.md) rather than absorbed
+silently.
+
+**T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)).
+W2–W7 outstanding. The trajectory's 2026-08-30 target has passed; it is late,
+not re-dated.
 
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).

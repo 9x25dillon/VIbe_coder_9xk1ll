@@ -12,7 +12,8 @@ anywhere a Python 3.10+ interpreter does.
 vibecoder/
 ├── models.py      Dataclasses. No behaviour beyond JSON round-tripping.
 ├── scoring.py     The three axes, bonuses, stars, streak multiplier.
-├── runner.py      Parent side of the sandbox. THE SEAM for T2.
+├── runner.py      Parent side of the sandbox. Builds payloads, parses replies.
+├── sandbox.py     Backend selection. THE SEAM: subprocess / bwrap / docker.
 ├── _harness.py    Child side. Standalone script, stdlib only.
 ├── profiler.py    Vibe Profiler. Pure ast; executes nothing.
 ├── style.py       Style-goal checkers behind the elegance bonus.
@@ -32,7 +33,10 @@ vibecoder/
      runner   profiler    session    replay
         │         │          │
         ▼         ▼          ▼
-     _harness   style      models
+     sandbox    style      models
+        │         │          ▲
+        ▼         └──────────┘
+     _harness         tips ──┘
       (child)     │          ▲
                   └──────────┘
                        tips ──┘
@@ -51,7 +55,7 @@ This is the most important structural decision in the codebase.
                                  │
  runner.run_code()               │  _harness.main()
    ├ builds JSON payload  ──────────► reads stdin
-   ├ spawns python -I harness    │    ├ applies RLIMIT_AS / RLIMIT_CPU
+   ├ sandbox.select() → argv     │    ├ applies RLIMIT_AS / RLIMIT_CPU
    ├ enforces wall timeout       │    ├ compiles submission
    └ parses JSON result  ◄──────────┤ runs each test twice:
                                  │    │   pass 1 untraced → time, memory

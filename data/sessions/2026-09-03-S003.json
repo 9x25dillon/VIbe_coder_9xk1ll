@@ -1,0 +1,283 @@
+{
+  "id": "S003",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S003-sandbox-seam.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "run_code can execute under an isolating backend without its signature changing",
+      "result": "met",
+      "note": "Gained one keyword, untrusted=False; no call site had to change"
+    },
+    {
+      "id": 2,
+      "statement": "_harness.py stays the single child entrypoint on every transport",
+      "result": "met",
+      "note": "N2 preserved; the harness was not modified at all"
+    },
+    {
+      "id": 3,
+      "statement": "Every T1 test passes on every backend (T2 exit criterion 7)",
+      "result": "met",
+      "note": "213 green on subprocess, bwrap and docker"
+    },
+    {
+      "id": 4,
+      "statement": "Untrusted code cannot silently fall back to the host process",
+      "result": "met",
+      "note": "select() raises SandboxUnavailable rather than degrading"
+    },
+    {
+      "id": 5,
+      "statement": "Which backends a machine offers is inspectable without reading code",
+      "result": "met",
+      "note": "New CLI command: vibecoder sandbox"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/sandbox.py",
+      "kind": "module",
+      "note": "The transport seam: Backend ABC, three implementations, select() and describe()"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "Delegates argv construction to the seam; gains the untrusted keyword"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "Adds the sandbox subcommand"
+    },
+    {
+      "path": "tests/test_sandbox.py",
+      "kind": "test",
+      "note": "19 tests: selection, refusal-not-fallback, argv shape, isolated execution"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "kind": "doc",
+      "note": "Module map and dependency graph updated for the new module"
+    },
+    {
+      "path": "journal/2026-09-03-S003-sandbox-seam.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Every T1 test passes on the isolating transports (exit criterion 7)",
+      "method": "VIBECODER_SANDBOX=bwrap|docker python3 -m unittest discover -s tests",
+      "result": "213 passing under each",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Isolation under bubblewrap costs almost nothing",
+      "method": "Suite runtime, subprocess versus bwrap",
+      "result": "4.617s to 5.351s, +16%",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Isolation under Docker costs 8.8x",
+      "method": "Suite runtime, subprocess versus docker",
+      "result": "4.617s to 40.752s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A submission cannot reach the network",
+      "method": "tests/test_sandbox.py::TestIsolatedExecution::test_the_network_is_unreachable",
+      "result": "socket.create_connection fails inside the sandbox",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A submission cannot see the host home directory",
+      "method": "tests/test_sandbox.py::TestIsolatedExecution::test_the_players_home_directory_is_not_visible",
+      "result": "~/.ssh is not present in the mount namespace",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Op counts do not depend on the transport",
+      "method": "tests/test_sandbox.py::TestIsolatedExecution::test_the_result_matches_the_untrusted_path",
+      "result": "identical ops on the host and isolated paths",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A pinned but unavailable backend raises rather than falling back",
+      "method": "tests/test_sandbox.py::TestSelection::test_pinning_an_unavailable_backend_raises",
+      "result": "SandboxUnavailable",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The new CLI output stays depth-invariant",
+      "method": "python3 -m vibecoder.cli sandbox | grep -c $'\\033'",
+      "result": "0",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Reference solutions still agree with their generated expectations",
+      "method": "python3 -m vibecoder.cli verify --seeds 3",
+      "result": "18/18 clean",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A fork bomb and a 10 GB allocation are contained (exit criterion 3)",
+      "method": "not attempted; belongs to T2 W2",
+      "result": "no measurement",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "seccomp profile and non-root uid mapping are in place",
+      "method": "not attempted; belongs to T2 W2",
+      "result": "no measurement",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M5",
+      "believed": "The test suite failing on this machine meant a regression in the repository that had to be fixed before any new work started.",
+      "revealed_by": "Six failures, all op-count comparisons, all reporting fewer operations than the baseline (1364 against 2184 for w1-l3-join). A regression that makes the reference solution do less work while still passing is not a plausible bug. The baseline records python_version 3.11.15; the machine runs 3.14.7.",
+      "corrected_to": "Op counts are a property of the interpreter as much as of the code. CPython changed how the constructs in those two levels compile between 3.11 and 3.14. Installing 3.11.15 turned the suite green with no source change.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The rule that says stop on a red baseline is what distinguished an environment mismatch from a regression; had the work started first, the six failures would have been attributed to the new module. A measurement that encodes its own environment (python_version in the baseline file) is what made the diagnosis take minutes instead of an afternoon."
+    },
+    {
+      "id": "M6",
+      "believed": "A backend availability probe can ask `docker version --format '{{.Server.Version}}'` and trust a zero exit status.",
+      "revealed_by": "The probe reported Docker available while /var/run/docker.sock did not exist. The command exits 0 and prints a version regardless, because the client answers for the server when the server is absent.",
+      "corrected_to": "`docker info --format '{{.ServerVersion}}'`, which prints an empty string when the daemon is unreachable, plus a _probe_ok hook so a backend can demand more than an exit status.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A CLI that wraps a daemon will often answer questions about itself when the daemon is gone. Probe for a value only the daemon can supply, and check the value rather than the exit status."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D11",
+      "decision": "Bubblewrap is the primary isolating backend; Docker is the fallback",
+      "alternatives": [
+        "Docker only, as T2 W1 words it",
+        "Bubblewrap only"
+      ],
+      "rationale": "8.8x less overhead for the same isolation properties, no daemon and no root required. The trajectory says container-backed; its exit criteria describe isolation properties, and those are what got built.",
+      "reversible": true,
+      "seam": "vibecoder/sandbox.py::BACKENDS ordering"
+    },
+    {
+      "id": "D12",
+      "decision": "A backend contributes argv and nothing else",
+      "alternatives": [
+        "Backends own the whole run and parse cycle"
+      ],
+      "rationale": "A transport that can shape the result is a transport that can change a score.",
+      "reversible": false,
+      "seam": "vibecoder/sandbox.py::Backend.command"
+    },
+    {
+      "id": "D13",
+      "decision": "An unavailable pinned backend raises instead of falling back",
+      "alternatives": [
+        "Warn and downgrade to the subprocess path"
+      ],
+      "rationale": "A silent downgrade to the host process is the exact failure the module exists to prevent, and it surfaces as an incident rather than a test failure.",
+      "reversible": true,
+      "seam": "vibecoder/sandbox.py::select"
+    },
+    {
+      "id": "D14",
+      "decision": "One cold container per Docker run, no warm pool",
+      "alternatives": [
+        "Warm pool to amortise startup"
+      ],
+      "rationale": "The trajectory's own hazard note: pools are the standard source of state leaks between runs, and here a leak means one player's code seeing another's.",
+      "reversible": true,
+      "seam": "vibecoder/sandbox.py::DockerBackend.command"
+    },
+    {
+      "id": "D15",
+      "decision": "untrusted is a run_code keyword defaulting to False",
+      "alternatives": [
+        "A separate run_untrusted function"
+      ],
+      "rationale": "Keeps one code path under test, and makes W3 a one-line change at each call site rather than a re-architecture.",
+      "reversible": true,
+      "seam": "vibecoder/runner.py::run_code"
+    }
+  ],
+  "friction": [
+    {
+      "description": "The Docker daemon was inactive and disabled at session start, and starting it requires a password the session does not have. It became active partway through, which is the only reason DockerBackend could be verified rather than merely written.",
+      "impact": "medium",
+      "resolved": true
+    },
+    {
+      "description": "Finding the minimal bubblewrap bind set took several probe cycles. Binding / read-only works immediately and is wrong: it satisfies read-only rootfs while leaving exit criterion 2 failing, since the whole host stays readable. The narrow set had to be found empirically because the interpreter's shared-library dependencies are distribution-specific.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "The system interpreter is 3.14.7 and cannot run the suite green. Every command this session ran under uv-provided 3.11.15, which is friction every future session on this machine inherits until Q11 is settled.",
+      "impact": "medium",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T2 W1 LANDED. vibecoder/sandbox.py is the transport seam; run_code keeps its signature and gains untrusted=. 213 tests green on all three backends, verify clean on 18 reference runs. Exit criterion 7 met; criteria 1 and 2 have early evidence but belong to W2. T1 and T6 remain LANDED and the engine is unchanged.",
+    "next_action": "T2 W2: seccomp profile, non-root uid mapping, and tests/test_sandbox_escape.py, which is the Fri 28 Aug gate and must run in CI rather than by hand. The bubblewrap flags already deny the network and the host filesystem; W2 turns that from an observation into an asserted adversarial guarantee.",
+    "blockers": [
+      "None for W2 or W3",
+      "T2 W4 (GitHub OAuth) needs a registered OAuth application",
+      "T2 W4 needs the client-versus-server profiling decision, which has a privacy consequence"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; the system 3.14.7 produces six baseline failures that are not regressions (M5)",
+      "The hazard list in docs/trajectories/T2-sandbox.md before touching backend ordering",
+      "Misconception M6 before writing any availability probe",
+      "N4 before describing any of this as complete isolation"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q11",
+      "question": "Op counts are interpreter-version-bound (M5). Should the project pin an interpreter, record a per-version baseline, or compare within a tolerance? A pin contradicts 'runs anywhere a Python 3.10+ interpreter does'; a tolerance weakens the guard that caught M5.",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q12",
+      "question": "The Docker image is pinned by tag (python:3.11-slim), which is mutable. Pin by digest, or accept the drift given that the harness is stdlib-only?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q13",
+      "question": "Bubblewrap's bind set is derived from sys.base_prefix at call time. Does that hold for a frozen or statically linked interpreter, or must the backend declare itself unavailable there?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 213,
+    "tests_passing": 213,
+    "test_runtime_seconds": 4.617,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 13,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "sandbox_tests": 19,
+    "backends_available": 3,
+    "suite_seconds_bwrap": 5.351,
+    "suite_seconds_docker": 40.752
+  }
+}
