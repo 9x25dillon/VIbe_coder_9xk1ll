@@ -25,6 +25,9 @@ HARNESS = Path(__file__).with_name("_harness.py")
 
 DEFAULT_TIMEOUT = 10.0
 DEFAULT_MEM_LIMIT_MB = 512
+#: Processes a submission may own, when it owns a uid of its own. Generous for
+#: anything a level needs, ruinous for a fork bomb.
+PROC_LIMIT = 64
 
 SUBMISSION_FILENAME = "<vibecoder-submission>"
 REFERENCE_FILENAME = "<vibecoder-reference>"
@@ -59,16 +62,25 @@ def run_code(
     }
 
     backend = sandbox.select(untrusted=untrusted)
-    argv = backend.command(HARNESS, mem_limit_mb=mem_limit_mb)
+
+    # A fork bomb is only contained by the wall clock unless the child caps
+    # its own process count, and RLIMIT_NPROC counts every process owned by
+    # the real uid -- so on the host path it would count the player's whole
+    # login session and fail instantly. It is only safe where the submission
+    # has a uid to itself, which is exactly what an isolating backend gives.
+    if backend.isolating:
+        payload["proc_limit"] = PROC_LIMIT
 
     try:
-        completed = subprocess.run(
-            argv,
-            input=json.dumps(payload),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        with backend.launch(HARNESS, mem_limit_mb=mem_limit_mb) as launch:
+            completed = subprocess.run(
+                launch.argv,
+                input=json.dumps(payload),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                pass_fds=launch.pass_fds,
+            )
     except subprocess.TimeoutExpired:
         return RunResult(
             error=f"execution exceeded {timeout:g}s - check for an infinite loop",

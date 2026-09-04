@@ -45,9 +45,11 @@ request while T2 is still in flight, which is a schedule fact recorded in
 [S003](../../journal/2026-09-03-S003-sandbox-seam.md) rather than absorbed
 silently.
 
-**T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)).
-W2–W7 outstanding. The trajectory's 2026-08-30 target has passed; it is late,
-not re-dated.
+**T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)),
+W2 `LANDED` ([S005](../../journal/2026-09-03-S005-hardening.md)). W3–W7
+outstanding. Exit criteria 1, 2, 3 and 7 are verified; 4, 5 and 6 belong to
+W5–W6 and are untouched. The trajectory's 2026-08-30 target has passed; it is
+late, not re-dated.
 
 **T7 waypoint state:** W1–W7 `LANDED`, W8 partial
 ([S004](../../journal/2026-09-03-S004-interactive.md)). The score panel animates

@@ -14,6 +14,7 @@ vibecoder/
 ├── scoring.py     The three axes, bonuses, stars, streak multiplier.
 ├── runner.py      Parent side of the sandbox. Builds payloads, parses replies.
 ├── sandbox.py     Backend selection. THE SEAM: subprocess / bwrap / docker.
+├── seccomp.py     Hand-assembled BPF filter. No libseccomp (N1).
 ├── _harness.py    Child side. Standalone script, stdlib only.
 ├── profiler.py    Vibe Profiler. Pure ast; executes nothing.
 ├── style.py       Style-goal checkers behind the elegance bonus.
@@ -42,6 +43,8 @@ vibecoder/
         │         │          │
         ▼         ▼          ▼
      sandbox    style      models
+        │
+     seccomp
         │         │          ▲
         ▼         └──────────┘
      _harness         tips ──┘
@@ -69,7 +72,8 @@ This is the most important structural decision in the codebase.
                                  │
  runner.run_code()               │  _harness.main()
    ├ builds JSON payload  ──────────► reads stdin
-   ├ sandbox.select() → argv     │    ├ applies RLIMIT_AS / RLIMIT_CPU
+   ├ sandbox.select() → Launch   │    ├ applies RLIMIT_AS / RLIMIT_CPU
+   │   (argv + seccomp fd)       │    │   (+ RLIMIT_NPROC when isolated)
    ├ enforces wall timeout       │    ├ compiles submission
    └ parses JSON result  ◄──────────┤ runs each test twice:
                                  │    │   pass 1 untraced → time, memory

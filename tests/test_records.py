@@ -12,6 +12,7 @@ the zero-dependency rule applies to tests too.
 from __future__ import annotations
 
 import json
+import os
 import re
 import unittest
 from pathlib import Path
@@ -267,6 +268,16 @@ class TestWorkingAgreement(unittest.TestCase):
         self.assertTrue((ROOT / "CLAUDE.md").exists())
 
     def test_living_docs_quote_the_real_test_count(self):
+        """The quoted count is the unpinned one, which is what CI runs.
+
+        Pinning a sandbox backend narrows the adversarial suite to that
+        backend, so discovery legitimately finds fewer tests. Comparing
+        against a document that quotes the full number would make the fast
+        inner loop permanently red, which is how a check stops being read.
+        """
+        pinned = os.environ.get("VIBECODER_SANDBOX", "auto").strip().lower()
+        if pinned not in ("", "auto"):
+            self.skipTest(f"test count is backend-dependent; pinned to {pinned}")
         actual = self.actual_test_count()
         for name in self.LIVING:
             text = (ROOT / name).read_text(encoding="utf-8")

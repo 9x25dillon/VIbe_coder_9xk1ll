@@ -25,7 +25,15 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 398 tests, ~7s
+   python3 -m unittest discover -s tests      # 454 tests, ~43s
+
+   The escape suite is most of that time: unpinned, it runs every attack
+   against every isolating backend, and a Docker attempt is a cold container.
+   Pinning one backend narrows the gate to it, which is the fast inner loop.
+   The unpinned run is what N8 means, and it is what runs before a commit:
+   ```bash
+   VIBECODER_SANDBOX=bwrap python3 -m unittest discover -s tests   # ~14s
+   ```
    python3 -m vibecoder.cli verify --seeds 3  # 18/18 reference runs clean
    ```
    If either is red before you change anything, say so and fix that first. Never
@@ -50,7 +58,7 @@ scar. Breaking one requires the user's explicit say-so **and** a journal entry.
 | N5 | **An axis that cannot be measured honestly must not be scored.** | Drop it and renormalise. Never fake a value. This is the M1 scar — see §5. |
 | N6 | **Files in `data/` are immutable once committed.** | Correct a record by adding one that supersedes it. Editing history is how a baseline stops being evidence. |
 | N7 | **Exit criteria are never edited to match what was built.** | If they turn out wrong, that is a finding for the journal. Rewriting them destroys the only honest signal a trajectory has. |
-| N8 | **Test suite green at every commit.** | It runs in four seconds. There is no excuse. |
+| N8 | **Test suite green at every commit.** | Forty seconds unpinned, most of it the adversarial suite running every attack against every isolating backend. Pin a backend for a fourteen-second inner loop; commit against the unpinned run. |
 
 ---
 
@@ -76,7 +84,10 @@ python3 -m vibecoder.cli edit w1-l1-revenue       # the full-screen editor (T7)
 
 # Exit criterion 7: the suite must pass on every transport, not just the fast one.
 VIBECODER_SANDBOX=bwrap  python3 -m unittest discover -s tests
-VIBECODER_SANDBOX=docker python3 -m unittest discover -s tests   # ~35s, cold containers
+VIBECODER_SANDBOX=docker python3 -m unittest discover -s tests   # ~45s, cold containers
+
+# The T2 W2 gate. Every escape attempt must fail; it runs in CI, not by hand.
+python3 -m unittest tests.test_sandbox_escape
 
 # Presentation. The last one must print 0 -- escape codes in a pipe are a bug.
 python3 -m vibecoder.cli showcase                 # every element + detected caps
@@ -241,7 +252,7 @@ feeling.
 
 ## 10. Anti-patterns specific to this repository
 
-- **Reporting success without running the gates.** The suite takes four seconds.
+- **Reporting success without running the gates.** The suite takes forty seconds.
 - **Testing a scorer only with correct solutions.** See M1.
 - **Adding a dependency because it would be convenient.** See N1.
 - **Describing the sandbox as secure.** See N4.

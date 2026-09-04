@@ -579,7 +579,7 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
     """
     rows = sandbox.describe()
     print()
-    print(f"  {UI.rule('execution backends', width=52)}")
+    print(f"  {UI.rule('execution backends', width=64)}")
     for name, isolating, available in rows:
         mark = UI.glyph("tick") if available else UI.glyph("cross")
         colour = GOOD if available else BAD
@@ -588,6 +588,11 @@ def cmd_sandbox(args: argparse.Namespace) -> int:
             f"  {UI.paint(mark, colour)} {name:<12}"
             f"{UI.paint(kind, MUTED if isolating else BAD)}"
         )
+        # What a backend actually applies, never what it is assumed to. An
+        # unlisted protection is an absent one.
+        applied = sandbox.backend(name).hardening if available else ()
+        if applied:
+            print(f"    {UI.paint(' '.join(sorted(applied)), FAINT)}")
 
     usable = [name for name, iso, ok in rows if iso and ok]
     print()

@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 import sys
 import time
 import tracemalloc
@@ -153,10 +154,18 @@ def _apply_limits(payload: dict[str, Any]) -> None:
         return
     mem_bytes = int(payload.get("mem_limit_mb", 512)) * 1024 * 1024
     cpu_seconds = int(payload.get("timeout", 10)) + 1
-    for limit, value in (
+    limits = [
         (resource.RLIMIT_AS, mem_bytes),
         (resource.RLIMIT_CPU, cpu_seconds),
-    ):
+    ]
+    # RLIMIT_NPROC counts processes per real uid, so it is only meaningful
+    # when the submission has a uid to itself. The parent decides that -- it
+    # is the only side that knows which backend is running -- and says so by
+    # sending proc_limit. Absent, no process cap is applied.
+    proc_limit = payload.get("proc_limit")
+    if proc_limit:
+        limits.append((resource.RLIMIT_NPROC, int(proc_limit)))
+    for limit, value in limits:
         try:
             soft, hard = resource.getrlimit(limit)
             ceiling = value if hard == resource.RLIM_INFINITY else min(value, hard)
@@ -170,6 +179,10 @@ def _apply_limits(payload: dict[str, Any]) -> None:
 def main() -> int:
     payload = json.load(sys.stdin)
     _apply_limits(payload)
+    # Anything this process forks inherits stdout, and would go on to write a
+    # second result object into the same stream. One JSON reply per run is the
+    # entire contract with the parent, so every descendant has to be silent.
+    _own_pid = os.getpid()
 
     result: dict[str, Any] = {
         "outcomes": [],
@@ -269,6 +282,11 @@ def main() -> int:
     result["ops"] = total_ops
     result["peak_bytes"] = peak_overall
     result["stdout"] = captured.getvalue()[:4000]
+    if os.getpid() != _own_pid:
+        # A fork of the harness, still running the tail of this function.
+        # Leave without touching stdout and without running interpreter
+        # shutdown, which would flush buffers the parent is trying to parse.
+        os._exit(0)
     json.dump(result, sys.stdout)
     return 0
 

@@ -1,0 +1,433 @@
+{
+  "id": "S005",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S005-hardening.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "A submission cannot reach the network, and the attempt is recorded",
+      "result": "met",
+      "note": "seccomp denies socket creation; the namespace denies the route"
+    },
+    {
+      "id": 2,
+      "statement": "A submission cannot read outside its working directory",
+      "result": "met",
+      "note": "8 filesystem escape tests"
+    },
+    {
+      "id": 3,
+      "statement": "A fork bomb, a 10GB allocation and a while True are each contained with a diagnosable error",
+      "result": "met",
+      "note": "The fork bomb needed two fixes; see M10"
+    },
+    {
+      "id": 4,
+      "statement": "The submission runs as an unprivileged user",
+      "result": "met",
+      "note": "uid 65534 inside the user namespace, was 1000"
+    },
+    {
+      "id": 5,
+      "statement": "A seccomp filter denies the syscalls a submission has no business making",
+      "result": "met",
+      "note": "37 syscalls, hand-assembled BPF, no libseccomp"
+    },
+    {
+      "id": 6,
+      "statement": "The adversarial suite runs in CI rather than by hand",
+      "result": "met",
+      "note": "Ordinary unittest module found by discovery"
+    },
+    {
+      "id": 7,
+      "statement": "Every T1 test still passes on every backend",
+      "result": "met",
+      "note": "429 green on subprocess, bwrap and docker"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/seccomp.py",
+      "kind": "module",
+      "note": "Hand-assembled cBPF filter; x86_64 and aarch64 tables read from headers"
+    },
+    {
+      "path": "vibecoder/sandbox.py",
+      "kind": "module",
+      "note": "Launch context manager, uid mapping, fixed /python prefix, hardening reporting"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "Uses backend.launch(); sends proc_limit only to isolating backends"
+    },
+    {
+      "path": "vibecoder/_harness.py",
+      "kind": "module",
+      "note": "RLIMIT_NPROC when asked; descendants exit without writing a reply"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "`sandbox` reports the hardening each backend actually applies"
+    },
+    {
+      "path": "tests/test_sandbox_escape.py",
+      "kind": "test",
+      "note": "31 tests; the T2 W2 gate"
+    },
+    {
+      "path": "journal/2026-09-03-S005-hardening.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "An outbound connection fails and the attempt is recorded",
+      "method": "tests/test_sandbox_escape.py::TestNetwork, 5 tests including DNS, urllib and a host unix socket",
+      "result": "all contained; errors recorded in the outcome",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A socket cannot be created at all, not merely connected",
+      "method": "::TestNetwork::test_a_socket_cannot_even_be_created",
+      "result": "PermissionError from seccomp; previously succeeded",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Reads outside the working directory fail",
+      "method": "::TestFilesystem, 8 tests",
+      "result": "all contained",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The host's directory shape is not visible",
+      "method": "listdir('/') inside the sandbox",
+      "result": "['dev','harness.py','lib','lib64','proc','python','usr','work'] -- 'home' gone",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The submission does not run as root or as the player",
+      "method": "::TestPrivilege::test_the_submission_does_not_run_as_root",
+      "result": "uid 65534, was 1000",
+      "verdict": "verified"
+    },
+    {
+      "claim": "New namespaces, ptrace and mount are denied",
+      "method": "::TestPrivilege, 5 tests",
+      "result": "unshare and ptrace returned 0 before, -1 now",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A fork bomb is contained with a diagnosable error",
+      "method": "::TestResourceExhaustion, 2 tests",
+      "result": "EAGAIN; reply intact, no SandboxCrash",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The parent survives every attack",
+      "method": "::test_the_parent_survives_every_attack",
+      "result": "a clean run still succeeds afterwards",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The adversarial suite runs in CI rather than by hand",
+      "method": "python3 -m unittest discover -s tests",
+      "result": "31 tests discovered and run",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Every T1 test passes on all three backends",
+      "method": "unittest discovery under each VIBECODER_SANDBOX value",
+      "result": "429 green on subprocess, bwrap and docker",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Hardening is reported rather than assumed",
+      "method": "::TestHardeningIsReported, 3 tests",
+      "result": "seccomp claimed only when a table exists",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The filter is correct on aarch64",
+      "method": "numbers read from asm-generic/unistd.h; never executed on that architecture",
+      "result": "no measurement",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "The sandbox resists a determined attacker",
+      "method": "31 scripted attempts",
+      "result": "a suite, not a proof",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "Every attack runs against every isolating backend",
+      "method": "load_tests clones each attack class per backend; unpinned discovery",
+      "result": "56 escape tests unpinned, 32 pinned",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Docker denies the same syscalls as bubblewrap",
+      "method": "TestPrivilege under VIBECODER_SANDBOX=docker after shipping our own profile",
+      "result": "green; ptrace was permitted before",
+      "verdict": "verified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M9",
+      "believed": "Binding sys.base_prefix to its own path inside the sandbox is a neutral detail; the submission needs an interpreter and where it appears is arbitrary.",
+      "revealed_by": "An escape test asserting the player's home was unreadable, which failed: the sandbox could listdir('/home/kill'). Bubblewrap creates the parent directories a bind needs, and this machine's interpreter lives under the user's home, so mounting it conjured that path into the sandbox.",
+      "corrected_to": "The prefix mounts at a fixed /python and the guest interpreter path is derived from it. /home does not exist in the sandbox at all, and the sandbox is now identical whether the interpreter is a system or user-local install.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The first instinct was to fix the test, since expanduser('~') resolves to /work inside the sandbox and the original test proved nothing either. Both were true: the test was weak and there was a real leak behind it. Fixing the test alone would have removed the only thing that was going to find this. An empty directory is still information -- what leaked was the shape of the host, not its contents."
+    },
+    {
+      "id": "M10",
+      "believed": "RLIMIT_NPROC would turn a fork bomb into a clean, diagnosable EAGAIN.",
+      "revealed_by": "It produced 'SandboxCrash: sandbox returned malformed output' -- a worse failure than the timeout it replaced, and one exit criterion 3 rules out by name. Forks that succeeded before the limit bit inherited stdout and ran on to the end of the harness, each writing its own JSON reply into the same stream.",
+      "corrected_to": "The harness records its own pid at startup; any descendant reaching the write leaves via os._exit(0), writing nothing and skipping interpreter shutdown so no buffer is flushed into a stream the parent is parsing.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A resource limit changes what a program does after it hits the limit, and the interesting behaviour is usually there rather than at the limit itself. The fix had nothing to do with forking: it was a contract on stdout -- one reply per run -- that had been holding by luck until something made the process multiply."
+    },
+    {
+      "id": "M11",
+      "believed": "DockerBackend could report seccomp in its hardening because Docker applies its default profile unless told otherwise, and that profile already covers this module's denial list.",
+      "revealed_by": "Running the full suite under VIBECODER_SANDBOX=docker, which failed test_ptrace_is_denied. Docker's default profile permits ptrace deliberately, so that debuggers work inside containers. The bubblewrap backend denied it and the Docker backend did not, while both reported the same word.",
+      "corrected_to": "seccomp.docker_profile() emits the same denial list in Docker's JSON dialect, shipped with --security-opt seccomp=. Docker names syscalls rather than numbering them, so that form needs no architecture table at all.",
+      "cost_minutes": 25,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The false claim was written in the same commit as TestHardeningIsReported, a test class whose entire purpose is that an unapplied protection must not be claimed -- and it only checked bubblewrap. Writing the rule down is not the same as enforcing it. An adversarial suite that exercises one of two backends is a gate with a hole in it; the gate is now cloned per backend."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D24",
+      "decision": "Hand-assemble the BPF filter rather than use libseccomp",
+      "alternatives": [
+        "libseccomp",
+        "no seccomp layer at all"
+      ],
+      "rationale": "N1 forbids the dependency, and a filter is a page of struct.pack, which costs less than the dependency would.",
+      "reversible": true,
+      "seam": "vibecoder/seccomp.py::build"
+    },
+    {
+      "id": "D25",
+      "decision": "Syscall numbers read from this machine's headers, not recalled",
+      "alternatives": [
+        "Recall them",
+        "Copy a published list"
+      ],
+      "rationale": "A wrong number fails in the worst available way: silently permitting what it was written to deny.",
+      "reversible": false,
+      "seam": "vibecoder/seccomp.py::ARCHITECTURES"
+    },
+    {
+      "id": "D26",
+      "decision": "Denials return EPERM rather than killing the process",
+      "alternatives": [
+        "SECCOMP_RET_KILL_PROCESS"
+      ],
+      "rationale": "The submission raises PermissionError, which the harness already records as a failed test -- satisfying criterion 1's 'and the attempt is recorded' with existing machinery.",
+      "reversible": true,
+      "seam": "vibecoder/seccomp.py::build"
+    },
+    {
+      "id": "D27",
+      "decision": "An unsupported architecture disables seccomp rather than blocking the run",
+      "alternatives": [
+        "Refuse to run untrusted code without a filter"
+      ],
+      "rationale": "The namespaces still hold, and hardening reports the gap rather than hiding it.",
+      "reversible": true,
+      "seam": "vibecoder/sandbox.py::BwrapBackend.launch"
+    },
+    {
+      "id": "D28",
+      "decision": "Backend.launch() is a context manager yielding a Launch",
+      "alternatives": [
+        "Return argv plus a module-level fd registry"
+      ],
+      "rationale": "bwrap --seccomp needs a descriptor held open across the spawn; a context manager owns its lifetime rather than leaving it to a caller.",
+      "reversible": false,
+      "seam": "vibecoder/sandbox.py::Backend.launch"
+    },
+    {
+      "id": "D29",
+      "decision": "The parent decides RLIMIT_NPROC; the harness applies it",
+      "alternatives": [
+        "Always apply it in the harness"
+      ],
+      "rationale": "It counts processes per real uid, so on the host path it would count the player's whole login session and fail instantly. Only the parent knows which backend is running.",
+      "reversible": false,
+      "seam": "vibecoder/runner.py::run_code"
+    },
+    {
+      "id": "D30",
+      "decision": "The interpreter prefix mounts at a fixed /python",
+      "alternatives": [
+        "Bind it at its host path"
+      ],
+      "rationale": "M9: binding a prefix under /home/someone conjures that path into the sandbox and leaks the shape of the host.",
+      "reversible": true,
+      "seam": "vibecoder/sandbox.py::GUEST_PREFIX"
+    },
+    {
+      "id": "D31",
+      "decision": "The escape suite skips when no isolation is in effect",
+      "alternatives": [
+        "Fail",
+        "Ignore the pin and force an isolating backend"
+      ],
+      "rationale": "A pinned backend wins over the untrusted flag by design (D13); there is nothing to assert in that configuration, and a skip reads louder than a pass.",
+      "reversible": true,
+      "seam": "tests/test_sandbox_escape.py::isolation_in_effect"
+    },
+    {
+      "id": "D32",
+      "decision": "Every attack runs against every isolating backend",
+      "alternatives": [
+        "Test whichever backend happens to be selected"
+      ],
+      "rationale": "M11: a gate that exercises one of two backends is a gate with a hole in it, and the hole stayed open for a session because nothing was looking.",
+      "reversible": true,
+      "seam": "tests/test_sandbox_escape.py::load_tests"
+    },
+    {
+      "id": "D33",
+      "decision": "Ship our own seccomp profile to Docker",
+      "alternatives": [
+        "Rely on Docker's default profile"
+      ],
+      "rationale": "Docker's default permits ptrace on purpose, so relying on it made the two backends differ in behaviour while reporting the same hardening.",
+      "reversible": true,
+      "seam": "vibecoder/seccomp.py::docker_profile"
+    },
+    {
+      "id": "D34",
+      "decision": "A pinned backend narrows the gate to that backend",
+      "alternatives": [
+        "Always run every backend",
+        "A flag that skips the gate"
+      ],
+      "rationale": "Gives a 17s inner loop without any mode that skips the gate entirely. Unpinned remains what CI runs and what N8 means.",
+      "reversible": true,
+      "seam": "tests/test_sandbox_escape.py::load_tests"
+    },
+    {
+      "id": "D35",
+      "decision": "Filesystem attacks assert host content is unreachable, not that paths are absent",
+      "alternatives": [
+        "Assert the paths do not exist, as they do not under bubblewrap"
+      ],
+      "rationale": "A container brings its own /etc/passwd and its own root, so path-absence is true under one backend and false under the other while both are equally safe. The property a player cares about is that their machine is unreadable.",
+      "reversible": true,
+      "seam": "tests/test_sandbox_escape.py::TestFilesystem"
+    }
+  ],
+  "friction": [
+    {
+      "description": "Running a probe of actual sandbox behaviour before writing any code was worth more than anything else this session. Three of the four real changes -- uid, unshare, socket creation -- came from a table of what the sandbox did, not from reading the waypoint.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "The escape suite failed hard when VIBECODER_SANDBOX=subprocess was pinned, because a pin wins over the untrusted flag by design. Correct and confusing; it now skips with a reason.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Nothing directly verifies that bwrap applied the filter rather than ignoring it. The socket test proves it indirectly, which is weaker than it sounds. Q22.",
+      "impact": "medium",
+      "resolved": false
+    },
+    {
+      "description": "The suite went from 13s to 43s, almost entirely the Docker pass of the gate running a cold container per attempt. N8 justified itself with 'it runs in four seconds', which had stopped being true; the rule is unchanged and its justification now names the real number, with a pinned inner loop for working.",
+      "impact": "medium",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "T2 W2 LANDED. Exit criteria 1, 2, 3 and 7 verified; tests/test_sandbox_escape.py is the gate, runs under discovery, and is cloned per isolating backend -- 56 tests unpinned. 454 tests green unpinned, 430 pinned to bubblewrap, verify clean on 18 reference runs. Criteria 4, 5 and 6 belong to W5-W6 and are untouched. T1 and T6 LANDED; T7 W1-W7 LANDED with W8 partial.",
+    "next_action": "T2 W3: the untrusted-source flag forcing the container path. Most of the mechanism exists -- run_code(untrusted=True) works and refuses to downgrade. What remains is deciding which call sites set it, which is a policy question rather than a mechanism one, and it is the last waypoint before ingestion (W4) starts handling other people's code.",
+    "blockers": [
+      "None for W3",
+      "T2 W4 (GitHub OAuth) needs a registered OAuth application",
+      "T2 W4 needs the client-versus-server profiling decision"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M9 and M10 before changing the mount layout or the harness's write path",
+      "docs/trajectories/T2-sandbox.md hazards before touching backend ordering",
+      "N4: the subprocess backend is still an isolation boundary and not a security one"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q19",
+      "question": "The aarch64 syscall table was read from asm-generic/unistd.h on an x86_64 machine and has never been executed. Does the project need a second architecture in CI before claiming the filter works there, or should aarch64 report seccomp as unavailable until it does?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q20",
+      "question": "The filter is a denylist, so a syscall added by a future kernel is permitted by default. Is an allowlist affordable given that CPython's syscall use is large and version-dependent, or is denylist-plus-namespaces the right trade?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q21",
+      "question": "Q11 is now sharper: op counts are interpreter-bound and the sandbox pins the interpreter's path but not its version. Should the baseline record the backend as well as the version?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q22",
+      "question": "Nothing verifies the seccomp filter is applied rather than silently ignored by bwrap; the socket test proves it only indirectly. Is a direct assertion worth having, and what would it look like?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q23",
+      "question": "The denial list now exists twice -- compiled BPF for bubblewrap, JSON for Docker -- from one source of names. Nothing checks the two stay in step beyond both being generated from ARCHITECTURES. Is a test that diffs the effective policies worth writing?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q24",
+      "question": "The gate costs 30s of the suite's 43s and grows linearly with each isolating backend added. At what point does it move to a separate CI job, and does that weaken N8?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 454,
+    "tests_passing": 454,
+    "test_runtime_seconds": 46.204,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "escape_tests": 56,
+    "syscalls_blocked": 37,
+    "seccomp_instructions": 43,
+    "suite_seconds_bwrap": 16.933,
+    "suite_seconds_docker": 74.237
+  }
+}
