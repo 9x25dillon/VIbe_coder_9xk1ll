@@ -552,6 +552,24 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+def cmd_edit(args: argparse.Namespace) -> int:
+    """Play a level in the full-screen editor (T7).
+
+    Unlike `play`, this front-end knows how long the player actually worked,
+    so the Speed axis is honest and a cleared level is banked in full.
+    """
+    from . import editor as tui
+
+    level = _load_level(args.level_id)
+    session = Session.load()
+    seed = args.seed if args.seed is not None else session.next_seed(level.id)
+    try:
+        return tui.play(level, seed=seed, session=session)
+    except RuntimeError as exc:
+        print(f"\n  {UI.paint(str(exc), BAD)}\n")
+        return 1
+
+
 def cmd_sandbox(args: argparse.Namespace) -> int:
     """Report which execution backends this machine can offer.
 
@@ -743,6 +761,13 @@ def build_parser() -> argparse.ArgumentParser:
         "showcase", help="render every visual element and detected capabilities"
     )
     p_showcase.set_defaults(func=cmd_showcase)
+
+    p_edit = sub.add_parser(
+        "edit", help="play a level in the full-screen editor"
+    )
+    p_edit.add_argument("level_id")
+    p_edit.add_argument("--seed", type=int, default=None)
+    p_edit.set_defaults(func=cmd_edit)
 
     p_sandbox = sub.add_parser(
         "sandbox", help="show which execution backends are available"

@@ -21,6 +21,14 @@ vibecoder/
 ├── session.py     Progression state, atomic writes.
 ├── replay.py      Slow-motion playback of a recorded trace.
 ├── cli.py         Command line.
+├── editor.py      Full-screen play. Layout and dispatch only.
+├── keymap.py      What each key does. A table, kept separate.
+├── term.py        Raw mode and the alternate screen. Restores three ways.
+├── keys.py        Byte stream to key events. A state machine, not a table.
+├── editing.py     Text buffer, cursor, undo. No terminal at all.
+├── screen.py      Cell grid; diffs frames so a keystroke repaints one cell.
+├── highlight.py   Syntax colour. A tokenise failure is the normal case.
+├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 └── levels/        One module per level; auto-discovered.
 ```
 
@@ -37,6 +45,12 @@ vibecoder/
         │         │          ▲
         ▼         └──────────┘
      _harness         tips ──┘
+
+  editor ──┬─► term ──┬─► keys      (T7: the interactive front-end)
+           ├─► screen ├─► editing
+           ├─► keymap └─► highlight ──► ui
+           ├─► pulse
+           └─► runner, scoring, session   (the same engine `cli` drives)
       (child)     │          ▲
                   └──────────┘
                        tips ──┘

@@ -35,7 +35,7 @@ Each trajectory document has the same five sections.
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
-| [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `PLOTTED` | — |
+| [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `IN FLIGHT` | — |
 
 T6 is cross-cutting rather than tied to a design phase: it presents whatever the
 other trajectories build, and it landed early because T1's output was already
@@ -48,6 +48,15 @@ silently.
 **T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)).
 W2–W7 outstanding. The trajectory's 2026-08-30 target has passed; it is late,
 not re-dated.
+
+**T7 waypoint state:** W1–W7 `LANDED`, W8 partial
+([S004](../../journal/2026-09-03-S004-interactive.md)). The score panel animates
+a finished result rather than assembling as tests report, because the harness
+returns one object at the end of a run. Recorded as partial rather than met.
+
+Two trajectories hold `IN FLIGHT` at once, against the rule in the status
+vocabulary above. T7 was opened at the user's request while T2 was still in
+flight. That is a fact, not an amendment: T2 is the one that is late.
 
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).

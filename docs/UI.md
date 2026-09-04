@@ -93,11 +93,44 @@ python3 -m vibecoder.cli levels --map          # world map
 
 The fastest correctness check is `showcase | grep -c $'\033'`. It must be zero.
 
+## The editor
+
+[T7](trajectories/T7-interactive.md) extends this layer from *drawing* to
+*interacting*. The elements above still render into a scrolling transcript;
+the editor renders into a fixed grid instead ([`screen.py`](../vibecoder/screen.py))
+and emits only the cells that changed.
+
+The one rule carries over unchanged. `Editor.style()` returns an empty prefix
+at `Depth.NONE`, so an uncoloured frame contains the same characters in the
+same columns as a coloured one — asserted by
+`tests/test_editor.py::TestDegradation`, which compares every row's width
+across capabilities. Rule 3 above matters even more here: a double-width glyph
+in the editor chrome shifts every cell to its right, so
+`tests/test_screen.py::TestWidth` pins the column arithmetic and every glyph
+added to `GLYPHS` for the editor is a narrow character.
+
+One deliberate divergence. `Renderer.paint` suppresses *all* attributes at
+`Depth.NONE`, including bold. The editor does not: it still emits reverse video
+there, because the block cursor is drawn with it and suppressing it would leave
+a terminal running under `NO_COLOR` with no visible cursor. The `NO_COLOR`
+convention asks for colour to be withheld, and reverse video is not colour.
+`tests/test_editor.py::TestDegradation::test_a_plain_frame_still_draws_a_cursor`
+holds that line.
+
+```bash
+python3 -m vibecoder.cli edit w1-l1-revenue    # needs a real terminal
+```
+
 ## Known gaps
 
 - The renderer is a module-level singleton in `cli.py`. Fine today; a web
   front-end or an output-capturing test would rather inject one (Q8 in
   [S002](../journal/2026-08-08-S002-presentation.md#open-questions)).
+- The editor builds its own SGR prefixes through `Editor.style()` rather than
+  going through `Renderer`, because `Renderer` methods return finished strings
+  and the grid needs a style and a character separately. Two places now know
+  how to turn an RGB into an escape code (Q16 in
+  [S004](../journal/2026-09-03-S004-interactive.md#open-questions)).
 - Animation timing is fixed at roughly 0.35s per axis, unvalidated against a
   real player over many levels (Q9).
 - No `curses`. The game prints; it does not own the terminal. That keeps the

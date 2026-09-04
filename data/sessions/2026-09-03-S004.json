@@ -1,0 +1,433 @@
+{
+  "id": "S004",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T7",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S004-interactive.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "The terminal is returned to its original state on every exit path",
+      "result": "met",
+      "note": "Three independent mechanisms; eight pty tests read termios back"
+    },
+    {
+      "id": 2,
+      "statement": "Editing correctness is provable with no terminal involved",
+      "result": "met",
+      "note": "35 buffer tests, no pty"
+    },
+    {
+      "id": 3,
+      "statement": "A keystroke redraws the cells that changed, not the screen",
+      "result": "met",
+      "note": "30 cells per keystroke against 1920 for a full repaint"
+    },
+    {
+      "id": 4,
+      "statement": "A keystroke is handled inside a 16ms frame budget, measured",
+      "result": "met",
+      "note": "Failed first at 26.2ms; see M8"
+    },
+    {
+      "id": 5,
+      "statement": "The editor is usable with no colour and no Unicode",
+      "result": "met",
+      "note": "Row widths identical across capabilities"
+    },
+    {
+      "id": 6,
+      "statement": "Code can be written, run and scored without leaving the screen",
+      "result": "met",
+      "note": "Driven through a pty to 102.7 and three stars"
+    },
+    {
+      "id": 7,
+      "statement": "Typing rhythm is observable",
+      "result": "met",
+      "note": "Reported, never scored; stays on the machine"
+    },
+    {
+      "id": 8,
+      "statement": "The three axes assemble in place as tests report",
+      "result": "partial",
+      "note": "Animated reveal of a finished result. The harness returns one object at the end, so there is nothing to stream. Q17."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/term.py",
+      "kind": "module",
+      "note": "Raw mode, alternate screen, restoration by three mechanisms"
+    },
+    {
+      "path": "vibecoder/keys.py",
+      "kind": "module",
+      "note": "Byte stream to key events; bracketed paste; timeout-based escape resolution"
+    },
+    {
+      "path": "vibecoder/editing.py",
+      "kind": "module",
+      "note": "Text buffer, cursor, coalesced undo. No terminal"
+    },
+    {
+      "path": "vibecoder/screen.py",
+      "kind": "module",
+      "note": "Cell grid with a frame diff and width-aware column arithmetic"
+    },
+    {
+      "path": "vibecoder/highlight.py",
+      "kind": "module",
+      "note": "Syntax colour over incomplete input; window-scoped for the frame budget"
+    },
+    {
+      "path": "vibecoder/pulse.py",
+      "kind": "module",
+      "note": "Keystroke rhythm; explicit clock throughout"
+    },
+    {
+      "path": "vibecoder/keymap.py",
+      "kind": "module",
+      "note": "The key table, kept separate from the application"
+    },
+    {
+      "path": "vibecoder/editor.py",
+      "kind": "module",
+      "note": "Layout and dispatch; compose() is pure"
+    },
+    {
+      "path": "tests/test_editing.py",
+      "kind": "test",
+      "note": "35 tests, headless"
+    },
+    {
+      "path": "tests/test_keys.py",
+      "kind": "test",
+      "note": "28 tests including the M7 regression"
+    },
+    {
+      "path": "tests/test_screen.py",
+      "kind": "test",
+      "note": "23 tests; damage and wide characters"
+    },
+    {
+      "path": "tests/test_highlight.py",
+      "kind": "test",
+      "note": "15 tests; every prefix of a program round-trips"
+    },
+    {
+      "path": "tests/test_pulse.py",
+      "kind": "test",
+      "note": "26 tests, no sleeping"
+    },
+    {
+      "path": "tests/test_editor.py",
+      "kind": "test",
+      "note": "43 tests including the measured latency budget"
+    },
+    {
+      "path": "tests/test_term.py",
+      "kind": "test",
+      "note": "15 pty tests; restoration under six exit paths"
+    },
+    {
+      "path": "docs/trajectories/T7-interactive.md",
+      "kind": "doc",
+      "note": "Exit criteria written before the work, per trajectory rule 2"
+    },
+    {
+      "path": "docs/UI.md",
+      "kind": "doc",
+      "note": "Extended to the editor, including the one deliberate divergence"
+    },
+    {
+      "path": "journal/2026-09-03-S004-interactive.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "The terminal is restored on normal exit, exception, SIGTERM, SIGHUP and sys.exit",
+      "method": "tests/test_term.py::TestRestoration, pty tests reading termios back",
+      "result": "8 tests passing",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Raw mode is genuinely entered, so the restoration tests are not vacuous",
+      "method": "tests/test_term.py::TestRestoration::test_raw_mode_is_actually_entered",
+      "result": "attributes differ inside the session",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Every private-mode sequence enabled is disabled again",
+      "method": "Real editor run through a pty, counting sequences",
+      "result": "alt screen 1/1, cursor 1/1, bracketed paste 1/1",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Editing is correct without a terminal",
+      "method": "tests/test_editing.py",
+      "result": "35 tests, no pty",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Undo works across multi-line edits",
+      "method": "tests/test_editing.py::TestUndo::test_undo_crosses_multiple_lines",
+      "result": "buffer and line count both restored",
+      "verdict": "verified"
+    },
+    {
+      "claim": "One keystroke repaints one cell",
+      "method": "tests/test_screen.py::TestDiff::test_a_single_character_edit_repaints_a_single_cell",
+      "result": "1 cell emitted, 1 changed, no full clear",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The damage ratio sits at 1.0 over a realistic session",
+      "method": "146 keystrokes at 80x24, cells emitted over cells changed",
+      "result": "4386/4380 = 1.00; 30 cells per keystroke against 1920",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A keystroke is handled inside the 16ms budget",
+      "method": "tests/test_editor.py::TestLatency, worst of 200 keystrokes",
+      "result": "12.69ms worst at 4000 lines on 200x50",
+      "verdict": "verified"
+    },
+    {
+      "claim": "An uncoloured frame contains no non-ASCII and no colour codes",
+      "method": "tests/test_editor.py::TestDegradation",
+      "result": "no offenders",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Row widths are identical across capabilities",
+      "method": "tests/test_editor.py::TestDegradation::test_glyphs_have_equal_width_at_both_capabilities",
+      "result": "all 24 rows equal",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Highlighting never alters the text",
+      "method": "tests/test_highlight.py, every prefix of a program",
+      "result": "round-trips for all prefixes",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Code runs and scores from inside the editor",
+      "method": "Real editor driven through a pty: type a solution, ctrl-r",
+      "result": "acc/spd/fn gauges, 102.7, three stars",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The editor's run matches the CLI's run",
+      "method": "tests/test_editor.py::TestRunning::test_running_from_the_editor_matches_running_from_the_cli",
+      "result": "identical op counts and pass counts",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A terminal below the minimum shows a legible message",
+      "method": "tests/test_editor.py::TestSmallTerminal",
+      "result": "5 tests passing",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The axes assemble as tests report",
+      "method": "not built; the harness returns one JSON object at the end of a run",
+      "result": "animated reveal only",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "The visualiser stays pleasant over a long session",
+      "method": "needs a person at a terminal",
+      "result": "no measurement",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M7",
+      "believed": "An idle redraw tick can safely resolve a held Escape: it is only ambiguous until more bytes arrive, and if none did, it was a bare Escape.",
+      "revealed_by": "Driving the real editor through a pty. Shift-Tab had put the literal characters '[Z' into the buffer twice, and the run failed with SyntaxError. The redraw loop calls flush() every 50ms, so any escape sequence whose bytes straddle a tick was torn into an Escape key followed by its remaining bytes as text.",
+      "corrected_to": "Held input resolves only after ESCAPE_TIMEOUT of genuine silence, measured from the last byte received. Below that, flush() returns nothing and keeps waiting.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Every headless test passed, because feed(ESC) followed by feed('[A') is adjacent in a test and separated by time in reality. A component can be correct through its own interface and wrong in the loop that drives it; the bug lived entirely in the timing between two calls, which is a property only a real terminal has."
+    },
+    {
+      "id": "M8",
+      "believed": "tokenize is fast and buffers are small, so re-highlighting the whole buffer on every keystroke fits the frame budget.",
+      "revealed_by": "A latency test written to record a number rather than to catch anything. It failed at 26.2ms against a 16ms budget on a 400-line buffer: tokenising 400 lines to draw 18 of them.",
+      "corrected_to": "highlight_window tokenises only the visible slice, dedenting it so tokenize accepts an indented start and shifting the resulting columns back. Worst case fell to 12.69ms on a buffer ten times larger.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The exit criterion said 'measured, not asserted'. Writing the measurement as a test turned an assumption into a number; an assertion of the form 'this is fast enough' would have passed forever."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D16",
+      "decision": "Editing logic is a separate module from drawing",
+      "alternatives": [
+        "One editor class owning both buffer and screen"
+      ],
+      "rationale": "Makes correctness provable headless, and means a renderer bug can never be a text bug.",
+      "reversible": false,
+      "seam": "vibecoder/editing.py"
+    },
+    {
+      "id": "D17",
+      "decision": "A dependency-free cell grid with a frame diff",
+      "alternatives": [
+        "Redraw the screen each keystroke",
+        "Use curses"
+      ],
+      "rationale": "30 cells per keystroke instead of 1920, and curses is a dependency N1 forbids.",
+      "reversible": true,
+      "seam": "vibecoder/screen.py::Screen.diff"
+    },
+    {
+      "id": "D18",
+      "decision": "Restoration by three mechanisms, with an idempotent restore()",
+      "alternatives": [
+        "try/finally alone"
+      ],
+      "rationale": "Each mechanism misses a case the others catch, and overlapping them costs nothing.",
+      "reversible": false,
+      "seam": "vibecoder/term.py::TerminalSession"
+    },
+    {
+      "id": "D19",
+      "decision": "A held Escape resolves on a timeout, not on an idle tick",
+      "alternatives": [
+        "Resolve whenever a read returns nothing"
+      ],
+      "rationale": "M7: the eager version tears escape sequences apart and types them into the buffer.",
+      "reversible": true,
+      "seam": "vibecoder/keys.py::KeyDecoder.flush"
+    },
+    {
+      "id": "D20",
+      "decision": "Only the visible window is tokenised",
+      "alternatives": [
+        "Highlight the whole buffer",
+        "Cache highlight output by text"
+      ],
+      "rationale": "M8: cost must scale with the window, not the file.",
+      "reversible": true,
+      "seam": "vibecoder/highlight.py::highlight_window"
+    },
+    {
+      "id": "D21",
+      "decision": "Rhythm is reported, never scored",
+      "alternatives": [
+        "Feed cadence into the elegance axis"
+      ],
+      "rationale": "N5: what an even cadence means about a programmer is not established, so it must not be scored.",
+      "reversible": true,
+      "seam": "vibecoder/pulse.py"
+    },
+    {
+      "id": "D22",
+      "decision": "Reverse video is emitted at Depth.NONE; colour is not",
+      "alternatives": [
+        "Suppress every attribute, as Renderer.paint does"
+      ],
+      "rationale": "The block cursor is drawn with reverse video, so suppressing it leaves NO_COLOR users with no visible cursor. Reverse video is not colour.",
+      "reversible": true,
+      "seam": "vibecoder/editor.py::Editor.style"
+    },
+    {
+      "id": "D23",
+      "decision": "The editor banks a cleared level in full rather than as practice",
+      "alternatives": [
+        "Treat it as practice, as cmd_play does for a file on disk"
+      ],
+      "rationale": "This front-end knows the real solve time, so the Speed axis is honest. It is the case cmd_play's own comment anticipated.",
+      "reversible": true,
+      "seam": "vibecoder/editor.py::Editor._bank"
+    }
+  ],
+  "friction": [
+    {
+      "description": "The captured pty transcript showed no restore sequences, which looked like a serious bug for twenty minutes. The harness was closing the pty before the child's final write; the application had been restoring correctly all along.",
+      "impact": "medium",
+      "resolved": true
+    },
+    {
+      "description": "Two early editor tests failed on the assertion rather than the code: one matched \\033[3 and caught cursor positioning rather than colour, the other asserted a scroll offset before the frame that computes it had been composed.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Whether the motion is pleasant over a long session cannot be established without a person at a terminal. Same gap S002 recorded for the presentation layer.",
+      "impact": "medium",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T7 W1-W7 LANDED, W8 partial. `vibecoder edit <level>` is a working full-screen editor: type, run with ctrl-r, see the score in place. 398 tests green on the subprocess and bubblewrap backends, verify clean on 18 reference runs. T2 W1 landed earlier the same day (S003); T1 and T6 remain LANDED.",
+    "next_action": "Back to T2 W2: seccomp, uid mapping, and tests/test_sandbox_escape.py. T7 was opened out of sequence at the user's request while T2 was in flight, and T2 is the trajectory that is actually late. If T7 is resumed first, the honest next step is W8 proper, which needs the harness to stream per-test results (Q17).",
+    "blockers": [],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "docs/UI.md, which now covers the editor and the one place it diverges from Renderer",
+      "Misconception M7 before touching the input loop",
+      "The hazard list in docs/trajectories/T7-interactive.md before adding any motion"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q14",
+      "question": "The pty suite tests restoration but not decoding. M7 was a timing bug that every headless test passed. Should the pty harness grow a 'deliver these bytes with these delays' mode, and would that have caught it?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q15",
+      "question": "Rhythm data is collected and shown but never stored. Is it worth persisting locally so the profiler can use process signal as well as residue, and what is the consent story if so?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q16",
+      "question": "Two modules now turn an RGB into an escape code: Renderer.paint for strings and Editor.style for cells. Should the grid consume Renderer output, or Renderer emit style prefixes?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q17",
+      "question": "W8 wants the axes to assemble as tests report, which needs _harness.py to stream per-test results rather than return one object. Worth a protocol change, or is the animated reveal enough?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q18",
+      "question": "There is no way to save the buffer, so a crash mid-level loses the work. Is a scratch file the answer, or does that reintroduce the disk round-trip the editor exists to remove?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 398,
+    "tests_passing": 398,
+    "test_runtime_seconds": 6.403,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 21,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "editor_tests": 43,
+    "pty_tests": 15,
+    "keystroke_latency_worst_ms": 12.69,
+    "damage_ratio": 1.0,
+    "cells_per_keystroke": 30
+  }
+}

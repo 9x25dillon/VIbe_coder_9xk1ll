@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 213 tests, ~5s
+   python3 -m unittest discover -s tests      # 398 tests, ~7s
    python3 -m vibecoder.cli verify --seeds 3  # 18/18 reference runs clean
    ```
    If either is red before you change anything, say so and fix that first. Never
@@ -72,6 +72,7 @@ python3 -m vibecoder.cli play w1-l1-revenue
 python3 -m vibecoder.cli play w1-l3-join --solution /tmp/attempt.py --seed 1
 python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
 python3 -m vibecoder.cli sandbox                  # which backends this host offers
+python3 -m vibecoder.cli edit w1-l1-revenue       # the full-screen editor (T7)
 
 # Exit criterion 7: the suite must pass on every transport, not just the fast one.
 VIBECODER_SANDBOX=bwrap  python3 -m unittest discover -s tests

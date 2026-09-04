@@ -210,6 +210,13 @@ GLYPHS = {
     "link": ("─", "-"),
     "arrow": ("▸", ">"),
     "tick": ("✔", "+"), "cross": ("✘", "x"),
+    # Editor chrome (T7). Every one of these is a narrow character: a
+    # double-width glyph here would shift every cell to its right.
+    "tee_l": ("├", "+"), "tee_r": ("┤", "+"),
+    "cursor": ("▏", "|"),
+    "spark": ("◈", "*"),
+    "pause": ("·", "."),
+    "run": ("▶", ">"),
 }
 
 SPARKS = "▁▂▃▄▅▆▇█"
