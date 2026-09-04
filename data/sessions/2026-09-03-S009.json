@@ -1,0 +1,108 @@
+{
+  "id": "S009",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T1",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S009-beginner-world.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A person who has just installed Python can finish the first level", "result": "met", "note": "w1-l1-greet is a single return"},
+    {"id": 2, "statement": "Each beginner level teaches the one idea the next level needs", "result": "met", "note": "return -> if -> loop -> list -> best-so-far -> dict, ending where World 2 begins"},
+    {"id": 3, "statement": "An easy level is never worth fewer points than a hard one", "result": "met", "note": "beginner world numbered 1, so multiplier is 1.0"},
+    {"id": 4, "statement": "Renumbering changes level identity and nothing else", "result": "met", "note": "op counts reproduce exactly against the T1 baseline"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/levels/w1_l1_greet.py", "kind": "level", "note": "return a value; the difference between print and return"},
+    {"path": "vibecoder/levels/w1_l2_bigger.py", "kind": "level", "note": "if/else, with the tie as the hand-written case"},
+    {"path": "vibecoder/levels/w1_l3_count.py", "kind": "level", "note": "loop with a counter; first large variant"},
+    {"path": "vibecoder/levels/w1_l4_double.py", "kind": "level", "note": "build a new list; the one comprehension style goal"},
+    {"path": "vibecoder/levels/w1_l5_longest.py", "kind": "level", "note": "best-so-far variable; tie and empty-list cases"},
+    {"path": "vibecoder/levels/w1_l6_tally.py", "kind": "level", "note": "count into a dict; the bridge into World 2"},
+    {"path": "vibecoder/levels/w2_l1_revenue.py", "kind": "level", "note": "renumbered from w1-l1-revenue"},
+    {"path": "vibecoder/levels/w2_l2_groupby.py", "kind": "level", "note": "renumbered from w1-l2-groupby"},
+    {"path": "vibecoder/levels/w2_l3_join.py", "kind": "level", "note": "renumbered from w1-l3-join"},
+    {"path": "vibecoder/levels/w3_l1_flatten.py", "kind": "level", "note": "renumbered from w2-l1-flatten"},
+    {"path": "vibecoder/levels/w3_l2_window.py", "kind": "level", "note": "renumbered from w2-l2-window"},
+    {"path": "vibecoder/levels/w3_l3_wordfreq.py", "kind": "level", "note": "renumbered from w2-l3-wordfreq"},
+    {"path": "data/baselines/2026-09-03-beginner-world-baseline.json", "kind": "data", "note": "12 levels x 3 seeds; supersedes the T1 baseline per N6"},
+    {"path": "tests/test_levels.py", "kind": "test", "note": "the two hard-coded ids; multiplier test now spans three worlds"},
+    {"path": "README.md", "kind": "doc", "note": "beginner on-ramp in the status section; quick start opens w1-l1-greet"},
+    {"path": "journal/2026-09-03-S009-beginner-world.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Every new level's starter fails its own tests", "method": "tests/test_levels.py::test_the_starter_is_not_already_the_answer", "result": "12 levels, none pass from the starter", "verdict": "verified"},
+    {"claim": "Every new reference passes every variant", "method": "::test_every_reference_solves_every_variant, seeds 1/2/3/7", "result": "all green", "verdict": "verified"},
+    {"claim": "Every reference meets its declared style goals", "method": "::test_every_reference_meets_its_own_style_goals", "result": "w1-l4-double satisfies uses_comprehension", "verdict": "verified"},
+    {"claim": "Seeds reproduce and different seeds differ", "method": "::TestVariants across all 12 levels", "result": "green", "verdict": "verified"},
+    {"claim": "Each level has at least four cases including hand-written edges", "method": "::test_every_variant_has_edge_cases", "result": "green", "verdict": "verified"},
+    {"claim": "An easy level is never worth less than a hard one", "method": "::test_multiplier_grows_with_world", "result": "w1 1.0, w2 1.1, w3 1.2", "verdict": "verified"},
+    {"claim": "Renumbering changed identity only", "method": "new baseline op counts against the T1 baseline", "result": "revenue 442, join 2184, wordfreq 75 all unchanged", "verdict": "verified"},
+    {"claim": "A beginner's solution is rewarded rather than punished", "method": "played three beginner-style solutions through cli play", "result": "118.9, 101.7, 110.8 - three stars each", "verdict": "verified"},
+    {"claim": "The scorer needed no tuning for beginners", "method": "naive loop on the old first level, practice mode", "result": "96.5, three stars", "verdict": "verified"},
+    {"claim": "Every reference solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36 clean", "verdict": "verified"},
+    {"claim": "The suite is green", "method": "python3.11 -m unittest discover -s tests", "result": "519 tests OK", "verdict": "verified"},
+    {"claim": "The beginner ladder is the right difficulty for a real beginner", "method": "none - no beginner has played it", "result": "designed from the concept ladder, not observed", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M17",
+      "believed": "A novice writing an explicit loop would be punished by the Functional axis and by a 180-second Speed par, so making the game beginner-friendly meant retuning curves and par times.",
+      "revealed_by": "Doing what M1 says to do and scoring a bad solution instead of reasoning about it. A beginner-style loop on w2-l1-revenue scores 96.5 and three stars, because practice mode drops Speed and renormalises, so Functional's 51.8 is diluted by Accuracy's 100 plus bonuses.",
+      "corrected_to": "The barrier was never the scorer; it was that the first level needed five concepts at once with nothing below it. The fix is content, not tuning. Retuning the curves would have made the scoring less honest to solve a problem it did not have.",
+      "cost_minutes": 0,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The plausible-sounding diagnosis was wrong and only a measurement said so. Same shape as M1, which is worth noticing the second time."
+    },
+    {
+      "id": "M18",
+      "believed": "Adding a beginner world below world 1 meant calling it world 0, the obvious name, changing nothing else.",
+      "revealed_by": "Reading Level.multiplier, 1.0 + 0.1 * (world - 1), which makes world 0 a x0.9 multiplier - beginner levels worth less than everything above them, applied silently.",
+      "corrected_to": "Renumber instead: beginner levels become world 1 and the existing worlds move up. The multiplier rule is untouched and no level is worth less for being easy.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A derived value keyed on an identifier turns renaming into a scoring change. Cheap to catch by reading the formula, expensive to catch after players bank scores."
+    }
+  ],
+  "decisions": [
+    {"id": "D52", "decision": "The beginner world is world 1; existing worlds moved up", "alternatives": ["World 0 at x0.9", "Floor the multiplier at 1.0"], "rationale": "Leaves the scoring rule untouched and never makes an easy level worth less. A floor is a scoring change, which needs asking; world 0 is a silent penalty.", "reversible": false, "seam": "vibecoder/models.py::Level.multiplier"},
+    {"id": "D53", "decision": "A new baseline supersedes rather than edits the T1 one", "alternatives": ["Edit the T1 baseline's level ids"], "rationale": "N6. The old ids genuinely no longer exist, and only the newest baseline is read.", "reversible": true, "seam": "data/baselines/"},
+    {"id": "D54", "decision": "Five of six beginner levels declare no style goal", "alternatives": ["A style goal on every level"], "rationale": "A beginner does not need to be told their working code is unstylish. The one goal lands where the player has just written the loop by hand.", "reversible": true, "seam": "vibecoder/levels/w1_l4_double.py"},
+    {"id": "D55", "decision": "Beginner levels carry a large random case", "alternatives": ["Small cases only"], "rationale": "Functional needs somewhere for wasted work to show, and §7 asks for a variant where inefficiency costs something.", "reversible": true, "seam": "vibecoder/levels/"},
+    {"id": "D56", "decision": "Par times are generous, 120s to 360s, rising with the ladder", "alternatives": ["The 180s default"], "rationale": "Par is what Speed scores against, and a beginner reading a brief for the first time is not slow, they are new.", "reversible": true, "seam": "vibecoder/levels/"}
+  ],
+  "friction": [
+    {"description": "Level ids appear in living docs, in landed trajectory records and in journals, and only the living docs should be rewritten. T1-core-loop.md names w1-l3-join inside an exit criterion's evidence column and N7 forbids editing it, so historical records keep the old ids and will read oddly to someone who greps for a level. No mechanism distinguishes a live id from a recorded one.", "impact": "medium", "resolved": false},
+    {"description": "tests/test_levels.py hard-codes two level ids, so renumbering broke exactly two tests out of 519. The contract tests iterate the registry, so twelve levels are covered by the same fifteen tests that covered six.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "12 levels across 3 worlds. World 1 'First Steps' is the beginner on-ramp. 519 tests green unpinned, verify clean on 36 reference runs. Old ids w1-* and w2-* now refer to different levels.",
+    "next_action": "The second half of this request: beginner scaffolding in the editor - plain-language failure output naming the first failing case's input, expected and got; softer tracebacks; and a hint ladder revealed after repeated failures. Q33 identifies one flaw already.",
+    "blockers": ["None. T2 W4's two blockers stand and are untouched by this."],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D52 before adding a world or touching Level.multiplier",
+      "N6 before touching data/baselines/",
+      "CLAUDE.md section 7 before adding a level"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q33", "question": "The op-ratio tip says 'look for work being repeated inside a loop that could happen once outside it' whenever the ratio is high, but on w1-l4-double nothing is loop-invariant - the cost is append versus a comprehension. A confidently wrong tip is worse for a beginner than no tip. Should the tip be conditioned on evidence of loop-invariant work, or reworded?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q34", "question": "Nothing enforces that a world's levels form a teaching order; index only orders them. The ladder in World 1 is a claim in a docstring. Is that worth a declared prerequisite, or is it over-formalising six files?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q35", "question": "Six of twelve levels are now tagged basics, which the vibe recommender uses for ordering. Does a profiler that sees an experienced developer correctly skip World 1, or will tag sparsity surface beginner levels to people who do not need them?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q36", "question": "Level ids appear in living docs, landed trajectories and journals, and only the first should be rewritten when ids change. Nothing distinguishes them mechanically. Worth a checked convention before the next renumbering?", "owner": "T1", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 519,
+    "tests_passing": 519,
+    "levels": 12,
+    "levels_added": 6,
+    "levels_renumbered": 6,
+    "worlds": 3,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 36,
+    "beginner_world_par_seconds_range": [120.0, 360.0],
+    "beginner_levels_with_style_goals": 1
+  }
+}

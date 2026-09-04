@@ -10,7 +10,7 @@ solution, be told it is correct, and *in the same breath* be shown that it does
 twenty-two times the work of the reference:
 
 ```
-$ vibecoder play w1-l3-join --solution my_join.py
+$ vibecoder play w2-l3-join --solution my_join.py
 
   PASS  no_events
   PASS  unmatched_event_dropped
@@ -36,6 +36,12 @@ $ vibecoder play w1-l3-join --solution my_join.py
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
+**New to Python?** Start at `w1-l1-greet`. World 1 is six levels that assume
+nothing beyond having installed Python: return a value, make a decision, write
+a loop, build a list, track the best one so far, count into a dict. Each one
+teaches the single idea the next one needs, and the last hands you straight to
+World 2, where the example above lives.
+
 ## Quick start
 
 Requires Python 3.10+. Nothing else.
@@ -45,7 +51,7 @@ git clone https://github.com/9x25dillon/vibe_coder_9xk1ll
 cd vibe_coder_9xk1ll
 
 python3 -m vibecoder.cli levels                 # what is available
-python3 -m vibecoder.cli play w1-l1-revenue     # opens $EDITOR, scores on save
+python3 -m vibecoder.cli play w1-l1-greet       # opens $EDITOR, scores on save
 python3 -m vibecoder.cli status                 # stars, streak, global score
 ```
 
@@ -165,7 +171,7 @@ Details and how to add an element: [`docs/UI.md`](docs/UI.md).
 Every run records a line-by-line trace with a snapshot of locals at each step:
 
 ```bash
-python3 -m vibecoder.cli replay w1-l3-join-1786155331 --step
+python3 -m vibecoder.cli replay w2-l3-join-1786155331 --step
 ```
 
 ```

@@ -150,7 +150,7 @@ capped at 2.0×. Anything short of 3 stars resets it.
 From the design document, and reproducible today:
 
 ```
-$ vibecoder play w1-l3-join --solution naive_join.py --seed 1
+$ vibecoder play w2-l3-join --solution naive_join.py --seed 1
 
   accuracy    100.0   ← 5/5 tests pass
   functional   33.1   ← 49,590 ops against a 2,184-op reference

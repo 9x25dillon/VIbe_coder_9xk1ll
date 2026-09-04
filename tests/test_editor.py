@@ -19,7 +19,7 @@ NOW = 5000.0
 FULL = Capabilities(depth=Depth.TRUECOLOR, unicode=True, animate=False, width=80)
 
 
-def editor(caps=PLAIN, level_id="w1-l1-revenue") -> Editor:
+def editor(caps=PLAIN, level_id="w2-l1-revenue") -> Editor:
     return Editor(get_level(level_id), seed=1, caps=caps)
 
 

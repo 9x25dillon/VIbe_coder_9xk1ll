@@ -95,7 +95,7 @@ actually fail, and randomness will not reliably produce them.
 **Size at least one variant large enough to matter.** The Functional axis needs
 a case where an inefficient solution actually costs something. A 12-element
 input cannot distinguish O(n) from O(n²); a 400-element one can. Compare
-`w1-l3-join`, whose large case is the entire reason the level exists.
+`w2-l3-join`, whose large case is the entire reason the level exists.
 
 **Keep the shape constant across seeds.** Seed 2 should be the same puzzle with
 different data, not a different puzzle. A player who learns the level should not
@@ -111,8 +111,8 @@ clever one available. If your reference does everything in C, a readable
 pure-Python solution scores terribly and the level punishes clarity.
 
 This is a live open question. Measured references currently span **76 ops**
-(`w2-l3-wordfreq`, which delegates to `re` and `collections.Counter`) to
-**5,958 ops** (`w2-l2-window`, pure Python). Op counts are therefore *not*
+(`w3-l3-wordfreq`, which delegates to `re` and `collections.Counter`) to
+**5,958 ops** (`w3-l2-window`, pure Python). Op counts are therefore *not*
 comparable across levels, and the wordfreq level is unusually harsh. See Q6 in
 [S001](../journal/2026-08-08-S001-core-loop.md#open-questions).
 

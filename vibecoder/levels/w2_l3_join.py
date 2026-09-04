@@ -1,4 +1,4 @@
-"""World 1, Level 3 - the level the functional axis was designed to teach.
+"""World 2, Level 3 - the level the functional axis was designed to teach.
 
 A nested-loop join passes every test and still scores badly, because the
 reference builds a lookup dict first. This is the clearest demonstration in the
@@ -89,8 +89,8 @@ def join_events(users, events):
 '''
 
 LEVEL = Level(
-    id="w1-l3-join",
-    world=1,
+    id="w2-l3-join",
+    world=2,
     world_title="Data Wrangler",
     index=3,
     title="Join Without the Nested Loop",

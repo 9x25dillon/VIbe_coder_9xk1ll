@@ -1,4 +1,4 @@
-"""World 1, Level 2 - grouping, and the missing-data edge case that trips people."""
+"""World 2, Level 2 - grouping, and the missing-data edge case that trips people."""
 
 from __future__ import annotations
 
@@ -74,8 +74,8 @@ def totals_by_region(rows):
 '''
 
 LEVEL = Level(
-    id="w1-l2-groupby",
-    world=1,
+    id="w2-l2-groupby",
+    world=2,
     world_title="Data Wrangler",
     index=2,
     title="Group and Total",

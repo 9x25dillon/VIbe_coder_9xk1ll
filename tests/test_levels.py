@@ -29,8 +29,8 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(ordered, sorted(ordered))
 
     def test_lookup_by_id(self):
-        level = get_level("w1-l1-revenue")
-        self.assertEqual(level.func_name, "total_revenue")
+        level = get_level("w1-l1-greet")
+        self.assertEqual(level.func_name, "greet")
 
     def test_unknown_id_raises(self):
         with self.assertRaises(KeyError):
@@ -42,8 +42,15 @@ class TestRegistry(unittest.TestCase):
         self.assertTrue(all(lvl.world == 1 for lvl in grouped[1]))
 
     def test_multiplier_grows_with_world(self):
-        self.assertAlmostEqual(get_level("w1-l1-revenue").multiplier, 1.0)
-        self.assertAlmostEqual(get_level("w2-l1-flatten").multiplier, 1.1)
+        """World 1 is the beginner on-ramp, so it sits at the 1.0 baseline.
+
+        An easier level must never be worth *less* than a harder one, which is
+        why the beginner world was numbered 1 and the existing worlds moved up
+        rather than a world 0 being added below the multiplier's floor.
+        """
+        self.assertAlmostEqual(get_level("w1-l1-greet").multiplier, 1.0)
+        self.assertAlmostEqual(get_level("w2-l1-revenue").multiplier, 1.1)
+        self.assertAlmostEqual(get_level("w3-l1-flatten").multiplier, 1.2)
 
 
 class TestLevelMetadata(unittest.TestCase):

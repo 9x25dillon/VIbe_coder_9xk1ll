@@ -118,7 +118,7 @@ convention asks for colour to be withheld, and reverse video is not colour.
 holds that line.
 
 ```bash
-python3 -m vibecoder.cli edit w1-l1-revenue    # needs a real terminal
+python3 -m vibecoder.cli edit w2-l1-revenue    # needs a real terminal
 ```
 
 ## Known gaps

@@ -1,4 +1,4 @@
-"""World 2, Level 3 - text normalisation plus a tie-break rule people miss."""
+"""World 3, Level 3 - text normalisation plus a tie-break rule people miss."""
 
 from __future__ import annotations
 
@@ -84,8 +84,8 @@ def top_words(text, n):
 '''
 
 LEVEL = Level(
-    id="w2-l3-wordfreq",
-    world=2,
+    id="w3-l3-wordfreq",
+    world=3,
     world_title="Algorithm Architect",
     index=3,
     title="Top Words",

@@ -38,7 +38,7 @@ mastery  ← mastery + α · (observed − mastery)        α ≈ 0.3
 ```
 
 Difficulty then selects variant parameters, not different problems: input size,
-edge-case density, and whether a style goal is required. Level `w1-l2-groupby`
+edge-case density, and whether a style goal is required. Level `w2-l2-groupby`
 at low mastery generates 20 clean rows; at high mastery it generates 300 rows,
 30% of them `None`. This reuses the seeded-variant machinery T1 already ships,
 which is the main reason variants were built that way.
@@ -75,7 +75,7 @@ rating they earned in August.
 - **A death spiral in either direction.** Ratchet difficulty up too eagerly and
   a good player never gets a win; ratchet down too eagerly and a struggling
   player is patronised. Bound the per-level step change.
-- **Tag sparsity.** With ~8 tags and 6 levels, some tags will have one data
+- **Tag sparsity.** With ~10 tags and 12 levels, some tags will have one data
   point. Require a minimum observation count before a mastery estimate is
   allowed to drive selection; fall back to the Vibe Vector until then.
 - **Confusing "what you write" with "what you are good at".** The Vibe Vector

@@ -1,4 +1,4 @@
-"""World 2, Level 2 - sliding window. O(n*k) passes; O(n) is the point."""
+"""World 3, Level 2 - sliding window. O(n*k) passes; O(n) is the point."""
 
 from __future__ import annotations
 
@@ -57,8 +57,8 @@ def max_window_sum(values, k):
 '''
 
 LEVEL = Level(
-    id="w2-l2-window",
-    world=2,
+    id="w3-l2-window",
+    world=3,
     world_title="Algorithm Architect",
     index=2,
     title="Sliding Window",

@@ -34,7 +34,7 @@ down.
    ```bash
    VIBECODER_SANDBOX=bwrap python3 -m unittest discover -s tests   # ~38s
    ```
-   python3 -m vibecoder.cli verify --seeds 3  # 18/18 reference runs clean
+   python3 -m vibecoder.cli verify --seeds 3  # 36/36 reference runs clean
    ```
    If either is red before you change anything, say so and fix that first. Never
    build on a red baseline.
@@ -77,11 +77,11 @@ python3 -m vibecoder.cli verify --seeds 5 -v      # per-level ops and memory
 
 # Play it. Contract tests prove a level is well-formed; only playing tells you
 # whether it is any good.
-python3 -m vibecoder.cli play w1-l1-revenue
-python3 -m vibecoder.cli play w1-l3-join --solution /tmp/attempt.py --seed 1
+python3 -m vibecoder.cli play w2-l1-revenue
+python3 -m vibecoder.cli play w2-l3-join --solution /tmp/attempt.py --seed 1
 python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
 python3 -m vibecoder.cli sandbox                  # which backends this host offers
-python3 -m vibecoder.cli edit w1-l1-revenue       # the full-screen editor (T7)
+python3 -m vibecoder.cli edit w2-l1-revenue       # the full-screen editor (T7)
 
 # Exit criterion 7: the suite must pass on every transport, not just the fast one.
 VIBECODER_SANDBOX=bwrap  python3 -m unittest discover -s tests
@@ -138,8 +138,8 @@ Real bugs, found by running the system rather than reading it. Full write-ups in
   and carried no signal. **Lesson: check the output distribution, not just the
   range.**
 - **Q6 — op counts are not comparable across levels.** References span 76 ops
-  (`w2-l3-wordfreq`, delegating to `re` and `Counter`) to 5,958
-  (`w2-l2-window`, pure Python). Only visible once all six were measured side by
+  (`w3-l3-wordfreq`, delegating to `re` and `Counter`) to 5,958
+  (`w3-l2-window`, pure Python). Only visible once all six were measured side by
   side. **Lesson: measure the set, not the instance.**
 
 ---

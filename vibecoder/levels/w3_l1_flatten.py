@@ -1,4 +1,4 @@
-"""World 2, Level 1 - recursion, with the depth cases that break naive attempts."""
+"""World 3, Level 1 - recursion, with the depth cases that break naive attempts."""
 
 from __future__ import annotations
 
@@ -65,8 +65,8 @@ def flatten(items):
 '''
 
 LEVEL = Level(
-    id="w2-l1-flatten",
-    world=2,
+    id="w3-l1-flatten",
+    world=3,
     world_title="Algorithm Architect",
     index=1,
     title="Flatten Anything",

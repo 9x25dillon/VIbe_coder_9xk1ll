@@ -1,4 +1,4 @@
-"""World 1, Level 1 - the doc's worked example, made playable."""
+"""World 2, Level 1 - the doc's worked example, made playable."""
 
 from __future__ import annotations
 
@@ -83,8 +83,8 @@ def total_revenue(sales, threshold):
 '''
 
 LEVEL = Level(
-    id="w1-l1-revenue",
-    world=1,
+    id="w2-l1-revenue",
+    world=2,
     world_title="Data Wrangler",
     index=1,
     title="Revenue Above Threshold",
