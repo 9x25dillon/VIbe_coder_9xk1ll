@@ -1,0 +1,296 @@
+{
+  "id": "S006",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S006-provenance.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "Third-party code cannot reach the host execution path",
+      "result": "met",
+      "note": "Routing verified per source"
+    },
+    {
+      "id": 2,
+      "statement": "Local play keeps the fast path",
+      "result": "met",
+      "note": "PLAYER and BUNDLED both take subprocess"
+    },
+    {
+      "id": 3,
+      "statement": "A call site cannot omit provenance by accident",
+      "result": "met",
+      "note": "No default; plus an AST walk over the package"
+    },
+    {
+      "id": 4,
+      "statement": "The trust policy is written down in exactly one place",
+      "result": "met",
+      "note": "Source.requires_isolation"
+    },
+    {
+      "id": 5,
+      "statement": "A level carries its own provenance",
+      "result": "met",
+      "note": "Level.source, used by reference_benchmark"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/models.py",
+      "kind": "module",
+      "note": "Source enum; Level.source with the scope of what it does not cover"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "run_code takes a required Source; reference_benchmark uses level.source"
+    },
+    {
+      "path": "vibecoder/editor.py",
+      "kind": "module",
+      "note": "Declares Source.PLAYER"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "Declares Source.PLAYER"
+    },
+    {
+      "path": "tests/test_provenance.py",
+      "kind": "test",
+      "note": "19 tests: no default, AST call-site walk, registry closed"
+    },
+    {
+      "path": "docs/trajectories/T5-community.md",
+      "kind": "doc",
+      "note": "New first hazard: a level is code, and provenance does not cover loading"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "doc",
+      "note": "N9: code entering the sandbox must declare where it came from"
+    },
+    {
+      "path": "journal/2026-09-03-S006-provenance.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Third-party code never reaches the subprocess backend",
+      "method": "tests/test_provenance.py::TestRouting::test_third_party_code_does_not",
+      "result": "routed to bwrap; uid 65534 inside",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Local play keeps the fast path",
+      "method": "::TestRouting, player and bundled cases",
+      "result": "subprocess for both",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Isolation changes where code runs, not what it returns",
+      "method": "::test_third_party_code_produces_the_same_answer",
+      "result": "identical ops and pass count",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Third-party code refuses to run when nothing isolates",
+      "method": "::test_third_party_code_refuses_to_run_with_no_isolation",
+      "result": "SandboxUnavailable",
+      "verdict": "verified"
+    },
+    {
+      "claim": "run_code has no default source",
+      "method": "::TestNoDefault, signature inspection plus a TypeError",
+      "result": "Parameter.empty",
+      "verdict": "verified"
+    },
+    {
+      "claim": "No call site in the package omits provenance",
+      "method": "::TestCallSites, AST walk over vibecoder/",
+      "result": "no offenders",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The AST guard still finds call sites",
+      "method": "::test_the_checker_can_actually_see_call_sites",
+      "result": "at least 4 found",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A third-party level's reference solution is isolated",
+      "method": "::test_a_third_party_level_forces_isolation_for_its_reference",
+      "result": "isolating backend selected",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The registry cannot load a foreign level",
+      "method": "::TestTheRegistryIsClosed, 3 tests",
+      "result": "iter_modules only; no exec or path loading",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite is stable",
+      "method": "three consecutive unpinned runs",
+      "result": "473 green each time",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Loading a third-party level would be safe",
+      "method": "make_tests runs in the parent, and a level is an importable module",
+      "result": "it would not; recorded in T5's hazards",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M12",
+      "believed": "T2's hard gate -- T5 W6 may not ship unless T2 W1-W3 are landed and verified -- meant that finishing W3 cleared the way for community levels.",
+      "revealed_by": "Deciding what provenance reference_benchmark should use. Working out that it runs the level author's code led to asking where the rest of a level's code runs, and the answer is: in the parent, twice. The module body runs at import and make_tests runs on every tests_for().",
+      "corrected_to": "W3 secures the execution path. The loading path is a separate problem no waypoint currently owns; community levels need a level format that is data rather than an importable module, or a way to generate test data inside the sandbox. The gate is necessary and not sufficient.",
+      "cost_minutes": 0,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The temptation was to note it and move on, because the waypoint was complete by its own words and the hazard belonged to a trajectory two phases away. A gate that can be satisfied while the hazard it names stays open deserves more attention than a waypoint that is merely finished."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D36",
+      "decision": "source has no default",
+      "alternatives": [
+        "Default to PLAYER",
+        "Default to THIRD_PARTY"
+      ],
+      "rationale": "Defaulting trusted makes forgetting silent; defaulting untrusted makes forgetting slow and changes behaviour under everyone's feet. No default makes forgetting a TypeError at the call site.",
+      "reversible": true,
+      "seam": "vibecoder/runner.py::run_code"
+    },
+    {
+      "id": "D37",
+      "decision": "Source is an enum rather than a boolean",
+      "alternatives": [
+        "untrusted: bool"
+      ],
+      "rationale": "'Untrusted' is a conclusion; the fact underneath is worth keeping, and the policy then lives in one property.",
+      "reversible": true,
+      "seam": "vibecoder/models.py::Source"
+    },
+    {
+      "id": "D38",
+      "decision": "Source lives in models.py",
+      "alternatives": [
+        "sandbox.py",
+        "a new provenance.py"
+      ],
+      "rationale": "Level must carry one, and models depends on nothing -- the rule the module map rests on.",
+      "reversible": true,
+      "seam": "vibecoder/models.py"
+    },
+    {
+      "id": "D39",
+      "decision": "reference_benchmark uses level.source; run_submission uses PLAYER",
+      "alternatives": [
+        "One provenance per level"
+      ],
+      "rationale": "They run different people's code: the level author's solution and the player's attempt.",
+      "reversible": false,
+      "seam": "vibecoder/runner.py"
+    },
+    {
+      "id": "D40",
+      "decision": "An AST walk guards the call sites",
+      "alternatives": [
+        "Trust the required argument alone"
+      ],
+      "rationale": "A signature check misses a caller that passes provenance positionally or through a wrapper and stops being obvious to a reader.",
+      "reversible": true,
+      "seam": "tests/test_provenance.py::TestCallSites"
+    },
+    {
+      "id": "D41",
+      "decision": "Three tests pin the level registry closed",
+      "alternatives": [
+        "A comment",
+        "Nothing"
+      ],
+      "rationale": "Opening it should be a deliberate act with a failing test attached rather than a convenience added on a Tuesday.",
+      "reversible": true,
+      "seam": "tests/test_provenance.py::TestTheRegistryIsClosed"
+    }
+  ],
+  "friction": [
+    {
+      "description": "Making source required broke 99 test call sites. Where provenance is the subject of the test it is now stated outright; test_runner.py, where every case is the player's own trivial code, states it once in a module-level wrapper rather than seventeen times.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "One full-suite run failed a keystroke-latency assertion, then passed three times running. It was competing with a Docker pass of the escape gate. The budget is a real measurement and therefore load-sensitive; nothing was changed, and it is recorded as Q27 rather than silently re-run.",
+      "impact": "medium",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T2 W3 LANDED. run_code takes a Source with no default, recorded as invariant N9. 473 tests green unpinned, verify clean on 18 reference runs. T2 W1-W3 landed; W4-W7 outstanding. The T5 W6 gate is now satisfiable but incomplete -- see M12.",
+    "next_action": "T2 W4: GitHub OAuth ingestion, the first waypoint that handles somebody else's code for real. It is blocked on a registered OAuth application and the client-versus-server profiling decision, both of which are the user's to make. If those are unavailable, W5 (.zip ingestion with a decompression bomb guard) has no such dependency and exercises the same ingestion budgets.",
+    "blockers": [
+      "T2 W4 needs a registered OAuth application",
+      "T2 W4 needs the client-versus-server profiling decision, which has a privacy consequence"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "N9 and tests/test_provenance.py before adding any call site that executes code",
+      "M12 and T5's hazard list before touching the level registry",
+      "N3: the profiler executes nothing, and W4 must keep it that way"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q25",
+      "question": "A level format that is data rather than an importable module would close the loading path, but generated test data is what makes variants work. Can make_tests run inside the sandbox and return JSON, and what does that cost per run?",
+      "owner": "T5",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q26",
+      "question": "Source has three members and two behaviours. PLAYER and BUNDLED differ only in documentation today. Is the distinction load-bearing enough to keep, or will it invite a wrong pick?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q27",
+      "question": "The keystroke-latency assertion failed once under load from a parallel Docker run. Should timing budgets assert a percentile over many samples rather than a worst case, or be marked unreliable outside a quiet machine?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q28",
+      "question": "Nothing prevents a new module from importing _harness or spawning its own interpreter and bypassing run_code entirely; the AST guard only checks calls to known executors. Is it worth widening to subprocess calls in the package?",
+      "owner": "T2",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 473,
+    "tests_passing": 473,
+    "test_runtime_seconds": 53.774,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "provenance_tests": 19,
+    "package_call_sites_guarded": 4,
+    "test_call_sites_updated": 99
+  }
+}

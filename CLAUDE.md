@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 454 tests, ~43s
+   python3 -m unittest discover -s tests      # 473 tests, ~49s
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -59,6 +59,7 @@ scar. Breaking one requires the user's explicit say-so **and** a journal entry.
 | N6 | **Files in `data/` are immutable once committed.** | Correct a record by adding one that supersedes it. Editing history is how a baseline stops being evidence. |
 | N7 | **Exit criteria are never edited to match what was built.** | If they turn out wrong, that is a finding for the journal. Rewriting them destroys the only honest signal a trajectory has. |
 | N8 | **Test suite green at every commit.** | Forty seconds unpinned, most of it the adversarial suite running every attack against every isolating backend. Pin a backend for a fourteen-second inner loop; commit against the unpinned run. |
+| N9 | **Code entering the sandbox must declare where it came from.** `run_code` takes a `Source` with no default. | A default would make the one forgettable argument the one that decides whether a stranger's Python runs on the player's machine — and forgetting would be silent, because the fast path works right up until it matters. `tests/test_provenance.py` asserts the absence of the default and walks the package for call sites that omit it. |
 
 ---
 

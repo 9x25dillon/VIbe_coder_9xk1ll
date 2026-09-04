@@ -2,8 +2,18 @@
 
 import unittest
 
-from vibecoder.models import TestCase as Case
-from vibecoder.runner import run_code
+from vibecoder.models import Source, TestCase as Case
+from vibecoder.runner import run_code as _run_code
+
+
+def run_code(*args, source=Source.PLAYER, **kwargs):
+    """`run_code` with this file's provenance filled in.
+
+    Every case below is the player's own code exercising sandbox mechanics,
+    so stating that seventeen times would be noise. The production call sites
+    have no such default -- see tests/test_provenance.py, which asserts it.
+    """
+    return _run_code(*args, source=source, **kwargs)
 
 
 class TestHappyPath(unittest.TestCase):

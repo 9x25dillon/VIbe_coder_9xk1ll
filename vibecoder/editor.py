@@ -28,7 +28,7 @@ from .keymap import KEYMAP, describe_keys
 from .editing import Buffer
 from .highlight import highlight_window
 from .keys import Key, KeyDecoder
-from .models import Level, RunResult, ScoreBreakdown
+from .models import Level, RunResult, ScoreBreakdown, Source
 from .pulse import Pulse
 from .runner import reference_benchmark, run_submission
 from .screen import Screen
@@ -366,7 +366,10 @@ class Editor:
         self.busy = True
         started = self.started
         self.attempt += 1
-        result = run_submission(self.level, self.buffer.text, self.tests)
+        # The buffer is whatever the player typed, on their own machine.
+        result = run_submission(
+            self.level, self.buffer.text, self.tests, source=Source.PLAYER
+        )
         if self.attempt == 1:
             self.first_run_clean = not result.fatal
         elapsed = time.monotonic() - started

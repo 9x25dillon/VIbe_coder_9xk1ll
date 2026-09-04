@@ -9,7 +9,50 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field, asdict
+from enum import Enum
 from typing import Any, Callable, Sequence
+
+
+# --------------------------------------------------------------------------
+# Provenance
+# --------------------------------------------------------------------------
+
+class Source(Enum):
+    """Where a piece of code came from. The input to every isolation decision.
+
+    This is an enum rather than a boolean because "untrusted" is a conclusion,
+    not a fact, and the fact is worth keeping: a run that must be isolated
+    should say *why*. It also lets the policy change in one place -- if
+    isolation ever becomes cheap enough to apply to everything, only
+    :meth:`requires_isolation` moves.
+
+    It lives in ``models`` rather than ``sandbox`` so that ``Level`` can carry
+    one without ``models`` gaining a dependency. ``models`` depends on nothing;
+    that is the rule the module map rests on.
+    """
+
+    #: Typed by the person at this keyboard, on their own machine. N4 applies:
+    #: the sandbox protects the game from their mistakes, not the machine from
+    #: them, and it is their machine.
+    PLAYER = "player"
+    #: Shipped with the game -- a level's reference solution. Trusted for the
+    #: same reason the game itself is: it came from this repository.
+    BUNDLED = "bundled"
+    #: Wrote by somebody else and delivered over a wire: a community level, a
+    #: daily challenge, an ingested repository. Never runs on the host.
+    THIRD_PARTY = "third_party"
+
+    @property
+    def requires_isolation(self) -> bool:
+        """Whether this code may only run under an isolating backend.
+
+        The one place the trust policy is written down. Everything else asks
+        this rather than deciding for itself.
+        """
+        return self is Source.THIRD_PARTY
+
+    def __str__(self) -> str:
+        return self.value
 
 
 # --------------------------------------------------------------------------
@@ -61,6 +104,20 @@ class Level:
     par_seconds: float = 180.0
     tags: tuple[str, ...] = ()
     style_goals: tuple[str, ...] = ()
+    #: Who wrote this level. Every level in this repository is BUNDLED; a
+    #: community level (T5) is THIRD_PARTY, and carrying that on the level
+    #: itself is what stops its reference solution from reaching the host
+    #: path by default.
+    #:
+    #: **This covers the code that runs in the sandbox, and nothing else.**
+    #: ``make_tests`` is a callable that runs in the *parent* process every
+    #: time :meth:`tests_for` is called, and a level is loaded by importing a
+    #: module, which executes its body. Marking a level THIRD_PARTY does not
+    #: make either of those safe. The registry only loads levels bundled with
+    #: this package, so there is no way to reach that today -- and T5 must not
+    #: open it without solving the loading problem separately. See the hazard
+    #: list in docs/trajectories/T5-community.md.
+    source: "Source" = Source.BUNDLED
 
     def tests_for(self, seed: int) -> list[TestCase]:
         return list(self.make_tests(random.Random(seed)))

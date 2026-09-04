@@ -37,6 +37,18 @@ This is stated here so that no one can reach the editor by accident.
 
 ## Known hazards
 
+- **A level is code, not data, and `Source.THIRD_PARTY` does not cover all of
+  it.** T2 W3 makes the *execution* path safe: a third-party level's reference
+  solution is forced into an isolating backend, and forgetting to say so is a
+  `TypeError` rather than a silent host run. But a level is loaded by
+  importing a module, which runs its body, and `make_tests` is a callable
+  invoked in the **parent** process on every `tests_for()`. Both bypass
+  `run_code` entirely. The registry only loads levels bundled with this
+  package, so nothing can reach either path today; W6 is what would open it.
+  Shipping the level editor therefore needs a level *format* that is data
+  rather than an importable module, or a way to generate test data inside the
+  sandbox — the hard gate below is necessary and, on its own, not sufficient.
+
 - **Leaderboards invite cheating, and the incentive is the point.** The only
   defensible position is that the server re-runs every ranked submission.
   Client-side timing in particular is unverifiable — which is exactly why T1

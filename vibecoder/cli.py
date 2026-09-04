@@ -28,7 +28,7 @@ from pathlib import Path
 from . import levels as level_registry
 from . import sandbox
 from . import style, tips
-from .models import Level, RunResult
+from .models import Level, RunResult, Source
 from .profiler import profile_path, recommend
 from .runner import reference_benchmark, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
@@ -274,7 +274,10 @@ def cmd_play(args: argparse.Namespace) -> int:
 
         code = workspace.read_text(encoding="utf-8")
         attempt += 1
-        result = run_submission(level, code, tests, record_trace=True)
+        # `code` is read from a file the player chose, on their machine.
+        result = run_submission(
+            level, code, tests, record_trace=True, source=Source.PLAYER
+        )
         if attempt == 1:
             first_run_clean = not result.fatal
         _print_results(result)

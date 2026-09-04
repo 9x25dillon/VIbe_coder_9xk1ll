@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 from vibecoder import sandbox
-from vibecoder.models import TestCase as Case
+from vibecoder.models import Source, TestCase as Case
 from vibecoder.runner import run_code
 
 ADD = "def add(a, b):\n    return a + b\n"
@@ -131,7 +131,7 @@ class TestIsolatedExecution(unittest.TestCase):
     """Exit criterion 7 in miniature, plus early evidence for 1 and 2."""
 
     def test_untrusted_code_still_runs_and_scores(self):
-        result = run_code(ADD, "add", [Case("s", [1, 2], expected=3)], untrusted=True)
+        result = run_code(ADD, "add", [Case("s", [1, 2], expected=3)], source=Source.THIRD_PARTY)
         self.assertFalse(result.fatal, result.error)
         self.assertTrue(result.all_passed)
         self.assertGreater(result.ops, 0)
@@ -139,12 +139,12 @@ class TestIsolatedExecution(unittest.TestCase):
     def test_the_result_matches_the_untrusted_path(self):
         """Same code, same numbers -- otherwise scoring depends on transport."""
         tests = [Case("s", [2, 3], expected=5)]
-        trusted = run_code(ADD, "add", tests)
-        isolated = run_code(ADD, "add", tests, untrusted=True)
+        trusted = run_code(ADD, "add", tests, source=Source.PLAYER)
+        isolated = run_code(ADD, "add", tests, source=Source.THIRD_PARTY)
         self.assertEqual(trusted.ops, isolated.ops)
 
     def test_a_syntax_error_is_reported_not_crashed(self):
-        result = run_code("def add(a b):\n    pass\n", "add", [], untrusted=True)
+        result = run_code("def add(a b):\n    pass\n", "add", [], source=Source.THIRD_PARTY)
         self.assertTrue(result.fatal)
         self.assertEqual(result.error_type, "SyntaxError")
 
@@ -157,7 +157,7 @@ class TestIsolatedExecution(unittest.TestCase):
             "    return 'reachable'\n"
         )
         result = run_code(code, "probe", [Case("n", [], expected="reachable")],
-                          untrusted=True)
+                          source=Source.THIRD_PARTY)
         self.assertFalse(result.all_passed, "the sandbox reached the network")
 
     def test_the_players_home_directory_is_not_visible(self):
@@ -168,7 +168,7 @@ class TestIsolatedExecution(unittest.TestCase):
             "    return os.path.isdir(os.path.expanduser('~/.ssh'))\n"
         )
         result = run_code(code, "peek", [Case("h", [], expected=True)],
-                          untrusted=True)
+                          source=Source.THIRD_PARTY)
         self.assertFalse(result.all_passed, "the sandbox saw the host home directory")
 
 

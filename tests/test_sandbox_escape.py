@@ -21,7 +21,7 @@ import pathlib
 import unittest
 
 from vibecoder import sandbox, seccomp
-from vibecoder.models import TestCase as Case
+from vibecoder.models import Source, TestCase as Case
 from vibecoder.runner import run_code
 
 TIMEOUT = 15.0
@@ -68,7 +68,7 @@ def attempt(code: str, *, func: str = "escape", timeout: float = TIMEOUT):
     """Run one escape attempt under whichever backend is pinned."""
     return run_code(
         code, func, [Case("attempt", [], expected="__unreachable__")],
-        untrusted=True, timeout=timeout,
+        source=Source.THIRD_PARTY, timeout=timeout,
     )
 
 
@@ -368,7 +368,7 @@ class TestResourceExhaustion(EscapeTest):
         self.assertTrue(os.getpid() > 0)
         healthy = run_code(
             "def ok():\n    return 1\n", "ok",
-            [Case("t", [], expected=1)], untrusted=True,
+            [Case("t", [], expected=1)], source=Source.THIRD_PARTY,
         )
         self.assertTrue(healthy.all_passed, "the sandbox stopped working")
 

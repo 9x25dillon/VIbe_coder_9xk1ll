@@ -32,7 +32,7 @@ $ vibecoder play w1-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 454 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 473 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -206,6 +206,7 @@ vibecoder/            The game. 22 modules, no dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — builds payloads, parses replies
 ├── sandbox.py        Backend selection: subprocess / bubblewrap / docker
+├── models.py         Dataclasses, plus Source — the input to every isolation call
 ├── seccomp.py        Hand-assembled syscall filter; no libseccomp
 ├── scoring.py        The three axes
 ├── profiler.py       Pure-ast codebase analysis
@@ -219,7 +220,7 @@ vibecoder/            The game. 22 modules, no dependencies.
 ├── pulse.py          Keystroke rhythm; stays on this machine
 └── levels/           One file per level, auto-discovered
 
-tests/                454 tests, stdlib unittest
+tests/                473 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

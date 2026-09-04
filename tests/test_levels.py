@@ -10,6 +10,7 @@ import unittest
 
 from vibecoder import style
 from vibecoder.levels import all_levels, get_level, worlds
+from vibecoder.models import Source
 from vibecoder.runner import run_code
 
 VARIANT_SEEDS = (1, 2, 3, 7)
@@ -68,7 +69,8 @@ class TestLevelMetadata(unittest.TestCase):
         for level in all_levels():
             with self.subTest(level=level.id):
                 result = run_code(
-                    level.starter, level.func_name, level.tests_for(1)
+                    level.starter, level.func_name, level.tests_for(1),
+                    source=Source.BUNDLED,
                 )
                 self.assertFalse(
                     result.all_passed,
@@ -104,7 +106,8 @@ class TestReferenceSolutions(unittest.TestCase):
             for seed in VARIANT_SEEDS:
                 with self.subTest(level=level.id, seed=seed):
                     result = run_code(
-                        level.reference, level.func_name, level.tests_for(seed)
+                        level.reference, level.func_name,
+                        level.tests_for(seed), source=Source.BUNDLED,
                     )
                     self.assertFalse(result.fatal, result.error)
                     failed = [o.name for o in result.outcomes if not o.passed]

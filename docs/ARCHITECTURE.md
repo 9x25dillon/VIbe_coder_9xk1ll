@@ -10,7 +10,7 @@ anywhere a Python 3.10+ interpreter does.
 
 ```
 vibecoder/
-├── models.py      Dataclasses. No behaviour beyond JSON round-tripping.
+├── models.py      Dataclasses, plus Source: where code came from. Depends on nothing.
 ├── scoring.py     The three axes, bonuses, stars, streak multiplier.
 ├── runner.py      Parent side of the sandbox. Builds payloads, parses replies.
 ├── sandbox.py     Backend selection. THE SEAM: subprocess / bwrap / docker.

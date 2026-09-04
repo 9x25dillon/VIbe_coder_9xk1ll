@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Sequence
 
 from . import sandbox
-from .models import Level, RunResult, TestCase, TestOutcome
+from .models import Level, RunResult, Source, TestCase, TestOutcome
 
 HARNESS = Path(__file__).with_name("_harness.py")
 
@@ -38,18 +38,24 @@ def run_code(
     func_name: str,
     tests: Sequence[TestCase],
     *,
+    source: Source,
     timeout: float = DEFAULT_TIMEOUT,
     mem_limit_mb: int = DEFAULT_MEM_LIMIT_MB,
     record_trace: bool = False,
     filename: str = SUBMISSION_FILENAME,
-    untrusted: bool = False,
 ) -> RunResult:
     """Execute ``code`` against ``tests`` in a sandboxed child process.
 
-    ``untrusted`` marks code that did not come from the player at this
-    keyboard -- a community level, a daily challenge. It forces an isolating
-    backend and fails loudly when none is available, because the alternative
-    is running a stranger's Python on the host with rlimits for a fence.
+    ``source`` says where the code came from, and has no default **on
+    purpose**. A default would mean that the one thing a future caller can
+    forget is the thing that decides whether a stranger's Python runs on the
+    player's machine -- and forgetting would be silent, because the fast path
+    works perfectly right up until it matters. Without a default, forgetting
+    is a ``TypeError`` at the call site.
+
+    :class:`~vibecoder.models.Source` decides; this function only asks. A
+    source that requires isolation and finds none available raises rather than
+    downgrading, because rlimits are not a fence against someone who meant it.
     """
     payload = {
         "code": code,
@@ -61,7 +67,7 @@ def run_code(
         "filename": filename,
     }
 
-    backend = sandbox.select(untrusted=untrusted)
+    backend = sandbox.select(untrusted=source.requires_isolation)
 
     # A fork bomb is only contained by the wall clock unless the child caps
     # its own process count, and RLIMIT_NPROC counts every process owned by
@@ -118,11 +124,20 @@ def run_submission(
     tests: Sequence[TestCase],
     *,
     record_trace: bool = False,
+    source: Source = Source.PLAYER,
 ) -> RunResult:
+    """Run a player's attempt at ``level``.
+
+    The provenance here is the *submission's*, not the level's: a player
+    solving a community level is still typing their own code. The level's own
+    code -- its reference solution -- goes through
+    :func:`reference_benchmark`, which uses ``level.source`` instead.
+    """
     return run_code(
         code,
         level.func_name,
         tests,
+        source=source,
         record_trace=record_trace,
         filename=SUBMISSION_FILENAME,
     )
@@ -144,10 +159,15 @@ def reference_benchmark(level: Level, seed: int) -> tuple[int, int]:
         return _REFERENCE_BENCHMARKS[key]
 
     tests = level.tests_for(seed)
+    # The reference solution is the *level author's* code. For everything in
+    # this repository that is BUNDLED and takes the fast path; for a community
+    # level it is a stranger's Python, and this is the call site that would
+    # otherwise run it on the host.
     result = run_code(
         level.reference,
         level.func_name,
         tests,
+        source=level.source,
         filename=REFERENCE_FILENAME,
     )
     if result.fatal:

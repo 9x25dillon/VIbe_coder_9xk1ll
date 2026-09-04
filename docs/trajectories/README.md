@@ -46,10 +46,17 @@ request while T2 is still in flight, which is a schedule fact recorded in
 silently.
 
 **T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)),
-W2 `LANDED` ([S005](../../journal/2026-09-03-S005-hardening.md)). W3–W7
+W2 `LANDED` ([S005](../../journal/2026-09-03-S005-hardening.md)),
+W3 `LANDED` ([S006](../../journal/2026-09-03-S006-provenance.md)). W4–W7
 outstanding. Exit criteria 1, 2, 3 and 7 are verified; 4, 5 and 6 belong to
 W5–W6 and are untouched. The trajectory's 2026-08-30 target has passed; it is
 late, not re-dated.
+
+⚠ The hard gate in [T5](T5-community.md) — "W6 may not ship unless T2 W1–W3
+are landed" — is now *satisfiable*, and is not sufficient. A level is an
+importable module and its `make_tests` runs in the parent, so neither is
+covered by the provenance flag W3 added. See M12 in
+[S006](../../journal/2026-09-03-S006-provenance.md).
 
 **T7 waypoint state:** W1–W7 `LANDED`, W8 partial
 ([S004](../../journal/2026-09-03-S004-interactive.md)). The score panel animates
