@@ -20,8 +20,40 @@ from typing import Iterator
 INDENT = 4
 #: Lines ending in one of these open a block, so the next line indents.
 OPENERS = (":",)
+QUOTES = ("'", '"')
 #: Typing one of these as the first thing on a line closes a block.
 DEDENT_KEYWORDS = ("else", "elif", "except", "finally", "return", "pass", "raise")
+
+
+def code_part(line: str) -> str:
+    """``line`` with any trailing comment removed.
+
+    ``if x:  # only the expensive ones`` opens a block just as much as ``if x:``
+    does, so the auto-indent check has to look past the comment. A plain
+    ``split("#")`` would cut ``sep = "#"`` in half, so this tracks quoting --
+    badly enough to be honest about it: it understands single and double
+    quotes and backslash escapes, which is everything that appears on a line
+    ending in a colon, and it does not attempt triple-quoted strings.
+    """
+    quote = ""
+    escaped = False
+    for index, character in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if character == "\\":
+            escaped = True
+            continue
+        if quote:
+            if character == quote:
+                quote = ""
+            continue
+        if character in QUOTES:
+            quote = character
+            continue
+        if character == "#":
+            return line[:index]
+    return line
 
 
 @dataclass(frozen=True)
@@ -196,7 +228,7 @@ class Buffer:
         self.break_undo()
         current = self.line
         indent = len(current) - len(current.lstrip())
-        if current.rstrip().endswith(OPENERS):
+        if code_part(current).rstrip().endswith(OPENERS):
             indent += INDENT
         self._split_line()
         if indent:

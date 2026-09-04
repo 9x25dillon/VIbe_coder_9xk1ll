@@ -2,7 +2,7 @@
 
 import unittest
 
-from vibecoder.editing import INDENT, Buffer
+from vibecoder.editing import INDENT, Buffer, code_part
 
 
 class TestInsertion(unittest.TestCase):
@@ -252,3 +252,44 @@ class TestLoad(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTrailingComments(unittest.TestCase):
+    """`if x:  # note` opens a block exactly as much as `if x:` does."""
+
+    def _indent_after(self, line: str) -> int:
+        b = Buffer(line)
+        b.end()
+        b.newline()
+        return len(b.lines[1])
+
+    def test_a_colon_followed_by_a_comment_still_opens_a_block(self):
+        self.assertEqual(self._indent_after("if x:  # only the big ones"), INDENT)
+
+    def test_a_comment_alone_does_not_open_a_block(self):
+        self.assertEqual(self._indent_after("x = 1  # a colon: not really"), 0)
+
+    def test_a_hash_inside_a_string_is_not_a_comment(self):
+        """`sep = "#"` must not be cut in half."""
+        self.assertEqual(code_part('sep = "#"'), 'sep = "#"')
+
+    def test_a_hash_inside_single_quotes_is_not_a_comment(self):
+        self.assertEqual(code_part("sep = '#'"), "sep = '#'")
+
+    def test_an_escaped_quote_does_not_end_the_string(self):
+        self.assertEqual(code_part(r"s = 'it\'s #x'"), r"s = 'it\'s #x'")
+
+    def test_a_comment_after_a_string_is_still_removed(self):
+        self.assertEqual(code_part('s = "a"  # note').rstrip(), 's = "a"')
+
+    def test_a_dict_literal_ending_in_a_colon_comment_indents(self):
+        self.assertEqual(self._indent_after("for k, v in d.items():  # pairs"), INDENT)
+
+    def test_a_line_with_no_comment_is_unchanged(self):
+        self.assertEqual(code_part("def f():"), "def f():")
+
+    def test_an_indented_block_with_a_comment_adds_a_level(self):
+        b = Buffer("    if x:  # note")
+        b.end()
+        b.newline()
+        self.assertEqual(len(b.lines[1]), INDENT * 2)
