@@ -73,6 +73,14 @@ LEVEL = Level(
     starter=STARTER,
     reference=REFERENCE,
     make_tests=make_tests,
+    hints=(
+        "Start with an empty dict. For each item, you need to ask whether "
+        "you have seen it before.",
+        "counts.get(item, 0) gives you the count so far, or 0 if this is "
+        "the first time - so you never have to check separately.",
+        "The whole body is: counts[item] = counts.get(item, 0) + 1, "
+        "inside the loop.",
+    ),
     par_seconds=360.0,
     tags=("basics", "datastructures"),
 )

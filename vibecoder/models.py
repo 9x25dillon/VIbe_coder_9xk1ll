@@ -104,6 +104,14 @@ class Level:
     par_seconds: float = 180.0
     tags: tuple[str, ...] = ()
     style_goals: tuple[str, ...] = ()
+    #: Progressive hints, revealed one per failed attempt after the first.
+    #:
+    #: Ordered from a nudge to something close to the answer. They exist
+    #: because a beginner who is stuck has no one to ask, and the alternative
+    #: to a hint is not "they work it out", it is "they close the terminal".
+    #: The first attempt never gets one: being stuck for a minute is the part
+    #: of the exercise that does the teaching.
+    hints: tuple[str, ...] = ()
     #: Who wrote this level. Every level in this repository is BUNDLED; a
     #: community level (T5) is THIRD_PARTY, and carrying that on the level
     #: itself is what stops its reference solution from reaching the host
@@ -121,6 +129,17 @@ class Level:
 
     def tests_for(self, seed: int) -> list[TestCase]:
         return list(self.make_tests(random.Random(seed)))
+
+    def hints_after(self, failed_attempts: int) -> list[str]:
+        """Hints earned by ``failed_attempts`` unsuccessful runs.
+
+        One new hint per failure after the first, so a player who is close
+        gets a nudge and a player who is lost eventually gets the shape of
+        the answer. Never more than the level wrote.
+        """
+        if failed_attempts < 2:
+            return []
+        return list(self.hints[: failed_attempts - 1])
 
     @property
     def multiplier(self) -> float:

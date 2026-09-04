@@ -80,6 +80,14 @@ LEVEL = Level(
     starter=STARTER,
     reference=REFERENCE,
     make_tests=make_tests,
+    hints=(
+        'Keep a variable for the best word so far. Starting it at "" works, '
+        "because every word is at least as long as nothing.",
+        "Compare lengths, not words: len(word) > len(longest) asks the "
+        "question you mean.",
+        "Use > and not >=. With >, a later word of the same length does not "
+        "replace the one you already have, which is what keeps the first.",
+    ),
     par_seconds=300.0,
     tags=("basics", "loops", "strings"),
 )

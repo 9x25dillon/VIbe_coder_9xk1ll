@@ -290,6 +290,30 @@ class TestRunning(unittest.TestCase):
         ed.execute()
         self.assertEqual(ed.attempt, 2)
 
+    def test_a_failed_run_offers_a_hint_from_the_second_attempt(self):
+        """A beginner stuck in the editor has nobody to ask."""
+        ed = editor(level_id="w1-l6-tally")
+        ed.buffer.load(ed.level.starter)
+        ed.execute()
+        self.assertEqual(ed.status, "", "the first attempt earns no hint")
+        ed.execute()
+        self.assertIn(ed.level.hints[0], ed.status)
+
+    def test_a_passing_run_never_shows_a_hint(self):
+        ed = editor(level_id="w1-l6-tally")
+        ed.buffer.load(ed.level.reference)
+        ed.execute()
+        ed.execute()
+        self.assertEqual(ed.status, "")
+
+    def test_the_hint_shown_is_the_newest_one(self):
+        """One status row, so the ladder's latest rung is the useful one."""
+        ed = editor(level_id="w1-l6-tally")
+        ed.buffer.load(ed.level.starter)
+        for _ in range(3):
+            ed.execute()
+        self.assertIn(ed.level.hints[1], ed.status)
+
     def test_the_editor_is_not_left_busy_after_a_run(self):
         ed = editor()
         ed.buffer.load("def f(:")

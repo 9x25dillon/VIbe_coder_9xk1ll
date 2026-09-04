@@ -62,6 +62,14 @@ LEVEL = Level(
     starter=STARTER,
     reference=REFERENCE,
     make_tests=make_tests,
+    hints=(
+        "Start with an empty list, add to it inside the loop with "
+        ".append(...), and return it at the end.",
+        "Whatever you append has to be the doubled value: number * 2.",
+        "Once that works, try saying the same thing in one line: "
+        "[number * 2 for number in numbers]. That is a list comprehension, "
+        "and it is what this level's style goal is asking for.",
+    ),
     par_seconds=240.0,
     tags=("basics", "lists"),
     style_goals=("uses_comprehension",),

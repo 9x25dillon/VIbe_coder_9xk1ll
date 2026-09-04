@@ -34,12 +34,26 @@ class TipContext:
 
 
 Rule = Callable[[TipContext], str | None]
+
+#: A rule about whether the code is *right*. These are the only ones worth
+#: showing to somebody whose program does not work yet.
+CORRECTNESS = "correctness"
+#: A rule about whether working code is idiomatic or efficient. Useful once it
+#: runs, noise before that.
+POLISH = "polish"
+
 RULES: list[Rule] = []
+KINDS: dict[str, str] = {}
 
 
-def rule(fn: Rule) -> Rule:
-    RULES.append(fn)
-    return fn
+def rule(fn: Rule | None = None, *, kind: str = POLISH):
+    """Register a tip rule. ``kind`` decides when it is allowed to speak."""
+    def register(target: Rule) -> Rule:
+        RULES.append(target)
+        KINDS[target.__name__] = kind
+        return target
+
+    return register(fn) if fn is not None else register
 
 
 def _target(ctx: TipContext) -> ast.AST | None:
@@ -80,7 +94,7 @@ def accumulator_loop(ctx: TipContext) -> str | None:
     return None
 
 
-@rule
+@rule(kind=CORRECTNESS)
 def range_len_indexing(ctx: TipContext) -> str | None:
     target = _target(ctx)
     if target is None:
@@ -98,6 +112,43 @@ def range_len_indexing(ctx: TipContext) -> str | None:
             return (
                 "`range(len(xs))` means you want both the index and the item - "
                 "`enumerate(xs)` gives you both without the indexing."
+            )
+    return None
+
+
+@rule(kind=CORRECTNESS)
+def range_len_off_by_one(ctx: TipContext) -> str | None:
+    """``range(len(xs) + 1)``: the loop that always walks one past the end.
+
+    Narrow on purpose. It matches the literal ``+ 1`` on a ``len()`` inside a
+    ``range()``, which is a bug with exactly one cause and one fix -- unlike
+    a general "you got an IndexError" message, which a player can already see.
+    """
+    target = _target(ctx)
+    if target is None:
+        return None
+    for node in ast.walk(target):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "range"
+            and len(node.args) == 1
+            and isinstance(node.args[0], ast.BinOp)
+            and isinstance(node.args[0].op, ast.Add)
+        ):
+            continue
+        left, right = node.args[0].left, node.args[0].right
+        adds_one = isinstance(right, ast.Constant) and right.value == 1
+        is_len = (
+            isinstance(left, ast.Call)
+            and isinstance(left.func, ast.Name)
+            and left.func.id == "len"
+        )
+        if adds_one and is_len:
+            return (
+                "`range(len(xs) + 1)` takes one step past the end of the list, "
+                "so the last index does not exist. A list of 4 items has "
+                "indexes 0 to 3, and `range(len(xs))` stops in the right place."
             )
     return None
 
@@ -146,7 +197,7 @@ def string_concat_in_loop(ctx: TipContext) -> str | None:
     return None
 
 
-@rule
+@rule(kind=CORRECTNESS)
 def bare_except(ctx: TipContext) -> str | None:
     target = _target(ctx)
     if target is None:
@@ -166,10 +217,17 @@ def inefficient_versus_reference(ctx: TipContext) -> str | None:
         return None
     ratio = ctx.result.ops / ctx.ref_ops
     if ratio >= OPS_TIP_FACTOR:
+        # State the measurement, and name the usual causes as possibilities
+        # rather than as a diagnosis. The op count says *how much* work was
+        # done, never *why*, and this rule has not looked. Claiming "work
+        # repeated inside a loop" on a solution whose only cost is `append`
+        # versus a comprehension sends a beginner hunting for a bug that is
+        # not there, and a confidently wrong tip is worse than none (Q33).
         return (
             f"Correct, but your solution executes about {ratio:.1f}x as many "
-            f"lines as the reference. Look for work being repeated inside a loop "
-            f"that could happen once outside it."
+            f"lines as the reference. That usually means an extra pass over "
+            f"the data, or work inside a loop that could happen once outside "
+            f"it."
         )
     return None
 
@@ -254,8 +312,17 @@ def generate(
         style_results=style_results or {},
     )
 
+    # A run where nothing passed is not a style conversation. The player has a
+    # broken program and needs the failure, which the results block already
+    # shows; advice about comprehensions on top of it reads as the game missing
+    # the point. Only correctness rules speak here -- and if none of them has
+    # anything to say, saying nothing is the right answer.
+    candidates = RULES
+    if result.outcomes and result.passed_count == 0:
+        candidates = [r for r in RULES if KINDS.get(r.__name__) == CORRECTNESS]
+
     tips: list[str] = []
-    for check in RULES:
+    for check in candidates:
         try:
             message = check(ctx)
         except Exception:  # noqa: BLE001 - a broken rule must not break the game

@@ -136,3 +136,63 @@ class TestReferenceSolutions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHints(unittest.TestCase):
+    """The hint ladder is the beginner's substitute for a person to ask."""
+
+    def beginners(self):
+        return [lvl for lvl in all_levels() if lvl.world == 1]
+
+    def test_every_beginner_level_offers_hints(self):
+        for level in self.beginners():
+            with self.subTest(level=level.id):
+                self.assertTrue(level.hints, "a beginner level needs hints")
+
+    def test_the_first_attempt_earns_nothing(self):
+        """Being stuck briefly is the part of the exercise that teaches."""
+        for level in self.beginners():
+            with self.subTest(level=level.id):
+                self.assertEqual(level.hints_after(0), [])
+                self.assertEqual(level.hints_after(1), [])
+
+    def test_hints_arrive_one_per_failure(self):
+        level = get_level("w1-l6-tally")
+        self.assertEqual(len(level.hints_after(2)), 1)
+        self.assertEqual(len(level.hints_after(3)), 2)
+        self.assertEqual(len(level.hints_after(4)), 3)
+
+    def test_the_ladder_never_exceeds_what_the_level_wrote(self):
+        for level in self.beginners():
+            with self.subTest(level=level.id):
+                self.assertEqual(
+                    len(level.hints_after(500)), len(level.hints)
+                )
+
+    def test_earlier_hints_are_kept_as_later_ones_arrive(self):
+        """The sequence is the teaching, so it is reprinted whole."""
+        level = get_level("w1-l3-count")
+        self.assertEqual(level.hints_after(3)[0], level.hints_after(2)[0])
+
+    def test_a_level_without_hints_is_still_valid(self):
+        """Hints are optional; the later worlds declare none."""
+        later = [lvl for lvl in all_levels() if lvl.world > 1]
+        self.assertTrue(later)
+        for level in later:
+            with self.subTest(level=level.id):
+                self.assertEqual(level.hints_after(9), [])
+
+    def test_no_hint_simply_hands_over_the_reference(self):
+        """A hint may show the shape of the answer, not paste the solution."""
+        for level in self.beginners():
+            body = [
+                line.strip()
+                for line in level.reference.splitlines()
+                if line.strip() and not line.strip().startswith("def ")
+            ]
+            for hint in level.hints:
+                with self.subTest(level=level.id, hint=hint[:40]):
+                    self.assertFalse(
+                        any(line == hint.strip() for line in body),
+                        "a hint is the whole reference line verbatim",
+                    )

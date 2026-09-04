@@ -4,6 +4,7 @@ A tip that fires on correct code is worse than no tip at all, so the negative
 cases here matter as much as the positive ones.
 """
 
+import ast
 import unittest
 
 from vibecoder import style, tips
@@ -154,3 +155,100 @@ class TestTips(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTipsForABrokenProgram(unittest.TestCase):
+    """A run where nothing passed gets correctness advice or silence.
+
+    Coaching somebody about comprehensions while their program raises on every
+    case reads as the game missing the point, so polish rules are held back
+    until something works.
+    """
+
+    def _result(self, passed: int, total: int) -> RunResult:
+        return RunResult(
+            outcomes=[
+                TestOutcome(name=f"t{i}", passed=i < passed, error="Boom" )
+                for i in range(total)
+            ],
+            ops=100,
+        )
+
+    NOTHING_WORKS = (
+        "def f(xs):\n"
+        "    total = 0\n"
+        "    for i in range(len(xs) + 1):\n"
+        "        total += xs[i]\n"
+        "    return total\n"
+    )
+
+    def test_a_broken_program_is_not_given_style_advice(self):
+        messages = tips.generate(
+            self.NOTHING_WORKS, "f", self._result(0, 5), ref_ops=10
+        )
+        self.assertTrue(
+            all("comprehension" not in m and "sum()" not in m for m in messages),
+            messages,
+        )
+
+    def test_a_broken_program_still_gets_the_off_by_one(self):
+        messages = tips.generate(
+            self.NOTHING_WORKS, "f", self._result(0, 5), ref_ops=10
+        )
+        self.assertTrue(
+            any("one step past the end" in m for m in messages), messages
+        )
+
+    def test_a_working_program_still_gets_polish_advice(self):
+        """The gate is on failure, not on the rules being disabled."""
+        messages = tips.generate(
+            self.NOTHING_WORKS, "f", self._result(5, 5), ref_ops=10
+        )
+        self.assertTrue(
+            any("sum()" in m or "enumerate" in m for m in messages), messages
+        )
+
+    def test_silence_is_allowed_when_no_correctness_rule_matches(self):
+        clean = "def f(xs):\n    return [x * 2 for x in xs]\n"
+        self.assertEqual(tips.generate(clean, "f", self._result(0, 3)), [])
+
+
+class TestOffByOneRule(unittest.TestCase):
+    def test_range_len_plus_one_is_caught(self):
+        code = "def f(xs):\n    for i in range(len(xs) + 1):\n        pass\n"
+        self.assertIsNotNone(
+            tips.range_len_off_by_one(
+                tips.TipContext(code, "f", ast.parse(code), RunResult(), 0, None, {})
+            )
+        )
+
+    def test_a_correct_range_len_is_not_flagged_as_off_by_one(self):
+        code = "def f(xs):\n    for i in range(len(xs)):\n        pass\n"
+        self.assertIsNone(
+            tips.range_len_off_by_one(
+                tips.TipContext(code, "f", ast.parse(code), RunResult(), 0, None, {})
+            )
+        )
+
+    def test_adding_something_other_than_one_is_not_flagged(self):
+        code = "def f(xs, n):\n    for i in range(len(xs) + n):\n        pass\n"
+        self.assertIsNone(
+            tips.range_len_off_by_one(
+                tips.TipContext(code, "f", ast.parse(code), RunResult(), 0, None, {})
+            )
+        )
+
+
+class TestTheEfficiencyTipClaimsOnlyWhatItChecked(unittest.TestCase):
+    """Q33: the tip used to diagnose a cause it had never looked for."""
+
+    def test_it_does_not_assert_loop_invariant_work(self):
+        code = "def f(xs):\n    out = []\n    for x in xs:\n        out.append(x)\n    return out\n"
+        result = RunResult(
+            outcomes=[TestOutcome(name="t", passed=True)], ops=500
+        )
+        messages = tips.generate(code, "f", result, ref_ops=100)
+        efficiency = [m for m in messages if "as many" in m]
+        self.assertTrue(efficiency)
+        self.assertNotIn("Look for work being repeated", efficiency[0])
+        self.assertIn("usually", efficiency[0])

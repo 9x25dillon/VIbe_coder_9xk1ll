@@ -41,9 +41,13 @@ dicts on line one. The on-ramp meets the road rather than stopping short of it.
 
 Each level's hand-written cases are the ones randomness will not produce: the
 empty list, the tie, the value exactly equal to the boundary, the empty string.
-`w1-l2-bigger` exists largely for its `equal_values` case — a beginner writes
-`>` without thinking about the tie, and a hand-written case turns that into a
-lesson rather than an intermittent mystery.
+One of those claims was wrong when written, and playing the level found it:
+`w1-l2-bigger`'s `equal_values` case cannot distinguish `>` from `>=`, because
+returning either argument on a tie gives the same number. It pins that a tie
+returns the value rather than `None`, which is worth having, but the tie that
+actually discriminates is in `w1-l5-longest`, where the answer is a *position*:
+`>=` there returns the last longest word and the case catches it. The docstring
+now says what the case proves instead of what it was meant to prove.
 
 Only `w1-l4-double` declares a style goal (`uses_comprehension`), and only
 because the player wrote the loop by hand in the level before. The idiom then

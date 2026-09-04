@@ -70,6 +70,13 @@ LEVEL = Level(
     starter=STARTER,
     reference=REFERENCE,
     make_tests=make_tests,
+    hints=(
+        "An f-string builds text with a value in the middle: "
+        'f"Hello, {name}!" - the part in braces is replaced by the variable.',
+        "You can also join pieces with +, but every piece has to be text: "
+        '"Hello, " + name + "!"',
+        'The whole function is one line: return f"Hello, {name}!"',
+    ),
     par_seconds=120.0,
     tags=("basics", "strings"),
 )

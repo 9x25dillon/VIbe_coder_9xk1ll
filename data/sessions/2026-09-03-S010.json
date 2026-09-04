@@ -1,0 +1,112 @@
+{
+  "id": "S010",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T4",
+  "competency_band": "Evaluate",
+  "journal": "journal/2026-09-03-S010-scaffolding.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A failing player is shown the input that broke their code", "result": "met", "note": "WHAT WENT WRONG expands the first failing case"},
+    {"id": 2, "statement": "One bug is reported once, not once per test case", "result": "met", "note": "identical errors collapse to a single line plus a count"},
+    {"id": 3, "statement": "A tip never asserts a cause it did not check", "result": "met", "note": "Q33 answered; the efficiency tip names causes as possibilities"},
+    {"id": 4, "statement": "A stuck player can get unstuck without leaving the game", "result": "met", "note": "three hints per beginner level, one per failed attempt after the first"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_print_first_failure, _echo, _print_hints"},
+    {"path": "vibecoder/tips.py", "kind": "module", "note": "rule kinds; range_len_off_by_one; reworded efficiency tip"},
+    {"path": "vibecoder/models.py", "kind": "module", "note": "Level.hints and Level.hints_after"},
+    {"path": "vibecoder/editor.py", "kind": "module", "note": "newest earned hint in the status row after a failed run"},
+    {"path": "vibecoder/ui.py", "kind": "module", "note": "hint glyph, with its ASCII fallback"},
+    {"path": "vibecoder/levels/w1_l1_greet.py", "kind": "level", "note": "three hints; five sibling levels likewise"},
+    {"path": "vibecoder/levels/w1_l2_bigger.py", "kind": "level", "note": "docstring corrected: equal_values cannot discriminate > from >="},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "16 tests over the failure block, value shortening and the hint ladder"},
+    {"path": "tests/test_style_and_tips.py", "kind": "test", "note": "rule kinds, the off-by-one rule, and the Q33 wording"},
+    {"path": "tests/test_levels.py", "kind": "test", "note": "TestHints, including that a hint never pastes the reference"},
+    {"path": "tests/test_editor.py", "kind": "test", "note": "hint appears from the second attempt, never on a pass"},
+    {"path": "journal/2026-09-03-S010-scaffolding.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "The failing input is shown", "method": "tests/test_cli_output.py::TestTheFailureBlock::test_the_input_is_shown", "result": "the argument list appears in the block", "verdict": "verified"},
+    {"claim": "Nothing is printed when everything passed", "method": "::test_nothing_is_printed_when_everything_passed", "result": "empty output", "verdict": "verified"},
+    {"claim": "One bug is reported once", "method": "::test_identical_errors_are_collapsed_into_one_line", "result": "a single copy of the error plus a count of the rest", "verdict": "verified"},
+    {"claim": "Mixed failures are counted rather than collapsed", "method": "::test_mixed_failures_are_counted_rather_than_collapsed", "result": "'1 more case failed'", "verdict": "verified"},
+    {"claim": "Long values keep both ends", "method": "::test_both_ends_survive", "result": "starts [0, 1, ends 399]", "verdict": "verified"},
+    {"claim": "A broken program gets no style advice", "method": "tests/test_style_and_tips.py::test_a_broken_program_is_not_given_style_advice", "result": "no comprehension or sum() message", "verdict": "verified"},
+    {"claim": "A broken program still gets correctness advice", "method": "::test_a_broken_program_still_gets_the_off_by_one", "result": "the off-by-one message fires", "verdict": "verified"},
+    {"claim": "Working code still gets polish advice", "method": "::test_a_working_program_still_gets_polish_advice", "result": "polish rules speak once something passes", "verdict": "verified"},
+    {"claim": "Silence is allowed when no correctness rule matches", "method": "::test_silence_is_allowed_when_no_correctness_rule_matches", "result": "no tips", "verdict": "verified"},
+    {"claim": "The off-by-one rule does not fire on correct code", "method": "::test_a_correct_range_len_is_not_flagged_as_off_by_one", "result": "None", "verdict": "verified"},
+    {"claim": "The efficiency tip no longer asserts a cause", "method": "::TestTheEfficiencyTipClaimsOnlyWhatItChecked", "result": "no 'Look for work being repeated'", "verdict": "verified"},
+    {"claim": "The first attempt earns no hint", "method": "tests/test_levels.py::TestHints::test_the_first_attempt_earns_nothing", "result": "empty for every beginner level", "verdict": "verified"},
+    {"claim": "Hints arrive one per failure", "method": "::test_hints_arrive_one_per_failure", "result": "1, 2, 3 after 2, 3, 4 failures", "verdict": "verified"},
+    {"claim": "A hint never pastes the reference", "method": "::test_no_hint_simply_hands_over_the_reference", "result": "no hint equals a reference body line", "verdict": "verified"},
+    {"claim": "The editor shows a hint from the second attempt", "method": "tests/test_editor.py::test_a_failed_run_offers_a_hint_from_the_second_attempt", "result": "status carries hints[0]", "verdict": "verified"},
+    {"claim": "A passing run never shows a hint", "method": "::test_a_passing_run_never_shows_a_hint", "result": "status empty", "verdict": "verified"},
+    {"claim": "Output is identical at every colour depth", "method": "assertions on escape-stripped text; showcase piped", "result": "0 escape codes in a pipe", "verdict": "verified"},
+    {"claim": "The suite is green", "method": "python3.11 -m unittest discover -s tests", "result": "553 tests OK in 83.8s", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36 clean", "verdict": "verified"},
+    {"claim": "The hints are pitched right for a real beginner", "method": "none - no beginner has read them", "result": "written from the concept ladder, not observed", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M20",
+      "believed": "The zero-score run's problem was that a sum() tip fired on a broken program, so gating polish rules behind 'something passed' fixed it.",
+      "revealed_by": "Doing exactly that and re-running. The player then got no tip at all - better, but the submission contained range(len(numbers) + 1), a specific and very common beginner bug the game could name outright. The existing rule missed it by one AST node.",
+      "corrected_to": "Two changes, not one. Suppression stops the wrong answer; only a new rule supplies the right one. Stopping at the gate would have looked like a fix in the diff and left a blank space where the diagnosis belongs.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The intermediate state passed every test written for it and was visibly worse for the player than the state after. That is an argument for playing the thing between changes rather than at the end."
+    },
+    {
+      "id": "M21",
+      "believed": "w1-l2-bigger's equal_values case would catch a beginner writing > where >= belongs - the level's stated reason to exist, in its docstring and in S009's journal entry.",
+      "revealed_by": "Playing the level with exactly that mistake, per CLAUDE.md section 7's instruction to play a level after its contract tests pass. It passes: for a function returning the larger of two numbers a tie returns the same value whichever branch runs, so the case cannot discriminate.",
+      "corrected_to": "The case pins that a tie returns a value rather than None, which is worth having and is not what was claimed. The discriminating tie is in w1-l5-longest, where the answer is a position: >= there returns the last longest word and tie_keeps_the_first catches it.",
+      "cost_minutes": 5,
+      "caught_before_shipping": false,
+      "generalisable_lesson": "The contract tests were green throughout, because well-formedness and pedagogy are different properties and only one of them is mechanically checkable. A case named after the lesson it should teach is not evidence that it teaches it."
+    }
+  ],
+  "decisions": [
+    {"id": "D57", "decision": "Only the first failing case is expanded", "alternatives": ["Expand all", "Expand none"], "rationale": "Later failures are usually the same bug again; the pass/fail list above still names every case.", "reversible": true, "seam": "vibecoder/cli.py::_print_first_failure"},
+    {"id": "D58", "decision": "Tip rules are tagged correctness or polish", "alternatives": ["A flat list with an ordering", "A hard limit when nothing passes"], "rationale": "The limit was arbitrary and still let the wrong rule win. The tag says why a rule may speak, which is the actual distinction.", "reversible": true, "seam": "vibecoder/tips.py::rule"},
+    {"id": "D59", "decision": "Silence is a valid tip outcome", "alternatives": ["Always emit something"], "rationale": "A filler tip on a broken program is the behaviour being removed; re-adding it under another name would be worse.", "reversible": true, "seam": "vibecoder/tips.py::generate"},
+    {"id": "D60", "decision": "range(len(xs) + 1) gets its own narrow rule", "alternatives": ["Broaden range_len_indexing"], "rationale": "Different bugs with different fixes. Broadening would make one message serve two causes and be vague about both.", "reversible": true, "seam": "vibecoder/tips.py::range_len_off_by_one"},
+    {"id": "D61", "decision": "The first attempt earns no hint", "alternatives": ["Hint immediately", "Hint on request"], "rationale": "Being stuck briefly is what does the teaching; a hint on attempt one replaces the exercise.", "reversible": true, "seam": "vibecoder/models.py::Level.hints_after"},
+    {"id": "D62", "decision": "play reprints the whole ladder; the editor shows the newest", "alternatives": ["Both show one", "Both show all"], "rationale": "Earlier rungs have scrolled away in a terminal, but the editor has one status row. Different constraints, same ladder.", "reversible": true, "seam": "vibecoder/cli.py::_print_hints"}
+  ],
+  "friction": [
+    {"description": "No test file existed for cli.py because the architecture rule is that nothing imports it. Nothing in the package importing it is the rule; a test importing it creates no cycle, because nothing imports the test. Written into the new test module's docstring so the next reader does not re-derive it.", "impact": "low", "resolved": true},
+    {"description": "The suite ran in 84s here against 140s earlier the same day on the same machine. The spread is Docker cold-start, so the living docs now quote a range and say why, rather than a number that goes stale between two runs an hour apart.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "Both halves of the beginner request are landed. 553 tests green unpinned, verify clean on 36 reference runs, showcase prints zero escapes in a pipe. 12 levels across 3 worlds; World 1 has hints, later worlds declare none.",
+    "next_action": "Nothing outstanding on the beginner track. The queue is unchanged: T2 W4 (GitHub OAuth ingestion) is still blocked on a registered OAuth application and the client-versus-server profiling decision; T2 W5 (.zip ingestion with a decompression bomb guard) is unblocked and exercises the same budgets.",
+    "blockers": ["None introduced here"],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D58 before adding a tip rule: a new rule must declare its kind or it silently defaults to POLISH and will not speak to a player whose code is broken",
+      "D61 before changing when hints appear"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q33", "question": "Should the efficiency tip be conditioned on evidence of loop-invariant work, or reworded?", "owner": "T4", "status": "answered", "answer": "Reworded. The op count measures how much work happened and never why, so the rule now names causes as possibilities rather than diagnosing one. Conditioning it properly would mean detecting loop-invariant work, which is a real analysis rather than a tip rule."},
+    {"id": "Q37", "question": "A new tip rule defaults to POLISH, so forgetting the kind means it never speaks to a broken program - the quiet failure D36 warned about in another context. Should kind be required, the way Source is on run_code?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q38", "question": "Hints are static text per level, so a player who fails three times for three different reasons gets the same ladder as one failing the same way three times. Should a hint be selected by what actually failed rather than by attempt count?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q39", "question": "_echo shortens with a middle ellipsis at 88 characters, chosen for an 80-column terminal. The editor and play have different widths available and neither passes its own. Should the cap follow the terminal?", "owner": "T7", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 553,
+    "tests_passing": 553,
+    "tests_added": 34,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 36,
+    "tip_rules": 10,
+    "correctness_tip_rules": 3,
+    "hints_per_beginner_level": 3
+  }
+}

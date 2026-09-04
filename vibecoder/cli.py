@@ -24,11 +24,12 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Sequence
 
 from . import levels as level_registry
 from . import sandbox
 from . import style, tips
-from .models import Level, RunResult, Source
+from .models import Level, RunResult, Source, TestCase
 from .profiler import profile_path, recommend
 from .runner import reference_benchmark, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
@@ -189,7 +190,84 @@ def cmd_levels(args: argparse.Namespace) -> int:
 # play
 # --------------------------------------------------------------------------
 
-def _print_results(result: RunResult) -> None:
+#: Longest argument or value echoed back in the failure block. A 600-element
+#: list is the input to one of the beginner levels, and printing it would bury
+#: the point rather than make it.
+MAX_ECHO = 88
+
+
+def _echo(value: object) -> str:
+    """``repr`` of a value, shortened in the middle so both ends survive.
+
+    The ends are what identify a case -- the first few items say what kind of
+    data it is, the last few show where it stops -- so a middle ellipsis keeps
+    more meaning than a truncated tail.
+    """
+    text = value if isinstance(value, str) else repr(value)
+    if len(text) <= MAX_ECHO:
+        return text
+    keep = (MAX_ECHO - 5) // 2
+    return f"{text[:keep]} ... {text[-keep:]}"
+
+
+def _print_first_failure(result: RunResult, tests: Sequence[TestCase]) -> None:
+    """Show the first failing case in full: input, expectation, and outcome.
+
+    The pass/fail list says *which* case failed and the score says how badly,
+    but neither says what the code was given -- and without the input a player
+    cannot reproduce the failure by hand, which is the first thing a beginner
+    needs to do. Only the first failure is expanded: when a program is broken
+    the later cases are usually the same bug seen again, and eight copies of
+    it teaches nothing the first did not.
+    """
+    failed = [o for o in result.outcomes if not o.passed]
+    if not failed:
+        return
+    first = failed[0]
+    by_name = {test.name: test for test in tests}
+    case = by_name.get(first.name)
+
+    print(f"\n{UI.rule('WHAT WENT WRONG', width=76)}\n")
+    if case is not None and (case.args or case.kwargs):
+        arguments = [_echo(arg) for arg in case.args]
+        arguments += [f"{key}={_echo(val)}" for key, val in case.kwargs.items()]
+        print(f"  {UI.paint('given', MUTED)}       {', '.join(arguments)}")
+    if first.error:
+        print(f"  {UI.paint('your code', MUTED)}   raised {UI.paint(first.error, BAD)}")
+    else:
+        print(f"  {UI.paint('expected', MUTED)}    {_echo(first.expected)}")
+        print(f"  {UI.paint('you gave', MUTED)}    {UI.paint(_echo(first.got), BAD)}")
+
+    others = len(failed) - 1
+    if others:
+        plural = "case" if others == 1 else "cases"
+        same = sum(1 for o in failed[1:] if o.error and o.error == first.error)
+        if same == others:
+            note = f"The other {others} {plural} stopped the same way."
+        else:
+            note = f"{others} more {plural} failed."
+        print(f"\n  {UI.paint(note, FAINT)}")
+
+
+def _print_hints(level: Level, failed_attempts: int) -> None:
+    """Reveal the hints this many failures have earned.
+
+    Printed on the retry path only, so a player who is about to try again sees
+    them and a player who has already solved it never does. The whole earned
+    ladder is reprinted each time rather than only the newest line, because
+    the earlier hints have scrolled away by now and the sequence is the point.
+    """
+    earned = level.hints_after(failed_attempts)
+    if not earned:
+        return
+    print(f"\n{UI.rule('HINT', width=76)}\n")
+    for hint in earned:
+        for line in wrap(hint, 72, indent="    "):
+            print(UI.paint(line, MUTED))
+        print()
+
+
+def _print_results(result: RunResult, tests: Sequence[TestCase] = ()) -> None:
     if result.fatal:
         print(f"\n  {UI.badge(result.error_type or 'ERROR', BAD)} {result.error}")
         return
@@ -216,6 +294,8 @@ def _print_results(result: RunResult) -> None:
     )
     if result.stdout.strip():
         print(f"\n  {UI.paint('stdout:', FAINT)}\n{result.stdout.rstrip()}")
+
+    _print_first_failure(result, tests)
 
 
 def _edit(path: Path) -> None:
@@ -280,10 +360,11 @@ def cmd_play(args: argparse.Namespace) -> int:
         )
         if attempt == 1:
             first_run_clean = not result.fatal
-        _print_results(result)
+        _print_results(result, tests)
 
         if result.all_passed or args.solution:
             break
+        _print_hints(level, attempt)
         try:
             prompt = UI.paint("[enter] keep editing, 'q' to give up: ", FAINT)
             again = input(f"\n  {prompt}")

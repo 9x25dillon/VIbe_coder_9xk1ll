@@ -494,6 +494,13 @@ class Editor:
 
         if result.all_passed:
             self._bank(score)
+        else:
+            # Only the newest hint: the status line is one row, and a player
+            # who wants the whole ladder has it in `vibecoder play`. Earning
+            # one is silent until the second failed run -- see Level.hints.
+            earned = self.level.hints_after(self.attempt)
+            if earned:
+                self.status = f"{self.glyph('hint')} {earned[-1]}"
 
     def _on_test(self, index: int, total: int, name: str, passed: bool) -> None:
         """One test reported. Redraw so the player sees it land.

@@ -67,6 +67,14 @@ LEVEL = Level(
     starter=STARTER,
     reference=REFERENCE,
     make_tests=make_tests,
+    hints=(
+        "Make a variable called count set to 0 before the loop, not inside "
+        "it. A variable created inside a loop is reset on every pass.",
+        "Loop over the values directly: for number in numbers. You do not "
+        "need the position, only the value.",
+        "Inside the loop: if number > limit, then count = count + 1. "
+        "Return count after the loop has finished, not inside it.",
+    ),
     par_seconds=240.0,
     tags=("basics", "loops"),
 )
