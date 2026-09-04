@@ -15,7 +15,7 @@ drifts on a line containing an emoji.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Iterator
+from typing import Iterator, Sequence
 
 INDENT = 4
 #: Lines ending in one of these open a block, so the next line indents.
@@ -23,20 +23,31 @@ OPENERS = (":",)
 QUOTES = ("'", '"')
 #: Typing one of these as the first thing on a line closes a block.
 DEDENT_KEYWORDS = ("else", "elif", "except", "finally", "return", "pass", "raise")
+OPEN_BRACKETS = "([{"
+CLOSE_BRACKETS = ")]}"
+#: How far back to look for the start of a logical line. A statement spanning
+#: more than this many physical lines is pathological, and an unbounded walk
+#: would make one Enter keypress cost the whole buffer.
+LOOKBACK = 200
 
 
-def code_part(line: str) -> str:
-    """``line`` with any trailing comment removed.
+def scan(line: str) -> tuple[str, int]:
+    """``line`` without its trailing comment, and its net bracket depth change.
 
-    ``if x:  # only the expensive ones`` opens a block just as much as ``if x:``
-    does, so the auto-indent check has to look past the comment. A plain
-    ``split("#")`` would cut ``sep = "#"`` in half, so this tracks quoting --
-    badly enough to be honest about it: it understands single and double
-    quotes and backslash escapes, which is everything that appears on a line
-    ending in a colon, and it does not attempt triple-quoted strings.
+    One pass answers both questions because they need the same thing to be
+    correct: knowing which characters are inside a string literal. A plain
+    ``split("#")`` cuts ``sep = "#"`` in half, and a plain ``count("(")``
+    counts the parenthesis in ``s = "(("``.
+
+    The quoting model is deliberately shallow -- single and double quotes with
+    backslash escapes -- and does not attempt triple-quoted strings. That
+    covers every line that ends a statement, which is all the auto-indent
+    looks at. A line inside a docstring can be misread; the cost is one
+    wrong indent level, not a wrong program.
     """
     quote = ""
     escaped = False
+    depth = 0
     for index, character in enumerate(line):
         if escaped:
             escaped = False
@@ -52,8 +63,76 @@ def code_part(line: str) -> str:
             quote = character
             continue
         if character == "#":
-            return line[:index]
-    return line
+            return line[:index], depth
+        if character in OPEN_BRACKETS:
+            depth += 1
+        elif character in CLOSE_BRACKETS:
+            depth -= 1
+    return line, depth
+
+
+def code_part(line: str) -> str:
+    """``line`` with any trailing comment removed.
+
+    ``if x:  # only the expensive ones`` opens a block just as much as
+    ``if x:`` does, so the auto-indent check has to look past the comment.
+    """
+    return scan(line)[0]
+
+
+def logical_line(lines: Sequence[str], row: int) -> tuple[int, int]:
+    """``(first row of the logical line ending at row, bracket depth inherited)``.
+
+    Walks backwards rather than forwards from the top of the buffer, because
+    this runs on every Enter and a forward scan would make that cost grow with
+    the file. Accumulating deltas from ``row - 1`` downwards, the first line
+    that leaves the running total *positive* is the one holding a bracket open
+    across our line: it starts the logical line, and the total is the depth we
+    inherit from it. A balanced pair that opened and closed above us nets out
+    to zero on the way past, which is exactly the answer we want.
+    """
+    depth = 0
+    for index in range(row - 1, max(-1, row - 1 - LOOKBACK), -1):
+        depth += scan(lines[index])[1]
+        if depth > 0:
+            return index, depth
+    return row, 0
+
+
+def depth_before(lines: Sequence[str], row: int) -> int:
+    """Bracket depth at the start of ``lines[row]``."""
+    return logical_line(lines, row)[1]
+
+
+def opens_block_at(line: str, inherited_depth: int) -> bool:
+    """Whether ``line`` opens a block, given the depth it inherits.
+
+    Split from :func:`opens_block` so a caller that already knows where the
+    logical line starts does not walk backwards a second time to find out.
+    """
+    code, delta = scan(line)
+    return code.rstrip().endswith(OPENERS) and inherited_depth + delta <= 0
+
+
+def opens_block(lines: Sequence[str], row: int) -> bool:
+    """Whether the logical line ending at ``lines[row]`` opens an indented block.
+
+    The test is a trailing colon **at bracket depth zero**, which is what makes
+    this a question about the logical line rather than the physical one. Inside
+    brackets a colon is a dict entry, a slice or an annotation, and indenting
+    after it is wrong::
+
+        d = {
+            'key':      <- a value follows, not a block
+
+    while a colon that closes a continued signature is right::
+
+        def f(a,
+              b):       <- a block follows
+
+    Both lines end in a colon. Only the depth tells them apart.
+    """
+    return opens_block_at(lines[row], depth_before(lines, row))
 
 
 @dataclass(frozen=True)
@@ -227,9 +306,19 @@ class Buffer:
         self._checkpoint("newline")
         self.break_undo()
         current = self.line
-        indent = len(current) - len(current.lstrip())
-        if code_part(current).rstrip().endswith(OPENERS):
-            indent += INDENT
+        # One backward walk answers both questions: whether a block opens, and
+        # where to measure its indentation from.
+        start_row, inherited = logical_line(self.lines, self.row)
+        if opens_block_at(current, inherited):
+            # Indent the body from where the *statement* began, not from this
+            # physical line: the body of ``def f(a,\n      b):`` belongs one
+            # level in from ``def``, not one level in from ``b``.
+            start = self.lines[start_row]
+            indent = len(start) - len(start.lstrip()) + INDENT
+        else:
+            # No block: keep this line's own indentation, which is what holds
+            # a hand-aligned continuation where the author put it.
+            indent = len(current) - len(current.lstrip())
         self._split_line()
         if indent:
             self._insert_inline(" " * indent)

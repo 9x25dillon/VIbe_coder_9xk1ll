@@ -2,7 +2,7 @@
 
 import unittest
 
-from vibecoder.editing import INDENT, Buffer, code_part
+from vibecoder.editing import INDENT, Buffer, code_part, logical_line, scan
 
 
 class TestInsertion(unittest.TestCase):
@@ -250,10 +250,6 @@ class TestLoad(unittest.TestCase):
         self.assertEqual(Buffer("").lines, [""])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestTrailingComments(unittest.TestCase):
     """`if x:  # note` opens a block exactly as much as `if x:` does."""
 
@@ -293,3 +289,104 @@ class TestTrailingComments(unittest.TestCase):
         b.end()
         b.newline()
         self.assertEqual(len(b.lines[1]), INDENT * 2)
+
+
+class TestLogicalLines(unittest.TestCase):
+    """A colon opens a block only at bracket depth zero.
+
+    The physical line is the wrong unit. ``'key':`` and ``b):`` both end in a
+    colon and only one of them starts a block, so every case here is a pair
+    that a raw-line check gets wrong in one direction or the other.
+    """
+
+    def _indent_after(self, text: str) -> int:
+        """Indentation of the line Enter creates at the end of ``text``."""
+        b = Buffer(text)
+        lines = text.split("\n")
+        b.goto(len(lines) - 1, len(lines[-1]))
+        b.newline()
+        return len(b.line) - len(b.line.lstrip())
+
+    # -- the colon that does not open a block ------------------------------
+
+    def test_a_colon_inside_a_dict_literal_does_not_open_a_block(self):
+        """The failure this class exists for: a raw-line check indents here."""
+        self.assertEqual(self._indent_after("d = {\n    'key':"), INDENT)
+
+    def test_a_colon_in_a_subscript_does_not_open_a_block(self):
+        self.assertEqual(self._indent_after("x = d['k':]"), 0)
+
+    def test_a_colon_inside_a_string_does_not_open_a_block(self):
+        self.assertEqual(self._indent_after("s = 'a:'"), 0)
+
+    def test_a_lambda_colon_mid_line_does_not_open_a_block(self):
+        self.assertEqual(self._indent_after("f = lambda x: x"), 0)
+
+    # -- the colon that does ------------------------------------------------
+
+    def test_a_continued_signature_opens_a_block(self):
+        """``b):`` closes the bracket, so its colon is at depth zero."""
+        self.assertEqual(self._indent_after("def f(a,\n      b):"), INDENT)
+
+    def test_a_body_indents_from_the_statement_not_the_continuation(self):
+        """One level in from ``def``, not one level in from ``b``."""
+        self.assertEqual(self._indent_after("    def m(self,\n            x):"),
+                         INDENT * 2)
+
+    def test_an_opener_after_a_closed_multiline_call_still_opens(self):
+        self.assertEqual(self._indent_after("foo(\n    a,\n)\nif z:"), INDENT)
+
+    # -- continuations keep the alignment the author chose ------------------
+
+    def test_a_hand_aligned_continuation_is_preserved(self):
+        self.assertEqual(
+            self._indent_after("    x = foo(a,\n              b,"), 14
+        )
+
+    def test_an_open_bracket_alone_does_not_indent(self):
+        self.assertEqual(self._indent_after("x = foo(a,"), 0)
+
+    # -- the scanner underneath ---------------------------------------------
+
+    def test_scan_counts_brackets_outside_strings(self):
+        self.assertEqual(scan("foo(a, [b], {c})")[1], 0)
+
+    def test_scan_ignores_brackets_inside_strings(self):
+        self.assertEqual(scan('s = "(("')[1], 0)
+
+    def test_scan_ignores_brackets_inside_comments(self):
+        self.assertEqual(scan("x = 1  # ((( note")[1], 0)
+
+    def test_scan_reports_an_unclosed_bracket(self):
+        self.assertEqual(scan("x = foo(a,")[1], 1)
+
+    def test_scan_reports_a_closing_bracket(self):
+        self.assertEqual(scan("      b)")[1], -1)
+
+    def test_a_logical_line_starts_where_its_bracket_opened(self):
+        lines = ["d = {", "    'a': 1,", "    'key':"]
+        self.assertEqual(logical_line(lines, 2), (0, 1))
+
+    def test_a_complete_statement_is_its_own_logical_line(self):
+        lines = ["x = 1", "y = 2"]
+        self.assertEqual(logical_line(lines, 1), (1, 0))
+
+    def test_a_balanced_call_above_does_not_continue_into_the_next_line(self):
+        lines = ["foo(", "    a,", ")", "if z:"]
+        self.assertEqual(logical_line(lines, 3), (3, 0))
+
+    def test_the_backward_walk_is_bounded(self):
+        """An unclosed bracket beyond the lookback must not cost the buffer.
+
+        The bound is the reason one Enter keypress stays constant-time on a
+        large file; this pins that it is actually applied.
+        """
+        from vibecoder.editing import LOOKBACK
+
+        lines = ["foo("] + ["    a," for _ in range(LOOKBACK + 50)] + ["    b:"]
+        self.assertEqual(logical_line(lines, len(lines) - 1)[0],
+                         len(lines) - 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

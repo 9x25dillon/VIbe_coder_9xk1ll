@@ -9,7 +9,7 @@ import re
 import unittest
 
 from vibecoder.editing import INDENT
-from vibecoder.editor import Editor
+from vibecoder.editor import Editor, steady_heap
 from vibecoder.keys import Key
 from vibecoder.levels import get_level
 from vibecoder.term import MIN_HEIGHT, MIN_WIDTH
@@ -328,56 +328,177 @@ class TestLatency(unittest.TestCase):
     keystroke path: dispatch, recompose, diff. Writing to the terminal is
     excluded because a pty in CI is not a terminal emulator, and timing one
     would measure the harness.
+
+    Two clocks, because they answer different questions (this is the answer to
+    Q27, which asked whether a timing budget should be a percentile or a worst
+    case -- it turned out to be neither on its own):
+
+    * **Wall clock, median.** What a player feels. It cannot carry a worst-case
+      assertion: a keystroke costing 3 ms of CPU has been observed taking
+      145 ms of wall clock because the OS descheduled the process, which says
+      nothing about this code. The median is robust to that and still fails
+      honestly if typing gets slower.
+    * **CPU time, worst case.** What this code costs. Immune to preemption, so
+      it can assert *every* keystroke rather than most of them, which is the
+      only form of "never exceeds, even under load" that is actually testable.
     """
 
     BUDGET_MS = 16.0
 
-    def _sample(self, ed, columns=80, rows=24, presses=120):
-        """The 95th percentile of per-keystroke cost, in milliseconds.
+    #: The worst-case bound, asserted against CPU time rather than wall clock.
+    #: Answers Q27: a wall-clock worst case measures the machine as much as the
+    #: code -- one scheduler preemption from a parallel Docker run failed a
+    #: build that proved nothing. CPU time excludes time the process was not
+    #: running, so "never exceeds this, even under load" becomes a claim about
+    #: this code that stays true on a busy machine instead of a claim about how
+    #: quiet the machine was. Wall clock still guards the median above, because
+    #: that is what a player actually feels.
+    STRICT_BUDGET_MS = 12.7
 
-        A worst-of-N wall-clock assertion measures the machine as much as the
-        code: one scheduling hiccup from a busy CPU fails a run that proves
-        nothing, which is how a timing test stops being read (Q27). A
-        percentile keeps the budget meaningful and stops a single stall from
-        deciding it. The worst case is still reported on failure.
-        """
+    #: Where the strict bound is measured. Highlighting and the frame diff are
+    #: viewport-scoped, so cost should be flat in buffer size; a regression that
+    #: makes any of it whole-buffer shows up here first.
+    LARGE_BUFFER_LINES = 4000
+
+    def _sample(self, ed, columns=80, rows=24, presses=120):
+        """``(median, p95, worst)`` per-keystroke wall-clock cost, in ms."""
         import time
 
         previous = ed.compose(rows, columns, now=NOW)
         samples = []
-        for index in range(presses):
-            started = time.perf_counter()
-            ed.handle(Key("char", "x"), now=NOW + index * 0.05)
-            frame = ed.compose(rows, columns, now=NOW + index * 0.05)
-            frame.diff(previous)
-            samples.append((time.perf_counter() - started) * 1000)
-            previous = frame
+        # `loop` runs under this, so measuring without it would time a
+        # configuration the game never uses.
+        with steady_heap():
+            for index in range(presses):
+                started = time.perf_counter()
+                ed.handle(Key("char", "x"), now=NOW + index * 0.05)
+                frame = ed.compose(rows, columns, now=NOW + index * 0.05)
+                frame.diff(previous)
+                samples.append((time.perf_counter() - started) * 1000)
+                previous = frame
         samples.sort()
-        return samples[int(len(samples) * 0.95)], samples[-1]
+        return (samples[len(samples) // 2],
+                samples[int(len(samples) * 0.95)],
+                samples[-1])
 
     def test_a_keystroke_is_handled_within_the_frame_budget(self):
         ed = editor(FULL)
         ed.buffer.load("def solve(rows):\n    return [r for r in rows]")
         ed.buffer.end()
-        p95, worst = self._sample(ed)
-        self.assertLess(p95, self.BUDGET_MS,
-                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
+        median, p95, worst = self._sample(ed)
+        self.assertLess(median, self.BUDGET_MS,
+                        f"median {median:.1f}ms (p95 {p95:.1f}, worst {worst:.1f})")
 
     def test_the_budget_holds_on_a_large_buffer(self):
-        """Highlighting runs over the whole buffer on every keystroke."""
+        """A buffer far taller than the viewport must not cost more to type in.
+
+        Highlighting and the diff are viewport-scoped, so this should read the
+        same as the small-buffer case; `test_keystroke_cost_does_not_grow_with
+        _the_buffer` asserts that relationship directly.
+        """
         ed = editor(FULL)
         ed.buffer.load("\n".join(f"value_{n} = {n} * 2  # note" for n in range(400)))
         ed.buffer.goto(200, 0)
-        p95, worst = self._sample(ed, presses=60)
-        self.assertLess(p95, self.BUDGET_MS,
-                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
+        median, p95, worst = self._sample(ed, presses=60)
+        self.assertLess(median, self.BUDGET_MS,
+                        f"median {median:.1f}ms (p95 {p95:.1f}, worst {worst:.1f})")
 
     def test_the_budget_holds_on_a_large_terminal(self):
         ed = editor(FULL)
         ed.buffer.load("x = 1")
-        p95, worst = self._sample(ed, columns=200, rows=50, presses=60)
-        self.assertLess(p95, self.BUDGET_MS,
-                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
+        median, p95, worst = self._sample(ed, columns=200, rows=50, presses=60)
+        self.assertLess(median, self.BUDGET_MS,
+                        f"median {median:.1f}ms (p95 {p95:.1f}, worst {worst:.1f})")
+
+    def _cpu_sample(self, ed, columns=80, rows=24, presses=200):
+        """Worst per-keystroke CPU cost, in milliseconds.
+
+        Same path as ``_sample`` -- dispatch, recompose, diff -- timed with
+        ``process_time`` so that preemption by an unrelated process does not
+        land in the measurement.
+        """
+        import time
+
+        previous = ed.compose(rows, columns, now=NOW)
+        worst = 0.0
+        for index in range(presses):
+            started = time.process_time()
+            ed.handle(Key("char", "x"), now=NOW + index * 0.05)
+            frame = ed.compose(rows, columns, now=NOW + index * 0.05)
+            frame.diff(previous)
+            worst = max(worst, (time.process_time() - started) * 1000)
+            previous = frame
+        return worst
+
+    def test_no_keystroke_exceeds_the_strict_budget_at_four_thousand_lines(self):
+        """Exit criterion 3's hard bound: the worst keystroke, not the typical.
+
+        A percentile can hide a pathological case behind 5% of samples. This
+        asserts every one of them, which is only meaningful because it is CPU
+        time -- see STRICT_BUDGET_MS.
+        """
+        ed = editor(FULL)
+        ed.buffer.load("\n".join(
+            f"value_{n} = {n} * 2  # note" for n in range(self.LARGE_BUFFER_LINES)
+        ))
+        ed.buffer.goto(self.LARGE_BUFFER_LINES // 2, 0)
+        # Through the same helper `loop` runs under, because a GC pass walking
+        # the rest of the process is what the bound is protecting against.
+        with steady_heap():
+            worst = self._cpu_sample(ed)
+        self.assertLess(
+            worst, self.STRICT_BUDGET_MS,
+            f"worst keystroke {worst:.2f}ms of CPU at "
+            f"{self.LARGE_BUFFER_LINES} lines",
+        )
+
+    def test_the_bound_survives_a_large_unrelated_heap(self):
+        """"Even under load" means load this editor did not create.
+
+        Without `steady_heap` this is the failure: identical per-keystroke work
+        costs an order of magnitude more, because each collection walks objects
+        belonging to the rest of the game.
+        """
+        ballast = [[object() for _ in range(20)] for _ in range(20000)]
+        try:
+            ed = editor(FULL)
+            ed.buffer.load("\n".join(
+                f"value_{n} = {n} * 2  # note"
+                for n in range(self.LARGE_BUFFER_LINES)
+            ))
+            ed.buffer.goto(self.LARGE_BUFFER_LINES // 2, 0)
+            with steady_heap():
+                worst = self._cpu_sample(ed, presses=120)
+        finally:
+            del ballast
+        self.assertLess(
+            worst, self.STRICT_BUDGET_MS,
+            f"worst keystroke {worst:.2f}ms of CPU with a large heap",
+        )
+
+    def test_keystroke_cost_does_not_grow_with_the_buffer(self):
+        """Ten times the buffer must not cost meaningfully more per keystroke.
+
+        The property behind the bound above. If highlighting or the diff ever
+        stops being viewport-scoped this fails long before the budget does,
+        and says why.
+        """
+        def worst_at(lines):
+            ed = editor(FULL)
+            ed.buffer.load("\n".join(
+                f"value_{n} = {n} * 2  # note" for n in range(lines)
+            ))
+            ed.buffer.goto(lines // 2, 0)
+            with steady_heap():
+                return self._cpu_sample(ed, presses=120)
+
+        small = worst_at(400)
+        large = worst_at(4000)
+        self.assertLess(
+            large, small * 4 + 2.0,
+            f"400 lines: {small:.2f}ms, 4000 lines: {large:.2f}ms - "
+            "cost is growing with the buffer",
+        )
 
 
 class TestLiveRun(unittest.TestCase):

@@ -19,7 +19,9 @@ in full. That is the front-end the comment in `cmd_play` was anticipating.
 
 from __future__ import annotations
 
+import gc
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from . import levels as level_registry
@@ -63,6 +65,35 @@ REVEAL_SECONDS = 0.9
 ESCAPE_TIMEOUT = 0.05
 
 GUTTER_MIN = 4
+
+
+@contextmanager
+def steady_heap():
+    """Keep garbage collection pauses off the keystroke path.
+
+    CPython's collector is generational, and the cost of a pass is a function
+    of how many objects it has to walk -- which for a running game means the
+    levels, the profile and the session state, none of which a keystroke can
+    make garbage. So the pause a player feels is set by the size of the rest
+    of the process rather than by anything the editor did, and it grows as the
+    game does. Measured at 4000 lines, identical work each time: a worst-case
+    keystroke of 6.8ms on a bare process, 20.7ms with 420,000 extra live
+    objects, and 102.7ms with 4.2 million.
+
+    ``gc.freeze`` moves everything alive at entry into a permanent generation
+    that collections skip, which flattens all three to 5-7ms. This
+    does **not** disable collection: garbage created while editing is still
+    collected normally. It trades the memory of one editing session -- cycles
+    among the frozen objects are not reclaimed until exit -- for a bounded
+    keystroke, which is the right way round for a session that lasts minutes
+    and must never stutter.
+    """
+    gc.collect()
+    gc.freeze()
+    try:
+        yield
+    finally:
+        gc.unfreeze()
 
 
 @dataclass
@@ -528,6 +559,11 @@ class Editor:
         assert term is not None, "loop() needs a terminal session"
         self.started = time.monotonic()
 
+        with steady_heap():
+            return self._loop(term)
+
+    def _loop(self, term: TerminalSession) -> int:
+        """The loop body, split out so `steady_heap` wraps the whole of it."""
         while self.running:
             rows, columns = term.size()
             if term.resized:

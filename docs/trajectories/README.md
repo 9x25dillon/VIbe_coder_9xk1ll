@@ -60,9 +60,17 @@ covered by the provenance flag W3 added. See M12 in
 
 **T7 waypoint state:** W1–W8 `LANDED`
 ([S004](../../journal/2026-09-03-S004-interactive.md),
-[S007](../../journal/2026-09-03-S007-streaming.md)). W8 shipped partial and was
+[S007](../../journal/2026-09-03-S007-streaming.md),
+[S008](../../journal/2026-09-03-S008-latency.md)). W8 shipped partial and was
 completed afterwards: the harness now replies in newline-delimited events, so
 Accuracy assembles as tests report instead of animating a finished result.
+
+Exit criterion 3 is measured on two clocks as of
+[S008](../../journal/2026-09-03-S008-latency.md): a wall-clock median for what
+a player feels, and a CPU-time worst case of 12.7 ms at 4000 lines for what the
+code costs. The percentile S007 adopted was hiding a real defect rather than
+noise — keystroke latency was proportional to the process's total live object
+count — which is Q27's answer and M15's subject.
 
 Two trajectories hold `IN FLIGHT` at once, against the rule in the status
 vocabulary above. T7 was opened at the user's request while T2 was still in
