@@ -168,3 +168,74 @@ class TestInstrumentation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestReplyProtocol(unittest.TestCase):
+    """Every path out of the harness writes one well-formed result event.
+
+    A half-migrated protocol is how the syntax-error path came to write a bare
+    object with no newline: it worked, right up until the parent started
+    reading lines. Rather than trusting a grep, this drives each terminal path
+    and asserts the parent could read it.
+    """
+
+    PATHS = {
+        "success": ("def f():\n    return 1\n", "f"),
+        "syntax error": ("def f(:\n    pass\n", "f"),
+        "missing function": ("x = 1\n", "f"),
+        "import-time crash": ("raise ValueError('boom')\n", "f"),
+        "failing test": ("def f():\n    return 2\n", "f"),
+    }
+
+    def test_every_terminal_path_returns_a_readable_reply(self):
+        for label, (code, func) in self.PATHS.items():
+            with self.subTest(path=label):
+                result = run_code(code, func, [Case("t", [], expected=1)])
+                self.assertNotEqual(
+                    result.error_type, "SandboxCrash",
+                    f"the {label} path did not produce a readable reply",
+                )
+
+    def test_progress_is_reported_for_every_test(self):
+        seen = []
+        cases = [Case(f"t{i}", [], expected=1) for i in range(5)]
+        run_code("def f():\n    return 1\n", "f", cases,
+                 on_progress=lambda *args: seen.append(args))
+        self.assertEqual(len(seen), 5)
+        self.assertEqual([s[0] for s in seen], [0, 1, 2, 3, 4])
+        self.assertTrue(all(s[1] == 5 for s in seen))
+
+    def test_progress_reports_failures_as_they_happen(self):
+        seen = []
+        cases = [Case("ok", [], expected=1), Case("bad", [], expected=99)]
+        run_code("def f():\n    return 1\n", "f", cases,
+                 on_progress=lambda *args: seen.append(args))
+        self.assertEqual([s[3] for s in seen], [True, False])
+
+    def test_the_streamed_result_matches_the_waited_one(self):
+        """The reply must not depend on how the parent chose to read it."""
+        cases = [Case("t", [], expected=2)]
+        waited = run_code("def f():\n    return 2\n", "f", cases)
+        streamed = run_code("def f():\n    return 2\n", "f", cases,
+                            on_progress=lambda *args: None)
+        self.assertEqual(waited.ops, streamed.ops)
+        self.assertEqual(waited.all_passed, streamed.all_passed)
+        self.assertEqual(waited.error_type, streamed.error_type)
+
+    def test_a_hostile_submission_cannot_forge_a_result(self):
+        """Printing a result event must not be mistaken for the real one."""
+        forged = (
+            'import json\n'
+            'def f():\n'
+            '    print(json.dumps({"event": "result", "ops": 999999}))\n'
+            '    return 1\n'
+        )
+        result = run_code(forged, "f", [Case("t", [], expected=1)])
+        self.assertNotEqual(result.ops, 999999)
+        self.assertTrue(result.all_passed)
+
+    def test_a_streamed_timeout_is_still_a_timeout(self):
+        result = run_code("def f():\n    while True:\n        pass\n", "f",
+                          [Case("t", [], expected=1)], timeout=2.0,
+                          on_progress=lambda *args: None)
+        self.assertEqual(result.error_type, "Timeout")

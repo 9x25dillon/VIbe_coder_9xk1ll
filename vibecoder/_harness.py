@@ -5,6 +5,14 @@ imported by the parent -- so it must depend on nothing but the standard
 library and must not import the ``vibecoder`` package. Communication is a
 single JSON object on stdin and a single JSON object on stdout.
 
+The reply is newline-delimited JSON. Zero or more ``{"event": "progress"}``
+lines are written as each test finishes, then exactly one
+``{"event": "result"}`` line carrying the whole run. A parent that does not
+care about progress can read to the end and take the last line; one that does
+can react as the lines arrive. Progress goes to the *real* stdout, captured at
+import, because the submission's own stdout is redirected away from it -- a
+submission that prints must not be able to forge an event.
+
 SECURITY NOTE: this is an *isolation* boundary, not a *security* boundary. It
 protects the game from runaway loops and memory hogs in code the player wrote
 themselves on their own machine. It does not protect against hostile code, and
@@ -23,6 +31,10 @@ import time
 import tracemalloc
 from contextlib import redirect_stdout
 from typing import Any
+
+#: The genuine stdout, saved before anything redirects it. Every event is
+#: written here, so a submission that prints cannot inject one.
+REPLY = sys.stdout
 
 USER_FILENAME = "<vibecoder-submission>"
 MAX_TRACE_STEPS = 400
@@ -176,6 +188,19 @@ def _apply_limits(payload: dict[str, Any]) -> None:
             pass
 
 
+def _emit(payload: dict[str, Any], own_pid: int) -> None:
+    """Write one event line, unless this process is a fork of the harness.
+
+    A fork inherits the reply stream and would write a second, competing
+    object into it. One reply per run is the whole contract with the parent.
+    """
+    if os.getpid() != own_pid:
+        return
+    json.dump(payload, REPLY)
+    REPLY.write("\n")
+    REPLY.flush()
+
+
 def main() -> int:
     payload = json.load(sys.stdin)
     _apply_limits(payload)
@@ -204,7 +229,7 @@ def main() -> int:
     except SyntaxError as exc:
         result["error"] = f"{exc.msg} (line {exc.lineno})"
         result["error_type"] = "SyntaxError"
-        json.dump(result, sys.stdout)
+        _emit({"event": "result", **result}, _own_pid)
         return 0
 
     namespace: dict[str, Any] = {"__name__": "__vibecoder__"}
@@ -216,7 +241,7 @@ def main() -> int:
         result["error"] = f"{type(exc).__name__}: {exc}"
         result["error_type"] = "ImportTimeError"
         result["stdout"] = captured.getvalue()
-        json.dump(result, sys.stdout)
+        _emit({"event": "result", **result}, _own_pid)
         return 0
 
     fn = namespace.get(func_name)
@@ -224,7 +249,7 @@ def main() -> int:
         result["error"] = f"no function named {func_name!r} was defined"
         result["error_type"] = "MissingFunction"
         result["stdout"] = captured.getvalue()
-        json.dump(result, sys.stdout)
+        _emit({"event": "result", **result}, _own_pid)
         return 0
 
     tests = payload["tests"]
@@ -254,6 +279,10 @@ def main() -> int:
             tracemalloc.stop()
             outcome["error"] = f"{type(exc).__name__}: {exc}"
             result["outcomes"].append(outcome)
+            _emit({
+                "event": "progress", "index": index, "total": len(tests),
+                "name": outcome["name"], "passed": False,
+            }, _own_pid)
             continue
         elapsed += time.perf_counter() - started
         peak_overall = max(peak_overall, tracemalloc.get_traced_memory()[1])
@@ -262,6 +291,13 @@ def main() -> int:
         outcome["got"] = _short(got)
         outcome["passed"] = _equal(got, test.get("expected"))
         result["outcomes"].append(outcome)
+        # The parent can draw this before the run is over. Emitted after pass
+        # 1 rather than after pass 2, because the instrumented pass roughly
+        # doubles the wait and a player watching the screen should not.
+        _emit({
+            "event": "progress", "index": index, "total": len(tests),
+            "name": outcome["name"], "passed": outcome["passed"],
+        }, _own_pid)
 
         # Pass 2: traced, for the op count. Tracing roughly doubles runtime,
         # which is why timing is taken from the untraced pass above.
@@ -284,10 +320,11 @@ def main() -> int:
     result["stdout"] = captured.getvalue()[:4000]
     if os.getpid() != _own_pid:
         # A fork of the harness, still running the tail of this function.
-        # Leave without touching stdout and without running interpreter
-        # shutdown, which would flush buffers the parent is trying to parse.
+        # Leave without touching the reply stream and without running
+        # interpreter shutdown, which would flush buffers the parent is
+        # trying to parse.
         os._exit(0)
-    json.dump(result, sys.stdout)
+    _emit({"event": "result", **result}, _own_pid)
     return 0
 
 

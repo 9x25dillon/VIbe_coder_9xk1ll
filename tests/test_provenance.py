@@ -139,10 +139,22 @@ class TestLevelProvenance(unittest.TestCase):
 
 
 class TestRouting(unittest.TestCase):
-    """Provenance actually changes which backend runs the code."""
+    """Provenance actually changes which backend runs the code.
+
+    These describe `auto`. Pinning VIBECODER_SANDBOX overrides provenance by
+    design (D13), so the fast-path assertions are skipped under a pin rather
+    than made to lie about what a pin does.
+    """
 
     CODE = "def f():\n    return 1\n"
     TESTS = [Case("t", [], expected=1)]
+
+    def setUp(self):
+        import os
+
+        pinned = os.environ.get("VIBECODER_SANDBOX", "auto").strip().lower()
+        if pinned not in ("", "auto"):
+            self.skipTest(f"routing describes auto; pinned to {pinned}")
 
     def _backend_for(self, source: Source) -> str:
         from vibecoder import sandbox

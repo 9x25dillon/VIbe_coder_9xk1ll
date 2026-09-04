@@ -38,7 +38,7 @@ class Source(Enum):
     #: Shipped with the game -- a level's reference solution. Trusted for the
     #: same reason the game itself is: it came from this repository.
     BUNDLED = "bundled"
-    #: Wrote by somebody else and delivered over a wire: a community level, a
+    #: Written by somebody else and delivered over a wire: a community level, a
     #: daily challenge, an ingested repository. Never runs on the host.
     THIRD_PARTY = "third_party"
 

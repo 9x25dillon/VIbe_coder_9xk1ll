@@ -66,6 +66,29 @@ GUTTER_MIN = 4
 
 
 @dataclass
+class LiveRun:
+    """A run in flight, as reported test by test.
+
+    Accuracy is the one axis that can honestly assemble while a run is
+    happening: it is passed-over-total and both are known as each test lands.
+    Speed needs the elapsed total and Functional needs the operation count
+    against the reference, and neither exists until the run is over -- so
+    neither is drawn until it does. Filling all three from a partial result
+    would look better and mean less.
+    """
+
+    total: int = 0
+    done: int = 0
+    passed: int = 0
+    marks: list[bool] = field(default_factory=list)
+
+    @property
+    def accuracy(self) -> float:
+        """0..100 over the tests reported so far."""
+        return 100.0 * self.passed / self.done if self.done else 0.0
+
+
+@dataclass
 class RunOutcome:
     """What the last execution produced, and when, so it can animate in."""
 
@@ -104,6 +127,7 @@ class Editor:
         self.first_run_clean = False
         self.started = time.monotonic()
         self.busy = False
+        self.live: LiveRun | None = None
         self._previous: Screen | None = None
         self._frame_times: list[float] = []
         self._damage: list[tuple[int, int]] = []
@@ -265,7 +289,7 @@ class Editor:
     def _draw_score(self, screen: Screen, row: int, columns: int,
                     now: float) -> None:
         if self.busy:
-            screen.put(row, 1, "running...", self.style(WARN, bold=True))
+            self._draw_live(screen, row, columns)
             return
         if self.outcome is None:
             hint = f"{self.glyph('run')} ctrl-r to run"
@@ -300,6 +324,33 @@ class Editor:
         if column + len(tail) + 1 < columns:
             screen.put(row, columns - len(tail) - 1, tail,
                        self.style(GOLD, bold=True))
+
+    def _draw_live(self, screen: Screen, row: int, columns: int) -> None:
+        """A run in flight: ticks landing, and Accuracy filling as they do."""
+        live = self.live
+        if live is None or live.total == 0:
+            screen.put(row, 1, "running", self.style(WARN, bold=True))
+            return
+
+        column = screen.put(row, 1, "run ", self.style(MUTED))
+        for index in range(live.total):
+            if index < len(live.marks):
+                glyph = self.glyph("tick") if live.marks[index] else self.glyph("cross")
+                colour = GOOD if live.marks[index] else BAD
+            else:
+                glyph = self.glyph("bar_empty")
+                colour = FAINT
+            if column >= columns - 1:
+                break
+            column = screen.put(row, column, glyph, self.style(colour))
+        column = screen.put(row, column, "  ", "")
+
+        column = self._draw_axis(
+            screen, row, column, "acc", live.accuracy, GOOD, columns
+        )
+        tail = f"{live.done}/{live.total}"
+        if column + len(tail) + 1 < columns:
+            screen.put(row, columns - len(tail) - 1, tail, self.style(MUTED))
 
     def _draw_axis(self, screen: Screen, row: int, column: int, label: str,
                    value: float, rgb: RGB, columns: int) -> int:
@@ -366,9 +417,11 @@ class Editor:
         self.busy = True
         started = self.started
         self.attempt += 1
+        self.live = LiveRun(total=len(self.tests))
         # The buffer is whatever the player typed, on their own machine.
         result = run_submission(
-            self.level, self.buffer.text, self.tests, source=Source.PLAYER
+            self.level, self.buffer.text, self.tests, source=Source.PLAYER,
+            on_progress=self._on_test,
         )
         if self.attempt == 1:
             self.first_run_clean = not result.fatal
@@ -380,6 +433,7 @@ class Editor:
                 message=f"{result.error_type}: {result.error}",
             )
             self.busy = False
+            self.live = None
             return
 
         if self._ref is None:
@@ -405,9 +459,35 @@ class Editor:
             result, score, time.monotonic(), elapsed, message=passed
         )
         self.busy = False
+        self.live = None
 
         if result.all_passed:
             self._bank(score)
+
+    def _on_test(self, index: int, total: int, name: str, passed: bool) -> None:
+        """One test reported. Redraw so the player sees it land.
+
+        The run loop is blocked inside `execute` while this happens, so the
+        frame has to be pushed from here rather than waited for.
+        """
+        if self.live is None:
+            return
+        self.live.total = total
+        self.live.done = index + 1
+        self.live.passed += 1 if passed else 0
+        self.live.marks.append(passed)
+        self.redraw()
+
+    def redraw(self) -> None:
+        """Compose and emit one frame immediately, outside the main loop."""
+        if self.term is None:
+            return
+        frame = self.compose(*self.term.size())
+        output, emitted, changed = frame.diff(self._previous)
+        self.term.write(output)
+        self._previous = frame
+        if changed:
+            self._damage.append((emitted, changed))
 
     def _bank(self, score: ScoreBreakdown) -> None:
         """Record a cleared level.

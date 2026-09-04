@@ -1,0 +1,292 @@
+{
+  "id": "S007",
+  "date": "2026-09-03",
+  "duration_minutes": null,
+  "trajectory": "T7",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-03-S007-streaming.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "The score panel assembles as tests report, not after",
+      "result": "met",
+      "note": "Accuracy only; Speed and Functional do not exist until the run ends"
+    },
+    {
+      "id": 2,
+      "statement": "The reply is the same whether or not the parent watches",
+      "result": "met",
+      "note": "Asserted directly against a waited run"
+    },
+    {
+      "id": 3,
+      "statement": "A submission cannot forge a result",
+      "result": "met",
+      "note": "Events go to a stdout captured at import, before redirection"
+    },
+    {
+      "id": 4,
+      "statement": "The keystroke budget stops failing on a busy machine",
+      "result": "met",
+      "note": "95th percentile instead of worst-of-N"
+    },
+    {
+      "id": 5,
+      "statement": "The auto-indent bug found while screenshotting is fixed",
+      "result": "met",
+      "note": "Shipped separately in fddf54c"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/_harness.py",
+      "kind": "module",
+      "note": "Newline-delimited event replies; per-test progress"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "on_progress hook, select-based streaming reader, event parsing"
+    },
+    {
+      "path": "vibecoder/editor.py",
+      "kind": "module",
+      "note": "LiveRun, per-test redraw, live accuracy panel"
+    },
+    {
+      "path": "vibecoder/editing.py",
+      "kind": "module",
+      "note": "code_part: auto-indent past a trailing comment"
+    },
+    {
+      "path": "tests/test_runner.py",
+      "kind": "test",
+      "note": "TestReplyProtocol: every terminal path driven and read back"
+    },
+    {
+      "path": "tests/test_editor.py",
+      "kind": "test",
+      "note": "TestLiveRun; latency budgets now percentile-based"
+    },
+    {
+      "path": "journal/2026-09-03-S007-streaming.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Tests report before the run ends",
+      "method": "tests/test_editor.py::TestLiveRun::test_progress_reaches_the_editor_during_a_run",
+      "result": "one callback per test, all before execute() returned",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The frames reach the screen mid-run",
+      "method": "pty capture, counting cursor-position sequences addressed to the score row",
+      "result": "44 writes during one run, against 2 for a non-streaming build",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Every terminal path returns a readable reply",
+      "method": "tests/test_runner.py::TestReplyProtocol, five paths driven",
+      "result": "no SandboxCrash on any",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The reply does not depend on how the parent reads it",
+      "method": "::test_the_streamed_result_matches_the_waited_one",
+      "result": "identical ops, pass count and error type",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Streaming does not change the score",
+      "method": "tests/test_editor.py::TestLiveRun::test_streaming_does_not_change_the_score",
+      "result": "identical to a quiet run",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A submission cannot forge a result event",
+      "method": "::test_a_hostile_submission_cannot_forge_a_result",
+      "result": "printed event ignored; real ops reported",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A streamed run still times out",
+      "method": "::test_a_streamed_timeout_is_still_a_timeout",
+      "result": "Timeout",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Progress works under both isolating backends",
+      "method": "driven under VIBECODER_SANDBOX=bwrap and =docker",
+      "result": "4 progress events each",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The live row never overflows its terminal",
+      "method": "tests/test_editor.py::TestLiveRun::test_the_live_row_never_overflows",
+      "result": "within width at 48, 60, 80 and 200 columns",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The latency budget no longer fails under load",
+      "method": "percentile assertion; the original failure was not reproduced deliberately",
+      "result": "no measurement under load",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M13",
+      "believed": "Converting every reply write to the new event format was mechanical, and the suite passing meant it was complete.",
+      "revealed_by": "Three test failures after the change, two of them the same bug: the SyntaxError branch still wrote a bare json.dump with no event wrapper and no newline, missed because the edit targeted surrounding context that branch did not share.",
+      "corrected_to": "Converted, then guarded by TestReplyProtocol, which drives each terminal path -- success, syntax error, missing function, import-time crash, failing test -- and asserts the parent could read what came back.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The old format still worked for the writer and only failed at the reader, which is the signature of a half-migrated protocol. A grep would have found the one instance; the test finds the next one."
+    },
+    {
+      "id": "M14",
+      "believed": "Checking a pty capture for the substrings 'run ' and 'acc ' confirmed the live row and the final axes had been drawn.",
+      "revealed_by": "The check reported the live row present while the code that draws it was not wired in at all -- a replace() had silently failed because the target text had changed in an earlier session. 'run ' matched the word 'running', which is the fallback the same function prints when there is no live state.",
+      "corrected_to": "Replaying captured bytes into a grid and asserting on the reconstructed frame, plus counting cursor-position sequences addressed to the score row as a direct measure of redraws.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Two separable lessons: a string search over damage-tracked terminal output is not a frame assertion, because the diff emits partial rows in fragments; and an edit applied by matching source text needs its match asserted, which is why the corrected edit begins with an assert."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D42",
+      "decision": "Newline-delimited events with the result line last",
+      "alternatives": [
+        "A length-prefixed frame",
+        "A second pipe for progress"
+      ],
+      "rationale": "Readable line by line, trivially skippable, and the last line remains the whole reply so nothing downstream changes.",
+      "reversible": true,
+      "seam": "vibecoder/_harness.py::_emit"
+    },
+    {
+      "id": "D43",
+      "decision": "on_progress is optional and the waiting path is kept",
+      "alternatives": [
+        "Always stream"
+      ],
+      "rationale": "Nobody watching means nothing to stream, and subprocess.run already handles the timeout correctly.",
+      "reversible": true,
+      "seam": "vibecoder/runner.py::run_code"
+    },
+    {
+      "id": "D44",
+      "decision": "Only Accuracy assembles live",
+      "alternatives": [
+        "Fill all three axes from partial data"
+      ],
+      "rationale": "Speed needs the elapsed total and Functional needs ops against the reference; neither exists until the run ends. Drawing them early would look better and mean less.",
+      "reversible": false,
+      "seam": "vibecoder/editor.py::LiveRun"
+    },
+    {
+      "id": "D45",
+      "decision": "Progress is emitted after the untraced pass",
+      "alternatives": [
+        "After the traced pass, with final numbers"
+      ],
+      "rationale": "The instrumented pass roughly doubles the wait, and a player watching the screen should not.",
+      "reversible": true,
+      "seam": "vibecoder/_harness.py"
+    },
+    {
+      "id": "D46",
+      "decision": "Events are written to a stdout captured at import",
+      "alternatives": [
+        "Write to sys.stdout at call time"
+      ],
+      "rationale": "The submission's stdout is redirected away; capturing the real one at import is what stops a submission printing a forged event.",
+      "reversible": false,
+      "seam": "vibecoder/_harness.py::REPLY"
+    },
+    {
+      "id": "D47",
+      "decision": "Latency budgets assert a 95th percentile",
+      "alternatives": [
+        "Worst of N",
+        "A wider worst-case budget"
+      ],
+      "rationale": "A worst case measures the machine as much as the code; a wider budget stops measuring anything.",
+      "reversible": true,
+      "seam": "tests/test_editor.py::TestLatency"
+    }
+  ],
+  "friction": [
+    {
+      "description": "The streaming path leaked both pipes on the timeout branch, which raises before reaching the close. Caught by running the suite under -W error::ResourceWarning rather than by a test.",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Three provenance routing tests assert the fast path, which a pinned backend legitimately overrides. They now skip under a pin, the same way the escape suite does.",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "T7 W1-W8 LANDED. The harness replies in newline-delimited events and the editor draws Accuracy assembling as tests land. 498 tests green unpinned, verify clean on 18 reference runs. T2 W1-W3 LANDED, W4-W7 outstanding.",
+    "next_action": "T2 W4 (GitHub OAuth ingestion) remains blocked on a registered OAuth application and the client-versus-server profiling decision. T2 W5 (.zip ingestion with a decompression bomb guard) has neither dependency and exercises the same ingestion budgets, so it is the one to take if those answers are not available.",
+    "blockers": [
+      "T2 W4 needs a registered OAuth application",
+      "T2 W4 needs the client-versus-server profiling decision, which has a privacy consequence"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M13 before changing the reply protocol",
+      "M14 before asserting anything about captured terminal output",
+      "D44 before adding anything to the live panel"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q17",
+      "question": "Should the harness stream per-test results rather than returning one object?",
+      "owner": "T7",
+      "status": "answered",
+      "answer": "It does, as newline-delimited events. The result line stays last, so a parent that does not care is unaffected."
+    },
+    {
+      "id": "Q27",
+      "question": "Should timing budgets assert a percentile rather than a worst case?",
+      "owner": "T7",
+      "status": "answered",
+      "answer": "They now assert a 95th percentile. The worst case is still reported on failure but does not decide it."
+    },
+    {
+      "id": "Q29",
+      "question": "Progress is emitted after the untraced pass, so a test that passes untraced and crashes under tracing would report passed and then contribute a failure. Nothing does this today. Is the earlier feedback worth that inconsistency?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q30",
+      "question": "The live panel redraws once per test, so a level with 200 tests would redraw 200 times in a run too fast to read. Should progress frames be rate-limited?",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 498,
+    "tests_passing": 498,
+    "test_runtime_seconds": 72.613,
+    "levels": 6,
+    "worlds": 2,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 18,
+    "score_row_redraws_per_run": 44,
+    "reply_paths_guarded": 5
+  }
+}

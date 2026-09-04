@@ -333,36 +333,137 @@ class TestLatency(unittest.TestCase):
     BUDGET_MS = 16.0
 
     def _sample(self, ed, columns=80, rows=24, presses=120):
+        """The 95th percentile of per-keystroke cost, in milliseconds.
+
+        A worst-of-N wall-clock assertion measures the machine as much as the
+        code: one scheduling hiccup from a busy CPU fails a run that proves
+        nothing, which is how a timing test stops being read (Q27). A
+        percentile keeps the budget meaningful and stops a single stall from
+        deciding it. The worst case is still reported on failure.
+        """
         import time
 
         previous = ed.compose(rows, columns, now=NOW)
-        worst = 0.0
+        samples = []
         for index in range(presses):
             started = time.perf_counter()
             ed.handle(Key("char", "x"), now=NOW + index * 0.05)
             frame = ed.compose(rows, columns, now=NOW + index * 0.05)
             frame.diff(previous)
-            worst = max(worst, (time.perf_counter() - started) * 1000)
+            samples.append((time.perf_counter() - started) * 1000)
             previous = frame
-        return worst
+        samples.sort()
+        return samples[int(len(samples) * 0.95)], samples[-1]
 
     def test_a_keystroke_is_handled_within_the_frame_budget(self):
         ed = editor(FULL)
         ed.buffer.load("def solve(rows):\n    return [r for r in rows]")
         ed.buffer.end()
-        worst = self._sample(ed)
-        self.assertLess(worst, self.BUDGET_MS, f"worst keystroke {worst:.1f}ms")
+        p95, worst = self._sample(ed)
+        self.assertLess(p95, self.BUDGET_MS,
+                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
 
     def test_the_budget_holds_on_a_large_buffer(self):
         """Highlighting runs over the whole buffer on every keystroke."""
         ed = editor(FULL)
         ed.buffer.load("\n".join(f"value_{n} = {n} * 2  # note" for n in range(400)))
         ed.buffer.goto(200, 0)
-        worst = self._sample(ed, presses=60)
-        self.assertLess(worst, self.BUDGET_MS, f"worst keystroke {worst:.1f}ms")
+        p95, worst = self._sample(ed, presses=60)
+        self.assertLess(p95, self.BUDGET_MS,
+                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
 
     def test_the_budget_holds_on_a_large_terminal(self):
         ed = editor(FULL)
         ed.buffer.load("x = 1")
-        worst = self._sample(ed, columns=200, rows=50, presses=60)
-        self.assertLess(worst, self.BUDGET_MS, f"worst keystroke {worst:.1f}ms")
+        p95, worst = self._sample(ed, columns=200, rows=50, presses=60)
+        self.assertLess(p95, self.BUDGET_MS,
+                        f"p95 {p95:.1f}ms (worst {worst:.1f}ms)")
+
+
+class TestLiveRun(unittest.TestCase):
+    """T7 W8: the axes assemble as tests report, rather than after."""
+
+    def _live(self, total, marks):
+        from vibecoder.editor import LiveRun
+
+        ed = editor(PLAIN)
+        ed.busy = True
+        ed.live = LiveRun(total=total, done=len(marks),
+                          passed=sum(marks), marks=list(marks))
+        return ed
+
+    def test_accuracy_reflects_only_what_has_reported(self):
+        from vibecoder.editor import LiveRun
+
+        live = LiveRun(total=10, done=4, passed=3, marks=[True, True, False, True])
+        self.assertAlmostEqual(live.accuracy, 75.0)
+
+    def test_accuracy_is_zero_before_anything_reports(self):
+        from vibecoder.editor import LiveRun
+
+        self.assertEqual(LiveRun(total=5).accuracy, 0.0)
+
+    def test_pending_tests_are_drawn_as_placeholders(self):
+        row = self._live(5, [True, True]).compose(20, 76, now=NOW).line(18)
+        self.assertIn("2/5", row)
+
+    def test_a_failing_test_is_marked_differently(self):
+        passing = self._live(3, [True, True, True]).compose(20, 76, now=NOW).line(18)
+        failing = self._live(3, [True, False, True]).compose(20, 76, now=NOW).line(18)
+        self.assertNotEqual(passing, failing)
+
+    def test_the_live_row_never_overflows(self):
+        for columns in (48, 60, 80, 200):
+            frame = self._live(40, [True] * 20).compose(24, columns, now=NOW)
+            with self.subTest(columns=columns):
+                self.assertLessEqual(len(frame.line(22)), columns)
+
+    def test_a_run_with_no_tests_still_draws(self):
+        ed = editor(PLAIN)
+        ed.busy = True
+        ed.live = None
+        self.assertIn("running", ed.compose(20, 76, now=NOW).as_text())
+
+    def test_progress_reaches_the_editor_during_a_run(self):
+        """The whole point: the callback fires before execute() returns."""
+        ed = editor()
+        ed.buffer.load(ed.level.reference)
+        seen = []
+        original = ed._on_test
+
+        def spy(index, total, name, passed):
+            seen.append((index, total, passed))
+            original(index, total, name, passed)
+
+        ed._on_test = spy
+        ed.execute()
+        self.assertGreater(len(seen), 0, "no test reported before the run ended")
+        self.assertEqual(len(seen), len(ed.tests))
+        self.assertTrue(all(p for _, _, p in seen))
+
+    def test_the_live_state_is_cleared_when_the_run_ends(self):
+        ed = editor()
+        ed.buffer.load(ed.level.reference)
+        ed.execute()
+        self.assertIsNone(ed.live)
+        self.assertFalse(ed.busy)
+
+    def test_the_live_state_is_cleared_after_a_fatal_run(self):
+        ed = editor()
+        ed.buffer.load("def f(:\n")
+        ed.execute()
+        self.assertIsNone(ed.live)
+        self.assertFalse(ed.busy)
+
+    def test_streaming_does_not_change_the_score(self):
+        """A player must not be scored differently for watching it happen."""
+        from vibecoder.models import Source
+        from vibecoder.runner import run_submission
+
+        ed = editor()
+        ed.buffer.load(ed.level.reference)
+        ed.execute()
+        quiet = run_submission(ed.level, ed.level.reference, ed.tests,
+                               source=Source.PLAYER)
+        self.assertEqual(ed.outcome.result.ops, quiet.ops)
+        self.assertEqual(ed.outcome.result.passed_count, quiet.passed_count)

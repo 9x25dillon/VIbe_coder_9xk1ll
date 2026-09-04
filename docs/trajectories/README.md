@@ -58,10 +58,11 @@ importable module and its `make_tests` runs in the parent, so neither is
 covered by the provenance flag W3 added. See M12 in
 [S006](../../journal/2026-09-03-S006-provenance.md).
 
-**T7 waypoint state:** W1–W7 `LANDED`, W8 partial
-([S004](../../journal/2026-09-03-S004-interactive.md)). The score panel animates
-a finished result rather than assembling as tests report, because the harness
-returns one object at the end of a run. Recorded as partial rather than met.
+**T7 waypoint state:** W1–W8 `LANDED`
+([S004](../../journal/2026-09-03-S004-interactive.md),
+[S007](../../journal/2026-09-03-S007-streaming.md)). W8 shipped partial and was
+completed afterwards: the harness now replies in newline-delimited events, so
+Accuracy assembles as tests report instead of animating a finished result.
 
 Two trajectories hold `IN FLIGHT` at once, against the rule in the status
 vocabulary above. T7 was opened at the user's request while T2 was still in
