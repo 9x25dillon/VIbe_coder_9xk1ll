@@ -8,10 +8,15 @@ Everything here asserts on escape-stripped text, so the assertions hold at
 every colour depth (the T6 rule).
 """
 
+import argparse
 import io
+import os
 import re
+import tempfile
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
+from unittest import mock
 
 from vibecoder import cli
 from vibecoder.levels import get_level
@@ -117,6 +122,48 @@ class TestLongValuesAreShortened(unittest.TestCase):
 
     def test_a_string_is_echoed_without_extra_quoting(self):
         self.assertEqual(cli._echo("hello"), "hello")
+
+
+class TestThePanelStaysSquare(unittest.TestCase):
+    """`UI.box` does not truncate -- its contract is lines of known width.
+
+    So an over-long value breaks out through the right-hand border. A long
+    enough directory has always been able to do this; profiling an archive out
+    of `~/Downloads` makes it ordinary.
+    """
+
+    def test_a_short_path_is_untouched(self):
+        self.assertEqual(cli._fit_path("~/code/thing"), "~/code/thing")
+
+    def test_a_long_path_is_shortened_to_the_limit(self):
+        text = cli._fit_path("/home/someone/" + "nested/" * 40 + "repo.zip")
+        self.assertEqual(len(text), cli.PANEL_VALUE)
+
+    def test_the_tail_survives_because_it_names_the_file(self):
+        text = cli._fit_path("/home/someone/" + "nested/" * 40 + "repo.zip")
+        self.assertTrue(text.endswith("repo.zip"))
+        self.assertTrue(text.startswith("..."))
+
+    def test_the_marker_is_ascii_so_the_width_never_depends_on_unicode(self):
+        text = cli._fit_path("/" + "a" * 200)
+        self.assertNotIn("\u2026", text)
+
+    def test_the_rendered_box_has_one_width(self):
+        """The failure mode itself, end to end rather than on the helper."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            deep = root / ("nesting/" * 12)
+            deep.mkdir(parents=True)
+            (deep / "m.py").write_text("def f(x):\n    return x\n", encoding="utf-8")
+            args = argparse.Namespace(path=str(deep), json=False)
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root / "home")}):
+                output = captured(cli.cmd_profile, args)
+
+        widths = {
+            len(line) for line in output.splitlines()
+            if line.startswith(("\u256d", "\u2502", "\u2570", "+", "|"))
+        }
+        self.assertEqual(len(widths), 1, f"box lines differ in width: {widths}")
 
 
 class TestTheHintLadder(unittest.TestCase):

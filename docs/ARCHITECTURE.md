@@ -17,6 +17,7 @@ vibecoder/
 ├── seccomp.py     Hand-assembled BPF filter. No libseccomp (N1).
 ├── _harness.py    Child side. Standalone script, stdlib only.
 ├── profiler.py    Vibe Profiler. Pure ast; executes nothing.
+├── ingest.py      Archive ingestion. Untrusted input; imports no game module.
 ├── style.py       Style-goal checkers behind the elegance bonus.
 ├── tips.py        Rule-based post-level coaching.
 ├── session.py     Progression state, atomic writes.
@@ -49,6 +50,8 @@ vibecoder/
         ▼         └──────────┘
      _harness         tips ──┘
 
+  cli, profiler ──► ingest         (T2 W5: archives, and what we refuse to read)
+
   editor ──┬─► term ──┬─► keys      (T7: the interactive front-end)
            ├─► screen ├─► editing
            ├─► keymap └─► highlight ──► ui
@@ -61,7 +64,10 @@ vibecoder/
 
 `models.py` depends on nothing. `_harness.py` depends on nothing *including the
 rest of this package* — it is executed as a standalone script, so a broken game
-module cannot corrupt a submission run. Nothing imports `cli.py`.
+module cannot corrupt a submission run. `ingest.py` likewise imports nothing
+from the package: it is the boundary where a stranger's archive arrives, and it
+should be readable and testable without the game around it. Nothing imports
+`cli.py`.
 
 ## The execution boundary
 

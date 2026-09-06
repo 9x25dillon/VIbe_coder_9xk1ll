@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 612 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 660 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -208,7 +208,7 @@ State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
 ## Repository layout
 
 ```
-vibecoder/            The game. 22 modules, no dependencies.
+vibecoder/            The game. 23 modules, no dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — builds payloads, parses replies
 ├── sandbox.py        Backend selection: subprocess / bubblewrap / docker
@@ -216,6 +216,7 @@ vibecoder/            The game. 22 modules, no dependencies.
 ├── seccomp.py        Hand-assembled syscall filter; no libseccomp
 ├── scoring.py        The three axes
 ├── profiler.py       Pure-ast codebase analysis
+├── ingest.py         Reads Python out of an archive; expands nothing to disk
 ├── ui.py             Capability-aware rendering; every escape code goes through it
 ├── editor.py         Full-screen editor: write, run and score in place
 ├── term.py           Raw mode, alternate screen, guaranteed restore
@@ -226,7 +227,7 @@ vibecoder/            The game. 22 modules, no dependencies.
 ├── pulse.py          Keystroke rhythm; stays on this machine
 └── levels/           One file per level, auto-discovered
 
-tests/                612 tests, stdlib unittest
+tests/                660 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

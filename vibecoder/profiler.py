@@ -7,14 +7,26 @@ they name things, and which exceptions they actually handle.
 
 Nothing here executes the analysed code. Files that fail to parse are counted
 and skipped -- a codebase with a Python 2 file in it should still profile.
+
+The source may arrive from a directory or from an archive somebody uploaded.
+Both reduce to `profile_sources`, which sees ``(label, text)`` pairs and knows
+nothing about where they were stored; `ingest` owns the question of what an
+archive is allowed to cost before we stop reading it.
 """
 
 from __future__ import annotations
 
 import ast
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import Iterable, Iterator
 
+from .ingest import (
+    DEFAULT_LIMITS,
+    IngestLimits,
+    iter_python_sources,
+    looks_like_archive,
+)
 from .models import VibeVector
 
 SKIP_DIRS = {
@@ -541,27 +553,85 @@ def iter_python_files(root: Path) -> list[Path]:
     return files
 
 
+def _read_files(paths: Iterable[Path]) -> Iterator[tuple[str, str]]:
+    """Yield ``(label, source)`` for files that can be read at all.
+
+    A file that cannot be read is one file's worth of signal lost, never a
+    reason to abandon the codebase: profiling somebody's repository has to
+    survive a broken symlink or a permission bit.
+    """
+    for path in paths:
+        try:
+            yield str(path), path.read_text(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
+
+
 def profile_path(root: str | Path, *, top_libraries: int = 15) -> VibeVector:
-    """Build a Vibe Vector from every Python file under ``root``."""
+    """Build a Vibe Vector from every Python file under ``root``.
+
+    An archive routes to `profile_archive`, decided by content rather than by
+    extension, so a ``.zip``, a ``.whl`` or a download that lost its suffix all
+    behave the same. Callers ask "profile this thing"; where the source is
+    stored is not a question they should have to answer first.
+    """
     root = Path(root)
     if not root.exists():
         raise FileNotFoundError(f"no such path: {root}")
-    if root.is_file():
-        paths = [root]
-    else:
-        paths = iter_python_files(root)
+    if looks_like_archive(root):
+        return profile_archive(root, top_libraries=top_libraries)
+    paths = [root] if root.is_file() else iter_python_files(root)
+    return profile_sources(_read_files(paths), top_libraries=top_libraries)
 
+
+def profile_archive(
+    path: str | Path,
+    *,
+    limits: IngestLimits = DEFAULT_LIMITS,
+    top_libraries: int = 15,
+) -> VibeVector:
+    """Build a Vibe Vector from the Python inside an archive.
+
+    Source is decompressed into memory and never written anywhere, so the
+    "never persists source" commitment holds without an extraction directory to
+    clean up. Raises `ingest.ArchiveRejected` for an archive that is hostile
+    rather than merely unhelpful; see `ingest` for what that means.
+
+    Members inside a vendored or build directory are dropped exactly as they
+    are on disk, so an archive of a repository and a checkout of it profile
+    alike. The filtering happens here rather than in `ingest` because which
+    directories are uninteresting is a fact about profiling, not about zip
+    files.
+    """
+    sources = (
+        (name, source)
+        for name, source in iter_python_sources(path, limits)
+        if not any(part in SKIP_DIRS for part in PurePosixPath(name).parts)
+    )
+    return profile_sources(sources, top_libraries=top_libraries)
+
+
+def profile_sources(
+    sources: Iterable[tuple[str, str]], *, top_libraries: int = 15
+) -> VibeVector:
+    """Build a Vibe Vector from ``(label, source)`` pairs.
+
+    The analysis core, kept separate from where the text came from: a
+    directory, an archive, and whatever T2 W4 clones from GitHub all reduce to
+    this. Labels are used for nothing but the caller's own bookkeeping -- they
+    are never stored, because the vector is derived statistics and the code it
+    came from is discarded.
+    """
     totals = _FileStats()
     files_with_pattern: Counter[str] = Counter()
     parsed_files = 0
     code_lines = 0
     comment_lines = 0
 
-    for path in paths:
+    for _label, source in sources:
         try:
-            source = path.read_text(encoding="utf-8", errors="replace")
             tree = ast.parse(source)
-        except (SyntaxError, OSError, ValueError):
+        except (SyntaxError, ValueError):
             continue
         parsed_files += 1
         for line in source.splitlines():

@@ -20,6 +20,7 @@ it came from is discarded. That commitment is written into
 ```bash
 vibecoder profile ~/code/my-project      # human-readable
 vibecoder profile ~/code/my-project --json > vibe.json
+vibecoder profile ~/Downloads/repo.zip   # an archive, read without unpacking
 ```
 
 The result is saved into the player's profile and used automatically by
@@ -74,6 +75,64 @@ likes to build with.
 
 Files that fail to parse are counted and skipped. A repository with one Python 2
 file in it still profiles.
+
+## Reading an archive
+
+`vibecoder profile` accepts a `.zip` as well as a directory, which is [T2](trajectories/T2-sandbox.md)
+W5. An archive is recognised by content rather than by extension — the
+end-of-central-directory record, so a `.whl`, an `.egg` or a download that lost
+its suffix all route the same way — and an archive of a checkout profiles
+identically to the checkout, because the transport must not change the
+measurement.
+
+Two structural properties do most of the safety work, and both hold by
+construction rather than by care:
+
+- **Nothing is written to disk.** Members are decompressed into memory, parsed,
+  and dropped. There is no extraction directory, so there is no cleanup step
+  that can fail — which is how T2's "no source retained afterwards" commitment
+  is met. It also makes path traversal unreachable: `../../.ssh/id_rsa` is a
+  string we reject, not a file we nearly wrote.
+- **Only `.py` members are ever opened.** A nested archive, a 4 GB blob of
+  zeros and an ELF binary are all skipped unread, which shrinks the
+  decompression surface to Python source.
+
+What remains is a two-stage guard in [`ingest.py`](../vibecoder/ingest.py). The
+central directory is judged **before a single byte is decompressed** — a bomb
+detected while inflating has already cost what it set out to cost — and then
+the bytes that actually arrive are measured against what the directory claimed.
+
+| Limit | Default | What it stops |
+| --- | --- | --- |
+| `max_archive_bytes` | 200 MB | Work done before any check runs |
+| `max_entries` | 50,000 | A million empty members that expand to nothing and still cost a million iterations |
+| `max_declared_bytes` | 500 MB | The zip bomb proper, decided from the directory |
+| `max_file_bytes` | 4 MB | One enormous member. CPython's largest stdlib module is under 1 MB |
+| `max_source_bytes` | 64 MB | Total source held, if every declared size is a lie |
+| `max_ratio` | 100:1 | A bomb spread thinly across members, each one individually legal |
+
+The ratio only applies above `ratio_floor` (1 MB): a 12 KB file that compresses
+200:1 is a text file full of spaces, not an attack. Deflate tops out near
+1032:1 and source code lands between 2:1 and 5:1, so 100:1 is far outside
+anything a codebase reaches by accident.
+
+Rejection fails the **whole archive**, not the offending member. An archive
+containing a traversal entry is not a codebase with one odd file in it, and
+profiling the remainder would amount to deciding that hostile input is fine as
+long as it is handled neatly.
+
+### What the guard turned out not to need
+
+The central-directory checks trust numbers written by whoever built the
+archive, so the streaming stage re-measures what arrives. That check has never
+fired in practice, and the reason is worth writing down: `zipfile.ZipExtFile`
+sets its output budget from the declared `file_size` and then verifies the
+directory's CRC against what it inflated, so a member physically cannot expand
+past its declaration through that reader, and forging a size costs the forger
+that member. The bounded read stays because that is an implementation detail of
+one interpreter rather than a documented contract —
+`test_a_reader_that_ignores_the_declared_size_is_still_caught` simulates the
+reader that does not bound itself.
 
 ## Normalisation, and the bug that shaped it
 

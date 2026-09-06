@@ -47,10 +47,15 @@ silently.
 
 **T2 waypoint state:** W1 `LANDED` ([S003](../../journal/2026-09-03-S003-sandbox-seam.md)),
 W2 `LANDED` ([S005](../../journal/2026-09-03-S005-hardening.md)),
-W3 `LANDED` ([S006](../../journal/2026-09-03-S006-provenance.md)). W4–W7
-outstanding. Exit criteria 1, 2, 3 and 7 are verified; 4, 5 and 6 belong to
-W5–W6 and are untouched. The trajectory's 2026-08-30 target has passed; it is
-late, not re-dated.
+W3 `LANDED` ([S006](../../journal/2026-09-03-S006-provenance.md)),
+W5 `LANDED` ([S012](../../journal/2026-09-06-S012-archive-ingestion.md)).
+W4, W6 and W7 outstanding — W4 is blocked on a registered OAuth application, so
+W5 was taken out of order. Exit criteria 1, 2, 3, 4 and 7 are verified.
+Criterion 5 — no source retained after a run — is verified *for the archive
+path*, where it holds by construction because nothing is written to disk at
+all; it stays open until W4's clone path exists to be checked. Criterion 6
+belongs to W6 and is untouched. The trajectory's 2026-08-30 target has passed;
+it is late, not re-dated.
 
 ⚠ The hard gate in [T5](T5-community.md) — "W6 may not ship unless T2 W1–W3
 are landed" — is now *satisfiable*, and is not sufficient. A level is an

@@ -29,6 +29,7 @@ from typing import Sequence
 from . import levels as level_registry
 from . import sandbox
 from . import style, tips
+from .ingest import ArchiveRejected
 from .models import Level, RunResult, Source, TestCase
 from .profiler import (
     CONVENTION_PLURALS,
@@ -71,8 +72,38 @@ def heat_for(total: float) -> tuple[int, int, int]:
 # profile
 # --------------------------------------------------------------------------
 
+#: Room for a value in the vibe panel: the box is 64 wide, minus its two
+#: borders, the leading space and the 16-column label.
+PANEL_VALUE = 64 - 2 - 1 - 16
+
+
+def _fit_path(text: str, limit: int = PANEL_VALUE) -> str:
+    """Shorten a path from the left, because the tail is what identifies it.
+
+    `UI.box` documents that its lines are already of known width and does not
+    truncate, so an over-long value breaks out through the right-hand border --
+    which a long enough directory has always been able to do, and an archive
+    sitting in ``~/Downloads`` makes ordinary. The leading directories are the
+    part a reader can lose: ``.../scratchpad/repo.zip`` still says which file
+    was profiled.
+
+    The marker is ASCII rather than a glyph so the line is the same width with
+    and without Unicode, which is what keeps the box square at every
+    capability level.
+    """
+    if len(text) <= limit:
+        return text
+    return "..." + text[-(limit - 3):]
+
+
 def cmd_profile(args: argparse.Namespace) -> int:
-    vibe = profile_path(args.path)
+    try:
+        vibe = profile_path(args.path)
+    except ArchiveRejected as exc:
+        # An archive we refuse to read is a thing the player can fix, so it
+        # gets a sentence and an exit code rather than a traceback.
+        print(f"\n  {UI.paint('rejected archive', WARN, bold=True)}  {exc}\n")
+        return 2
     session = Session.load()
     session.vibe = vibe
     session.vibe_source = str(Path(args.path).resolve())
@@ -87,7 +118,7 @@ def cmd_profile(args: argparse.Namespace) -> int:
 
     signature = style_signature(vibe)
     stats = [
-        f"{'source':<16}{session.vibe_source}",
+        f"{'source':<16}{_fit_path(session.vibe_source)}",
         f"{'files':<16}{vibe.files}",
         f"{'functions':<16}{vibe.functions}",
         f"{'code lines':<16}{vibe.code_lines}",
@@ -875,7 +906,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_profile = sub.add_parser("profile", help="build a Vibe Vector from a codebase")
-    p_profile.add_argument("path", help="directory or file to analyse")
+    p_profile.add_argument(
+        "path", help="directory, file, or .zip archive to analyse"
+    )
     p_profile.add_argument("--json", action="store_true", help="emit raw JSON")
     p_profile.set_defaults(func=cmd_profile)
 

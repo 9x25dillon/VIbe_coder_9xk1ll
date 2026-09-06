@@ -1,0 +1,119 @@
+{
+  "id": "S012",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S012-archive-ingestion.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A .zip of a codebase profiles, and profiles the same as the directory", "result": "met", "note": "whole vector compared between a tree and an archive of it"},
+    {"id": 2, "statement": "A zip bomb is refused before anything is expanded", "result": "met", "note": "1 GiB in 1.02 MiB, rejected from the central directory"},
+    {"id": 3, "statement": "No source reaches the disk, provably rather than by cleanup", "result": "met", "note": "extract, extractall and mkdtemp patched to raise"},
+    {"id": 4, "statement": "A rejected archive tells the player which rule it broke", "result": "met", "note": "named reason and exit code 2, not a traceback"},
+    {"id": 5, "statement": "The vibe panel stays square when the path is long", "result": "met", "note": "pre-existing defect; a long directory always did it too"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/ingest.py", "kind": "module", "note": "New. Archive ingestion: IngestLimits, ArchiveRejected, inspect_zip, iter_python_sources. Imports nothing from the package"},
+    {"path": "vibecoder/profiler.py", "kind": "module", "note": "profile_sources extracted as the analysis core; profile_archive added; profile_path routes by content"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "ArchiveRejected handled with a reason and exit 2; _fit_path elides a long source path"},
+    {"path": "tests/test_ingest.py", "kind": "test", "note": "New. 43 tests, mostly adversarial"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestThePanelStaysSquare, 5 tests"},
+    {"path": "docs/VIBE_PROFILER.md", "kind": "doc", "note": "Reading an archive: the two structural properties, the limit table, and what the guard turned out not to need"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "ingest.py in the module map and the dependency direction"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T2 W5 LANDED; exit criteria 4 and 5 status"},
+    {"path": "README.md", "kind": "doc", "note": "23 modules, 660 tests, ingest.py in the layout"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count 612 to 660"},
+    {"path": "journal/2026-09-06-S012-archive-ingestion.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "An archive profiles identically to the directory it was made from", "method": "tests/test_ingest.py::test_an_archive_profiles_identically_to_the_directory", "result": "to_json() equal", "verdict": "verified"},
+    {"claim": "A real 1 GiB zip bomb is rejected", "method": "::TestTheBombGuard::test_a_zip_bomb_is_rejected", "result": "ArchiveRejected, reason entry-too-large", "verdict": "verified"},
+    {"claim": "The specimen is the one exit criterion 4 describes", "method": "::test_the_specimen_is_the_one_the_criterion_describes", "result": "1,043,756 bytes compressed, 1,073,741,824 declared", "verdict": "verified"},
+    {"claim": "The bomb is rejected before any member is opened", "method": "::test_it_is_rejected_before_a_single_member_is_opened, ZipFile.open patched to raise", "result": "ArchiveRejected raised, open never called", "verdict": "verified"},
+    {"claim": "Rejection is decided from the central directory and is immediate", "method": "::test_rejection_is_decided_from_the_directory_and_so_is_immediate", "result": "under 1 s", "verdict": "verified"},
+    {"claim": "A bomb spread across individually legal members is caught by the ratio", "method": "::test_the_ratio_guard_catches_a_bomb_spread_across_members", "result": "reason compression-ratio", "verdict": "verified"},
+    {"claim": "An ordinary well-compressing file is not treated as a bomb", "method": "::test_a_small_well_compressing_file_is_not_a_bomb", "result": "accepted, 1 python file", "verdict": "verified"},
+    {"claim": "Traversal, absolute, backslash and drive-letter member names are refused", "method": "::TestRejection, five tests", "result": "reason path-traversal in each", "verdict": "verified"},
+    {"claim": "One hostile member fails the whole archive", "method": "::test_a_hostile_member_fails_the_whole_archive", "result": "rejected despite a valid sibling", "verdict": "verified"},
+    {"claim": "Symlink and encrypted members are skipped rather than read", "method": "::test_a_symlink_member_is_not_read_as_source, ::test_an_encrypted_member_is_skipped_not_guessed", "result": "excluded from the yielded members", "verdict": "verified"},
+    {"claim": "A nested archive is never opened", "method": "::test_a_nested_archive_is_never_opened", "result": "only real.py yielded", "verdict": "verified"},
+    {"claim": "No extraction API is called at all", "method": "::test_no_extraction_api_is_used_at_all, extract/extractall/mkdtemp patched to raise", "result": "profile completed, none called", "verdict": "verified"},
+    {"claim": "The filesystem is unchanged after profiling an archive", "method": "::test_profiling_an_archive_leaves_the_filesystem_as_it_found_it", "result": "directory listing identical", "verdict": "verified"},
+    {"claim": "The read is bounded by our limit rather than by the declaration", "method": "::test_the_read_is_bounded_by_our_limit_not_by_the_declaration", "result": "read called once with max_file_bytes + 1", "verdict": "verified"},
+    {"claim": "A reader that ignores the declared size is still caught", "method": "::test_a_reader_that_ignores_the_declared_size_is_still_caught", "result": "reason expansion-mismatch", "verdict": "verified"},
+    {"claim": "An under-declared member is dropped by the CRC check, not delivered short", "method": "::test_an_under_declared_member_is_dropped_rather_than_expanded", "result": "no members yielded", "verdict": "verified"},
+    {"claim": "The vibe panel box has one width with a long path", "method": "tests/test_cli_output.py::test_the_rendered_box_has_one_width", "result": "one width; 64 vs 131 with the fix reverted", "verdict": "verified"},
+    {"claim": "A rejected archive exits 2 with a reason rather than a traceback", "method": "vibecoder.cli profile on the bomb", "result": "'rejected archive  payload.py declares 1,073,741,824 bytes...', exit 2", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "660 tests OK in 38.862s", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36", "verdict": "verified"},
+    {"claim": "Presentation still emits no escapes in a pipe", "method": "showcase piped to grep", "result": "0", "verdict": "verified"},
+    {"claim": "The limits are right for real repositories", "method": "profiled only this package from an archive", "result": "plausible, not measured against a large third-party repo", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M25",
+      "believed": "The central-directory checks trust numbers written by whoever built the archive, so the dangerous case is a forged header: declare 1 KB, ship 256 KB, inflate past every limit decided from the declaration. The bounded read in the streaming stage was written as the guard that mattered.",
+      "revealed_by": "The test written to prove that guard fires did not raise. zipfile.ZipExtFile sets its output budget from the declared file_size and then checks the directory's CRC against what it inflated, so a member cannot expand past its declaration through that reader, and an under-declared member fails its CRC and is dropped entirely.",
+      "corrected_to": "The central-directory checks are the guard and they are sound. The bounded read stays because ZipExtFile bounding itself is an implementation detail of one interpreter rather than a documented contract, but it is defence against an assumption rather than against an attack, and its test now simulates a reader that does not bound itself.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The test written to confirm a belief is what disproved it. Three passing tests around a wrong mental model would have shipped happily."
+    },
+    {
+      "id": "M26",
+      "believed": "Green on the pinned forty-second suite means the baseline is green.",
+      "revealed_by": "Arithmetic on test counts: 612 documented, 48 added, discovery reporting 655, which would have meant the doc-count test was already red. That test skips when VIBECODER_SANDBOX is pinned, which is exactly how the baseline had been run.",
+      "corrected_to": "Nothing was actually wrong: 655 was a stale measurement taken before the last five tests existed, the real count is 660 and 612 was correct. But the reasoning holds - the fast loop skips a check only the unpinned run performs, so green from a pinned run is a weaker claim than it reads as.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A number measured earlier in the session is not a current measurement. Re-measure before writing it into a document."
+    }
+  ],
+  "decisions": [
+    {"id": "D70", "decision": "Archives are read into memory; nothing is ever extracted", "alternatives": ["Extract to a temp dir, profile, delete"], "rationale": "A cleanup step can fail. No extraction means no window, and it makes path traversal unreachable rather than defended against.", "reversible": true, "seam": "vibecoder/ingest.py::_stream"},
+    {"id": "D71", "decision": "Only .py members are ever opened", "alternatives": ["Extract everything and filter afterwards"], "rationale": "Shrinks the decompression surface to the one thing the profiler wants, and never enters a zip-of-zips.", "reversible": true, "seam": "vibecoder/ingest.py::inspect_zip"},
+    {"id": "D72", "decision": "The central directory is judged before any expansion", "alternatives": ["Guard while inflating"], "rationale": "A bomb caught mid-inflate has already cost what it set out to cost.", "reversible": false, "seam": "vibecoder/ingest.py::iter_python_sources"},
+    {"id": "D73", "decision": "One hostile member fails the whole archive", "alternatives": ["Skip the member and profile the rest"], "rationale": "An archive containing a traversal is not a codebase with one odd file in it.", "reversible": true, "seam": "vibecoder/ingest.py::_unsafe_path"},
+    {"id": "D74", "decision": "Archives route by content, not by extension", "alternatives": ["Match a .zip suffix"], "rationale": "A .whl, an .egg and a suffix-less download are all archives; a .py file never is.", "reversible": true, "seam": "vibecoder/ingest.py::looks_like_archive"},
+    {"id": "D75", "decision": "ingest.py imports nothing from the vibecoder package", "alternatives": ["Put the archive code in profiler.py"], "rationale": "Same reason as N2 for _harness.py: the boundary where untrusted input arrives should be readable and testable without the game around it.", "reversible": true, "seam": "vibecoder/ingest.py"},
+    {"id": "D76", "decision": "SKIP_DIRS filtering stays in profiler, not in ingest", "alternatives": ["Filter vendored directories inside ingest"], "rationale": "Which directories are uninteresting is a fact about profiling rather than about zip files, and the byte budget should cover the whole archive.", "reversible": true, "seam": "vibecoder/profiler.py::profile_archive"},
+    {"id": "D77", "decision": "The path elision marker is ASCII '...'", "alternatives": ["An ellipsis glyph in GLYPHS"], "rationale": "Every existing glyph pair is one character wide in both modes; a 1-versus-3 pair would change the layout between capability levels.", "reversible": true, "seam": "vibecoder/cli.py::_fit_path"}
+  ],
+  "friction": [
+    {"description": "The 1 GiB bomb specimen takes about 3 s to build because deflate has to actually compress a gibibyte. Built once per test class. A forged central directory would be instant and would prove less: the point is that a real bomb is refused.", "impact": "low", "resolved": true},
+    {"description": "zipfile cannot write an encrypted member and writestr discards a ZipInfo's flag_bits, so the encrypted-member test sets bit 0 by hand in both the local and central headers.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T2 W5 is landed. vibecoder profile reads an archive (detected by content), expands nothing to disk, and refuses hostile archives from the central directory with a named reason and exit code 2. 660 tests green unpinned, verify clean on 36 reference runs, showcase prints zero escapes in a pipe.",
+    "next_action": "T2 W6: ingestion limits with a partial profile. IngestLimits already carries the size and count budgets; missing are the wall-clock budget and the ability for VibeVector to say it is partial, so a 5,000-file repository degrades rather than hangs (exit criterion 6). The partial flag changes what is stored about a player, which is a section 12 'ask first' change.",
+    "blockers": ["T2 W4 remains blocked on a registered OAuth application and the client-versus-server profiling decision"],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D70 before adding any extraction step: the 'no source on disk' property is structural and easy to lose by accident",
+      "D72 before moving any check into the streaming stage",
+      "M25 before deciding the bounded read is redundant and deleting it"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q44", "question": "The limits were chosen from what a source repository plausibly costs and validated against exactly one archive: this package. Do 500 MB declared and 50,000 entries clear a real monorepo, and is a 4 MB per-file cap too tight for a codebase with a large generated module?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q45", "question": "Exit criterion 4's numbers - at most 1 MB compressed, at least 1 GB expanded - are only jointly reachable in binary units, because deflate cannot exceed about 1032:1. Should the criterion say MiB and GiB, or should the specimen use a format with a higher ceiling? Editing it is N7-forbidden; recording the finding is not.", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q46", "question": "max_source_bytes is the only limit enforced during streaming, so it is the only one whose rejection arrives after work has been done. Should a partial profile be returned at that point instead of an exception, and is that W6's answer rather than W5's?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q47", "question": "An archive is recognised by content, so profiling a .py file that happens to be a zip reads its members instead of the file. That is correct and surprising. Should the panel say which route was taken?", "owner": "T2", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 660,
+    "tests_passing": 660,
+    "tests_added": 48,
+    "ingest_tests": 43,
+    "suite_seconds_unpinned": 38.862,
+    "ingest_limits": 6,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 23,
+    "dependencies": 0,
+    "reference_runs_clean": 36,
+    "bomb_compressed_bytes": 1043756,
+    "bomb_declared_bytes": 1073741824
+  }
+}
