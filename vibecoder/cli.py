@@ -148,6 +148,19 @@ def cmd_profile(args: argparse.Namespace) -> int:
     for line in UI.box(stats, width=64):
         print(line)
 
+    if vibe.from_a_newer_build:
+        # Said plainly rather than swallowed: the fields are being carried, not
+        # understood, and a player comparing this against a fresh profile
+        # deserves to know which numbers this build can actually read.
+        print(
+            f"\n  {UI.badge('NEWER PROFILE', VIOLET)}  "
+            + UI.paint(
+                f"written by a newer VibeCoder (schema {vibe.version}); "
+                f"{len(vibe.unknown)} field(s) preserved but not read",
+                MUTED,
+            )
+        )
+
     if vibe.partial:
         # Said once, plainly, next to the numbers it qualifies. A profile that
         # does not admit it is a sample is one somebody will compare against a

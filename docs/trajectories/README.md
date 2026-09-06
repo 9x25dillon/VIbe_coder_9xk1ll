@@ -49,9 +49,11 @@ silently.
 W2 `LANDED` ([S005](../../journal/2026-09-03-S005-hardening.md)),
 W3 `LANDED` ([S006](../../journal/2026-09-03-S006-provenance.md)),
 W5 `LANDED` ([S012](../../journal/2026-09-06-S012-archive-ingestion.md)),
-W6 `LANDED` ([S014](../../journal/2026-09-06-S014-ingestion-budgets.md)).
-W4 and W7 outstanding — W4 is blocked on a registered OAuth application, so W5
-and W6 were taken out of order. Exit criteria 1, 2, 3, 4, 6 and 7 are verified.
+W6 `LANDED` ([S014](../../journal/2026-09-06-S014-ingestion-budgets.md)),
+W7 `LANDED` ([S015](../../journal/2026-09-06-S015-vector-versioning.md)).
+**W4 is the only waypoint left, and it is externally blocked** on a registered
+OAuth application and the client-versus-server profiling decision, which is why
+W5, W6 and W7 were taken out of order. Exit criteria 1, 2, 3, 4, 6 and 7 are verified.
 Criterion 6 is met by *finishing*: a 5,000-file repository profiles in 11.7 s
 against a 60 s budget, and the same tree under a small budget degrades to a
 flagged partial profile rather than hanging. Criterion 5 — no source retained
@@ -60,9 +62,10 @@ construction because nothing is written to disk at all; it stays open until
 W4's clone path exists to be checked. The trajectory's 2026-08-30 target has
 passed; it is late, not re-dated.
 
-W7 (vector versioning) got more pressing rather than less: W6 added three
-fields to `VibeVector`, so a profile written today and read by an older build
-now loses more than it did when Q40 was raised.
+T2 is **one waypoint from landing** and must not be marked `LANDED` on six of
+seven. Criterion 5 is the other half of that: it is verified for the archive
+path, where it holds by construction, and cannot be finished until W4's clone
+path exists to be inspected.
 
 ⚠ The hard gate in [T5](T5-community.md) — "W6 may not ship unless T2 W1–W3
 are landed" — is now *satisfiable*, and is not sufficient. A level is an

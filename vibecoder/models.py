@@ -215,6 +215,61 @@ class ScoreBreakdown:
 # Vibe profile
 # --------------------------------------------------------------------------
 
+#: Schema version of `VibeVector`. Bump this whenever a field is added,
+#: removed, or changes meaning, and add the matching entry to `VECTOR_MIGRATIONS`.
+#:
+#: The history it records:
+#:
+#: * **1** — the original vector (S001).
+#: * **2** — conventions, the complexity distribution, nesting, comment
+#:   density (S011).
+#: * **3** — ``partial``, ``partial_reason``, ``files_seen`` (S014).
+#: * **4** — the version field itself, and preservation of unknown fields.
+VECTOR_VERSION = 4
+
+
+def _additive(data: dict[str, Any]) -> dict[str, Any]:
+    """A step that added fields and changed no existing one.
+
+    Every migration so far is one of these, because every change so far has
+    been additive and the dataclass defaults already supply the new fields. It
+    is written out rather than left implicit so the chain is complete: a gap
+    at version *n* is indistinguishable from "nobody thought about *n*", and
+    `VECTOR_MIGRATIONS` is checked for gaps by the test suite.
+    """
+    return data
+
+
+#: ``version -> the function that turns it into version + 1``. Applied in
+#: order, so a version 1 profile written before any of this existed is walked
+#: forward one step at a time rather than guessed at in one leap.
+VECTOR_MIGRATIONS: dict[int, Any] = {
+    1: _additive,   # 1 -> 2: S011 added six style fields
+    2: _additive,   # 2 -> 3: S014 added the partial fields
+    3: _additive,   # 3 -> 4: the version field; nothing existing moved
+}
+
+
+def migrate_vector(data: dict[str, Any], version: int) -> dict[str, Any]:
+    """Walk a stored profile forward to `VECTOR_VERSION`.
+
+    Raises `ValueError` for a version with no migration, which can only happen
+    if somebody bumps `VECTOR_VERSION` without writing the step. Failing loudly
+    here beats loading a profile whose fields mean something else.
+    """
+    data = dict(data)
+    while version < VECTOR_VERSION:
+        step = VECTOR_MIGRATIONS.get(version)
+        if step is None:
+            raise ValueError(
+                f"no migration from vibe vector version {version}; "
+                f"VECTOR_VERSION is {VECTOR_VERSION}"
+            )
+        data = step(data)
+        version += 1
+    return data
+
+
 @dataclass
 class VibeVector:
     """The static-analysis fingerprint of a codebase.
@@ -261,10 +316,56 @@ class VibeVector:
     files_seen: int = 0
     tags: list[str] = field(default_factory=list)
 
+    #: Schema this vector was written against. See `VECTOR_VERSION`.
+    version: int = VECTOR_VERSION
+    #: Fields from a build newer than this one, kept verbatim.
+    #:
+    #: Without this, loading a profile written by a newer VibeCoder and saving
+    #: it again *destroys* whatever that build recorded -- silently, on an
+    #: ordinary `vibecoder status`. Preserving them costs a dict and makes the
+    #: round trip lossless in the one direction migration cannot help with,
+    #: because a migration can only be written by the build that knows what
+    #: the field means.
+    unknown: dict[str, Any] = field(default_factory=dict)
+
     def to_json(self) -> dict[str, Any]:
-        return asdict(self)
+        """Flat JSON, with preserved future fields put back where they were.
+
+        ``unknown`` is merged rather than nested, so a newer build reading this
+        profile finds its own fields exactly where it left them instead of in
+        a quarantine bucket it would have to know to look in.
+        """
+        data = asdict(self)
+        data.update(data.pop("unknown", {}))
+        return data
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "VibeVector":
-        known = {f for f in cls.__dataclass_fields__}
-        return cls(**{k: v for k, v in data.items() if k in known})
+        """Load a profile written by any version, migrating it forward.
+
+        A profile with no ``version`` is version 1: the field was added in
+        version 4, so its absence dates the profile rather than making it
+        unreadable.
+
+        A profile from a *newer* build keeps its own version number. Claiming
+        it as this version would assert we understand fields we have never
+        heard of, and re-saving would then look like a downgrade rather than
+        the pass-through it is.
+        """
+        data = dict(data)
+        version = int(data.pop("version", 1) or 1)
+        if version < VECTOR_VERSION:
+            data = migrate_vector(data, version)
+            version = VECTOR_VERSION
+
+        known = set(cls.__dataclass_fields__) - {"version", "unknown"}
+        return cls(
+            version=version,
+            unknown={k: v for k, v in data.items() if k not in known},
+            **{k: v for k, v in data.items() if k in known},
+        )
+
+    @property
+    def from_a_newer_build(self) -> bool:
+        """Whether this profile was written by a VibeCoder newer than this one."""
+        return self.version > VECTOR_VERSION

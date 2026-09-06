@@ -1,0 +1,105 @@
+{
+  "id": "S015",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S015-vector-versioning.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A profile written by any version loads", "result": "met", "note": "version 1 through the current one, migrated forward a step at a time"},
+    {"id": 2, "statement": "A profile written by a newer build is not destroyed by reading it", "result": "met", "note": "unknown fields preserved verbatim and merged flat on save"},
+    {"id": 3, "statement": "The migration chain is provably complete, not just present", "result": "met", "note": "gap check, stray-step check, and a loud failure for a missing step"},
+    {"id": 4, "statement": "The transforming path is tested before a real transform needs it", "result": "met", "note": "a synthetic renaming migration exercises the machinery"},
+    {"id": 5, "statement": "Q40 answered", "result": "met", "note": "yes to a version, but defaulting was never the gap; the loss was forward"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/models.py", "kind": "module", "note": "VECTOR_VERSION, VECTOR_MIGRATIONS, migrate_vector, version and unknown fields, rewritten to_json and from_json"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "a NEWER PROFILE notice naming the schema and the preserved field count"},
+    {"path": "tests/test_migration.py", "kind": "test", "note": "New. 24 tests across the chain, both directions, and the session round trip"},
+    {"path": "docs/VIBE_PROFILER.md", "kind": "doc", "note": "versioning, the chain, and why forward is the direction that loses data"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T2 W7 LANDED; T2 one waypoint from landing, blocked on W4"},
+    {"path": "journal/2026-09-06-S015-vector-versioning.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A version 1 profile loads and is migrated forward", "method": "tests/test_migration.py::TestReadingAnOlderProfile", "result": "7 tests green; version becomes VECTOR_VERSION", "verdict": "verified"},
+    {"claim": "An absent version means version 1 rather than unreadable", "method": "::test_an_absent_version_means_version_one_rather_than_unreadable", "result": "loads with every field intact", "verdict": "verified"},
+    {"claim": "Nothing an old profile held is dropped", "method": "::test_nothing_the_old_profile_held_is_dropped, field by field", "result": "every key round-trips equal", "verdict": "verified"},
+    {"claim": "A newer profile's unknown fields are preserved", "method": "::test_fields_we_do_not_understand_are_preserved", "result": "{'entropy': 0.87, 'hue': 'teal'} kept", "verdict": "verified"},
+    {"claim": "A round trip on a newer profile loses nothing", "method": "::test_a_round_trip_loses_nothing_at_all", "result": "no key lost; each value equal", "verdict": "verified"},
+    {"claim": "Two round trips are byte-identical", "method": "::test_two_round_trips_are_still_lossless", "result": "equal dicts", "verdict": "verified"},
+    {"claim": "Preserved fields come back flat rather than nested", "method": "::test_preserved_fields_come_back_flat_not_nested", "result": "entropy at the top level", "verdict": "verified"},
+    {"claim": "A newer profile keeps its own version number", "method": "::test_the_newer_version_number_is_kept", "result": "version preserved, from_a_newer_build true", "verdict": "verified"},
+    {"claim": "The migration chain has no gaps", "method": "::test_every_version_below_the_current_one_has_a_migration", "result": "no missing versions", "verdict": "verified"},
+    {"claim": "No migration points past the current version", "method": "::test_no_migration_points_past_the_current_version", "result": "none stray", "verdict": "verified"},
+    {"claim": "A missing step fails loudly rather than guessing", "method": "::test_a_missing_step_fails_loudly_rather_than_guessing", "result": "ValueError naming the version", "verdict": "verified"},
+    {"claim": "A transforming migration is applied, in order, and only when needed", "method": "::TestAMigrationThatActuallyChangesSomething, 4 tests", "result": "rename applied; steps run 1..n-1; no run when already current", "verdict": "verified"},
+    {"claim": "Migration does not mutate the caller's stored dict", "method": "::test_the_stored_profile_is_not_mutated_by_migrating_it", "result": "input dict unchanged", "verdict": "verified"},
+    {"claim": "A newer profile survives a real session load and save", "method": "::test_a_newer_profile_survives_a_session_load_and_save, via profile.json on disk", "result": "entropy and version intact after Session.load then save", "verdict": "verified"},
+    {"claim": "The preservation tests catch the regression they exist for", "method": "reintroduced the unknown-key drop and reran", "result": "2 failures, 2 errors; green again once restored", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "751 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36", "verdict": "verified"},
+    {"claim": "Real profiles from older VibeCoder builds load", "method": "the version 1 fixture is reconstructed from the field history", "result": "no profile older than this session exists to test against", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M30",
+      "believed": "W7 is backward compatibility: the vector has gained fields three times, so the job is making sure yesterday's profile.json still loads, and the version number exists so migrations can fix up old shapes.",
+      "revealed_by": "Writing the version 1 fixture and loading it before changing anything. It loaded perfectly, because every field has a default, so the backward direction had been safe by construction since S001. Trying the other direction, a profile carrying a field this build has never heard of was loaded and saved and came back without it.",
+      "corrected_to": "The waypoint's real content is forward compatibility, and the mechanism it needs is not migration at all but preservation, because a migration can only be written by the build that understands the field. The version number still earns its place by dating a profile and making a future non-additive change safe, not by fixing anything that was broken.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Building the migration chain alone would have satisfied the waypoint as written, passed every test I would have thought to write, and left the actual data loss in place."
+    }
+  ],
+  "decisions": [
+    {"id": "D95", "decision": "Unknown fields are preserved verbatim rather than dropped", "alternatives": ["Drop them as before", "Refuse to load a profile from a newer build"], "rationale": "A migration can only be written by the build that knows what the field means, so refusing to destroy it is the only honest option left to an older build.", "reversible": true, "seam": "vibecoder/models.py::VibeVector.from_json"},
+    {"id": "D96", "decision": "Preserved fields are merged flat on save rather than nested", "alternatives": ["Keep an unknown object in the JSON"], "rationale": "A newer build must find its fields where it left them, not somewhere it would need to know to look.", "reversible": true, "seam": "vibecoder/models.py::VibeVector.to_json"},
+    {"id": "D97", "decision": "A newer profile keeps its own version number", "alternatives": ["Renumber it to the current version on load"], "rationale": "Renumbering asserts we understand fields we have never heard of, and makes a re-save look like a downgrade rather than a pass-through.", "reversible": true, "seam": "vibecoder/models.py::VibeVector.from_json"},
+    {"id": "D98", "decision": "An absent version means version 1", "alternatives": ["Treat an absent version as current"], "rationale": "The field arrived in version 4, so its absence dates the profile. Treating it as current would skip every migration for exactly the profiles that need them.", "reversible": false, "seam": "vibecoder/models.py::VibeVector.from_json"},
+    {"id": "D99", "decision": "Every version gets an explicit step, even an identity one", "alternatives": ["Leave purely additive versions out of the table"], "rationale": "A gap at version n is indistinguishable from nobody having thought about n, and the suite checks for gaps.", "reversible": true, "seam": "vibecoder/models.py::VECTOR_MIGRATIONS"},
+    {"id": "D100", "decision": "A missing migration raises rather than loading best-effort", "alternatives": ["Load what we can and continue"], "rationale": "A profile whose fields mean something else is worse than an error that says so.", "reversible": true, "seam": "vibecoder/models.py::migrate_vector"},
+    {"id": "D101", "decision": "The transforming path is tested with a synthetic migration", "alternatives": ["Wait for the first real non-additive change"], "rationale": "Otherwise the mechanism is first exercised by the first real transform, where a failure cannot say whether the migration or the machinery is wrong.", "reversible": true, "seam": "tests/test_migration.py::TestAMigrationThatActuallyChangesSomething"}
+  ],
+  "friction": [
+    {"description": "The doc-count check moved again (727 to 751). Counting before the final unpinned run, as S014's friction note said to, worked: the count was updated in the same command that started the run and the suite was green first time.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T2 W7 is landed. VibeVector carries a version, migrates forward through a gap-checked chain, and preserves fields from newer builds instead of destroying them. 751 tests green unpinned, verify clean on 36 reference runs.",
+    "next_action": "The user's call rather than the plan's. T2 cannot progress without the OAuth application, so the honest options are to register it and do W4, or to start T3, whose dependency (the execution boundary must be settled) is satisfied by W1-W3 and whose W1, the multi-step boss level format, needs nothing that is blocked.",
+    "blockers": [
+      "T2 W4, on a registered OAuth application and the client-versus-server profiling decision. Unchanged since S006 and now the only thing between T2 and landing",
+      "T2 exit criterion 5 is verified only for the archive path and cannot be finished until W4's clone path exists to be inspected"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "T2 is one waypoint from landing: W1, W2, W3, W5, W6 and W7 are landed. Do not mark T2 LANDED on six of seven waypoints",
+      "D95 before simplifying the unknown bucket away: it is the whole waypoint",
+      "D98 before changing what a missing version means",
+      "M30 for why the obvious reading of W7 would have shipped the bug intact"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q40", "question": "VibeVector gained six fields. from_json drops unknown keys and new fields have defaults, so old profiles still load, but a profile written today and read by an older build silently loses signals. Is that the migration story T2 W7 wants, or does the vector need a version?", "owner": "T2", "status": "answered", "answer": "It needs a version, but defaulting was never the gap. The backward direction was already safe by construction since S001; the loss was forward, and the fix is preservation of unknown fields rather than migration, because a migration can only be written by the build that understands the field. See M30 and D95."},
+    {"id": "Q56", "question": "Session has its own STATE_VERSION, which is 1 and has no migration chain at all. The vector is now the well-behaved half of a file whose outer envelope is not. Should the session get the same treatment, and is that T2's work or a new trajectory's?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q57", "question": "Preserved unknown fields are carried but never shown beyond a count. If a newer build recorded something a player cares about, this build silently ignores it. Is a count enough, or should --json surface them?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q58", "question": "Nothing writes version 5 yet, so the upgrade path across a non-additive change has only ever been exercised synthetically. The first real one should be treated as a migration to review carefully rather than a routine field addition.", "owner": "T2", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 751,
+    "tests_passing": 751,
+    "tests_added": 24,
+    "migration_tests": 24,
+    "vector_version": 4,
+    "migration_steps": 3,
+    "t2_waypoints_landed": 6,
+    "t2_waypoints_total": 7,
+    "t2_exit_criteria_verified": 6,
+    "t2_exit_criteria_total": 7,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 24,
+    "dependencies": 0,
+    "reference_runs_clean": 36
+  }
+}

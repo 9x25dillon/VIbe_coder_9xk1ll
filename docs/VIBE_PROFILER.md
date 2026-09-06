@@ -76,6 +76,62 @@ likes to build with.
 Files that fail to parse are counted and skipped. A repository with one Python 2
 file in it still profiles.
 
+## Versioning, and the direction that actually loses data
+
+The vector has gained fields in three separate sessions and will gain more, so
+it carries a `version` and a migration chain. Two directions of failure matter,
+and the obvious one was never the dangerous one.
+
+**Backward** — an old profile read by this build — was already survivable by
+accident, because every field has a default. A version 1 profile from before
+any style or budget field existed still loads; `migrate_vector` walks it
+forward one step at a time rather than guessing in one leap.
+
+**Forward** — a profile written by a *newer* build and read by this one — was
+silently destructive. `from_json` dropped unknown keys, so an ordinary
+`vibecoder status` would load a newer profile, re-save it, and permanently
+delete whatever that build had recorded. Nothing reported it.
+
+A migration can only be written by the build that knows what a field means, so
+this build cannot migrate a future profile. What it can do is **refuse to
+destroy it**: unknown fields are kept verbatim in `unknown` and merged flat
+again on save, so a newer build finds its fields exactly where it left them
+rather than in a quarantine bucket it would have to know to look in. The
+profile also keeps its own higher version number — claiming it as ours would
+assert we understand fields we have never heard of, and re-saving would look
+like a downgrade rather than the pass-through it is.
+
+```
+  [NEWER PROFILE]  written by a newer VibeCoder (schema 6);
+                   2 field(s) preserved but not read
+```
+
+### The chain
+
+| Version | Added |
+| --- | --- |
+| 1 | The original vector (S001) |
+| 2 | Conventions, the complexity distribution, nesting, comment density (S011) |
+| 3 | `partial`, `partial_reason`, `files_seen` (S014) |
+| 4 | The version field itself, and preservation of unknown fields (S015) |
+
+A profile with no `version` **is** version 1: the field was added in version 4,
+so its absence dates the profile rather than making it unreadable.
+
+Every migration so far is additive — the dataclass defaults already supply the
+new fields — but each step is written out rather than left implicit, because a
+gap at version *n* is indistinguishable from nobody having thought about *n*.
+The test suite checks the chain for gaps, checks no step points past the
+current version, and proves the machinery **transforms** correctly using a
+synthetic renaming migration. That last one matters: every real step being
+additive means the transforming path would otherwise go untested until the
+first time a field genuinely moves, at which point a failure would not say
+whether the migration or the mechanism was wrong.
+
+Bumping `VECTOR_VERSION` without adding the matching step raises `ValueError`
+on load. Failing loudly beats loading a profile whose fields mean something
+else.
+
 ## Budgets, and what a partial profile is
 
 A codebase can be enormous. `vibecoder profile` bounds what it will spend
