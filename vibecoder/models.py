@@ -233,6 +233,19 @@ class VibeVector:
     max_complexity: int = 0
     docstring_ratio: float = 0.0
     naming: dict[str, float] = field(default_factory=dict)
+    #: PEP 8 conformance per identifier kind, 0..1. A kind the codebase has
+    #: none of is absent rather than zero.
+    conventions: dict[str, float] = field(default_factory=dict)
+    #: Complexity as a distribution. ``max_complexity`` is one function on a
+    #: bad day; these two say what the codebase is usually like.
+    median_complexity: float = 0.0
+    p90_complexity: float = 0.0
+    #: Depth of nested control flow: the habit of returning early versus
+    #: stepping further right, which survives every formatting choice.
+    avg_nesting: float = 0.0
+    max_nesting: int = 0
+    #: Comment lines over all non-blank lines.
+    comment_density: float = 0.0
     tags: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:

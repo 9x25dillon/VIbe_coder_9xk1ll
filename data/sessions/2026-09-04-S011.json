@@ -1,0 +1,124 @@
+{
+  "id": "S011",
+  "date": "2026-09-04",
+  "duration_minutes": null,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-04-S011-style-engine.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "The profiler reads style signals it was blind to", "result": "met", "note": "conventions per kind, nesting, complexity distribution, comment density, 17 new detectors"},
+    {"id": 2, "statement": "A profile says something a person recognises, not only numbers", "result": "met", "note": "style_signature"},
+    {"id": 3, "statement": "Two differently-written codebases get different descriptions", "result": "met", "note": "vibecoder against stdlib json"},
+    {"id": 4, "statement": "The world map says where you are and where to go", "result": "met", "note": "star tally per world; the next uncleared level named"},
+    {"id": 5, "statement": "A cleared level leads somewhere", "result": "met", "note": "next up, world complete, campaign complete"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/profiler.py", "kind": "module", "note": "conventions, nesting, distribution, comment density, style_signature, dispatch table"},
+    {"path": "vibecoder/models.py", "kind": "module", "note": "six new VibeVector fields, all defaulted"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "richer profile view; _print_next_up"},
+    {"path": "vibecoder/ui.py", "kind": "module", "note": "level_map gains a star tally and a next-level pointer"},
+    {"path": "tests/test_profiler.py", "kind": "test", "note": "21 tests to 68; a one() helper on the base class"},
+    {"path": "tests/test_ui.py", "kind": "test", "note": "TestTheWorldMapGuides, including layout parity without Unicode"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestWhatComesNext"},
+    {"path": "docs/VIBE_PROFILER.md", "kind": "doc", "note": "new signals, and why conventions are per kind"},
+    {"path": "journal/2026-09-04-S011-style-engine.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Class names are now judged", "method": "tests/test_profiler.py::TestConventions", "result": "PascalCase class 1.0, snake_case class 0.0", "verdict": "verified"},
+    {"claim": "Class names do not pollute the naming histogram", "method": "::test_class_names_do_not_pollute_the_naming_histogram", "result": "naming PascalCase 0, conventions class 1.0", "verdict": "verified"},
+    {"claim": "A kind with no instances is absent rather than 0%", "method": "::test_a_kind_with_no_instances_is_absent_rather_than_zero", "result": "key missing", "verdict": "verified"},
+    {"claim": "An elif chain counts as one level of nesting", "method": "::test_an_elif_chain_stays_flat", "result": "depth 1 for a four-branch chain", "verdict": "verified"},
+    {"claim": "A nested function keeps its own nesting budget", "method": "::test_a_nested_function_keeps_its_own_budget", "result": "outer flat, inner measured separately", "verdict": "verified"},
+    {"claim": "Complexity is reported as a distribution", "method": "::TestComplexityDistribution", "result": "median 1.0 with max above 10", "verdict": "verified"},
+    {"claim": "Arithmetic modulo is not counted as string formatting", "method": "::test_arithmetic_modulo_is_not_formatting", "result": "not detected", "verdict": "verified"},
+    {"claim": "obj.format() is not counted as str.format", "method": "::test_a_format_method_on_an_object_is_not_str_format", "result": "not detected", "verdict": "verified"},
+    {"claim": "A yield in a closure does not mark the enclosing function", "method": "::test_a_yield_in_a_closure_does_not_make_the_outer_a_generator", "result": "share below 1.0", "verdict": "verified"},
+    {"claim": "The dispatch refactor dropped no existing detector", "method": "::test_the_original_detectors_still_fire", "result": "imports, class, comprehension, context manager, try, type hints, exceptions all present", "verdict": "verified"},
+    {"claim": "The refactor improved the codebase it measures", "method": "profiling vibecoder before and after", "result": "max complexity 73 to 29; max nesting 5 to 4", "verdict": "verified"},
+    {"claim": "Two differently-written codebases get different signatures", "method": "::test_the_two_codebases_do_not_share_a_signature", "result": "distinct trait lists", "verdict": "verified"},
+    {"claim": "The engine discriminates on real code", "method": "profiled five stdlib packages", "result": "json untyped/loop-first/%-format/long functions against vibecoder typed/comprehension-first", "verdict": "verified"},
+    {"claim": "No signature trait contains a comma", "method": "::test_no_trait_contains_a_comma", "result": "green after two labels were renamed", "verdict": "verified"},
+    {"claim": "The map names the next uncleared level under its node", "method": "tests/test_ui.py::TestTheWorldMapGuides", "result": "arrow indent asserted at the six-column pitch", "verdict": "verified"},
+    {"claim": "The map layout is identical without Unicode", "method": "::test_the_layout_is_identical_without_unicode", "result": "equal line lengths at both capabilities", "verdict": "verified"},
+    {"claim": "A clear names what follows", "method": "tests/test_cli_output.py::TestWhatComesNext", "result": "next level, world completion, campaign completion", "verdict": "verified"},
+    {"claim": "The suite is green", "method": "python3.11 -m unittest discover -s tests", "result": "612 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36", "verdict": "verified"},
+    {"claim": "Presentation still emits no escapes in a pipe", "method": "showcase piped to grep", "result": "0", "verdict": "verified"},
+    {"claim": "The signature is accurate about a stranger's codebase", "method": "judged by eye on five stdlib packages", "result": "plausible on all five, not measured", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M22",
+      "believed": "The profiler failing to classify class names was a plain omission, fixed by one line adding them to the same histogram as everything else.",
+      "revealed_by": "Writing that line and looking at the result. PascalCase jumped to a large share and became meaningless: it now mixed correctly named classes with functions named the Java way, which are opposite verdicts wearing the same token shape.",
+      "corrected_to": "The omission was avoiding a real conflation, badly. Conformance is judged per identifier kind, which keeps both signals; the display changed too, because NAMING showing PascalCase 0% above 'classes are PascalCase 100%' is a contradiction on screen even when both numbers are right.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The one-line fix passed every test that existed and would have shipped a worse metric than the bug it fixed."
+    },
+    {
+      "id": "M23",
+      "believed": "The enhancement was done when the detectors worked. The engine reads other people's codebases; it is not a judge of this one.",
+      "revealed_by": "Running it on vibecoder/ and reading the output. Max complexity had gone from 39 to 73, and the worst function in the codebase by a factor of two was _analyse_tree - the function just doubled in size with a twenty-branch elif chain.",
+      "corrected_to": "Replaced the chain with a dispatch table keyed on node type. Max complexity fell to 29 and max nesting from 5 to 4, guarded by a test that every original detector still fires.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A profiler whose own report condemns it is not one to trust. Running the tool on the tool is close to free and was the most useful twenty minutes in the session."
+    },
+    {
+      "id": "M24",
+      "believed": "The first nesting implementation reporting a maximum depth of 22 was a real finding about some horrible function.",
+      "revealed_by": "Looking for the function. It was _analyse_tree again, whose elif chain is one level to a reader: each elif is an If inside the previous one's orelse, so an AST walk sees a 22-deep staircase where a person sees a flat list.",
+      "corrected_to": "Nesting is measured over statements rather than by walking the tree, and an elif chain counts once. The metric is about the indentation a person looks at, so the AST shape is the wrong thing to count.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The number was absurd enough to check. A plausible wrong number - 4 instead of 3 - would have shipped unexamined."
+    }
+  ],
+  "decisions": [
+    {"id": "D63", "decision": "Conventions are counted per identifier kind", "alternatives": ["Pool class names into naming", "Keep excluding class names"], "rationale": "The same token shape is a correct class and an incorrect function; one number cannot say which.", "reversible": true, "seam": "vibecoder/profiler.py::CONVENTIONS"},
+    {"id": "D64", "decision": "A kind with no instances is absent rather than 0%", "alternatives": ["Report 0%"], "rationale": "'You name every class wrongly' is a bad thing to tell somebody who has written no classes.", "reversible": true, "seam": "vibecoder/profiler.py::profile_path"},
+    {"id": "D65", "decision": "Nesting is a statement walk and an elif chain counts once", "alternatives": ["ast.walk depth"], "rationale": "The metric is about the indentation a person sees, and the AST disagrees with the screen exactly here.", "reversible": true, "seam": "vibecoder/profiler.py::_nesting_depth"},
+    {"id": "D66", "decision": "Complexity is reported as median, p90 and max", "alternatives": ["Max alone"], "rationale": "Max is one function on a bad day; the distribution describes the codebase.", "reversible": true, "seam": "vibecoder/models.py::VibeVector"},
+    {"id": "D67", "decision": "_analyse_tree is a dispatch table", "alternatives": ["The elif chain", "A NodeVisitor subclass"], "rationale": "Its own metrics condemned the chain. A table is flat, and adding a detector no longer adds a branch.", "reversible": true, "seam": "vibecoder/profiler.py::_HANDLERS"},
+    {"id": "D68", "decision": "Detectors are narrow rather than eager", "alternatives": ["Match % and .format anywhere"], "rationale": "A profile is read as fact. x % 7 is not string formatting and logger.format() is not str.format.", "reversible": true, "seam": "vibecoder/profiler.py::_visit_binop"},
+    {"id": "D69", "decision": "The signature describes style, never quality", "alternatives": ["Score the codebase"], "rationale": "The profiler exists so the game can meet somebody where they are; a report that reads as a scolding stops being run.", "reversible": true, "seam": "vibecoder/profiler.py::SIGNATURE_RULES"}
+  ],
+  "friction": [
+    {"description": "Test file names cannot be keyword arguments: self.profile(a_py=...) writes a file called a_py, which the *.py globber never finds, so every assertion silently measured an empty directory and thirty-five tests failed at once. The existing suite used **{'a.py': ...} and I did not look first. Added a one() helper to the base class.", "impact": "low", "resolved": true},
+    {"description": "style_signature labels are joined with / for display and two contained commas, which read as extra traits. Caught by a test written for the purpose rather than by eye.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "The style engine reads 21 patterns plus conventions, nesting, a complexity distribution and comment density, and renders a style signature. 612 tests green unpinned, verify clean on 36 reference runs, showcase prints zero escapes in a pipe.",
+    "next_action": "Unchanged and untouched by this session: T2 W4 (GitHub OAuth ingestion) is blocked on a registered OAuth application and the client-versus-server profiling decision; T2 W5 (.zip ingestion with a decompression bomb guard) is unblocked.",
+    "blockers": ["None introduced here"],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "N3 still holds and was not weakened: every signal added is pure ast walking and nothing executes analysed code",
+      "D63 before touching naming or conventions",
+      "D65 before changing the nesting metric"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q40", "question": "VibeVector gained six fields. from_json drops unknown keys and new fields have defaults, so old profiles still load - but a profile written today and read by an older build silently loses signals. Is that the migration story T2 W7 wants, or does the vector need a version?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q41", "question": "The signature thresholds were chosen by profiling five stdlib packages and this repository. That is six data points. Do they hold on real application code, and how would we know without collecting profiles we have promised never to collect?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q42", "question": "_record_constants only judges module-level assignments, so a class-level constant is not counted. A codebase keeping constants on classes gets a conformance ratio built from very few names. Should the sample size be reported next to the ratio?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q43", "question": "Six of the new patterns map to no tag, so they enrich the display and cannot influence level selection. Is that the right split, or should walrus and match_statement recommend a 'modern Python' level that does not exist yet?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 612,
+    "tests_passing": 612,
+    "tests_added": 59,
+    "profiler_tests": 68,
+    "patterns_detected": 21,
+    "patterns_added": 17,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 22,
+    "dependencies": 0,
+    "reference_runs_clean": 36,
+    "max_complexity_before_refactor": 73,
+    "max_complexity_after_refactor": 29
+  }
+}

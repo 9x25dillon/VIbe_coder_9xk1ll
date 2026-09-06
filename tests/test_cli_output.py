@@ -140,5 +140,48 @@ class TestTheHintLadder(unittest.TestCase):
         self.assertEqual(captured(cli._print_hints, get_level("w3-l2-window"), 5), "")
 
 
+class TestWhatComesNext(unittest.TestCase):
+    """A win that ends at the shell prompt has to be re-entered on willpower."""
+
+    def setUp(self):
+        from vibecoder.session import Session
+
+        self.session = Session()
+
+    def next_up(self, level_id: str) -> str:
+        return captured(cli._print_next_up, get_level(level_id), self.session)
+
+    def test_the_following_level_is_named(self):
+        text = self.next_up("w1-l1-greet")
+        self.assertIn("Pick the Larger", text)
+        self.assertIn("w1-l2-bigger", text)
+
+    def test_finishing_a_world_is_marked(self):
+        text = self.next_up("w1-l6-tally")
+        self.assertIn("WORLD 1 COMPLETE", text)
+        self.assertIn("First Steps", text)
+
+    def test_a_mid_world_clear_is_not_marked_as_a_world_completion(self):
+        self.assertNotIn("COMPLETE", self.next_up("w1-l2-bigger"))
+
+    def test_the_next_world_s_first_level_follows_a_world_completion(self):
+        self.assertIn("Revenue Above Threshold", self.next_up("w1-l6-tally"))
+
+    def test_the_last_level_ends_the_campaign(self):
+        text = self.next_up("w3-l3-wordfreq")
+        self.assertIn("CAMPAIGN COMPLETE", text)
+        self.assertNotIn("next up", text)
+
+    def test_an_unknown_level_is_ignored_rather_than_raising(self):
+        from vibecoder.models import Level
+
+        stray = Level(
+            id="nope", world=9, world_title="X", index=1, title="X",
+            brief="x" * 50, func_name="f", starter="def f(): pass",
+            reference="def f(): pass", make_tests=lambda rng: [],
+        )
+        self.assertEqual(captured(cli._print_next_up, stray, self.session), "")
+
+
 if __name__ == "__main__":
     unittest.main()

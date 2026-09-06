@@ -437,10 +437,21 @@ class Renderer:
         for world in sorted(worlds):
             levels = worlds[world]
             title = levels[0]["world_title"]
+            earned = sum(level.get("stars", 0) for level in levels)
+            possible = 3 * len(levels)
             rows.append("")
-            rows.append(
+            # The star tally sits on the header because "where am I in this
+            # world" is the question the map is opened to answer, and counting
+            # glyphs by eye is not an answer.
+            tally = f"{self.glyph('star_full')} {earned}/{possible}"
+            heading = (
                 f"  {self.paint(f'WORLD {world}', ACCENT, bold=True)}  "
                 f"{self.paint(title, INK)}"
+            )
+            pad = max(1, width - visible_width(heading) - len(tally) - 2)
+            rows.append(
+                heading + " " * pad
+                + self.paint(tally, GOLD if earned == possible else FAINT)
             )
             # Nodes sit on a 6-column pitch (1 node + 5 link characters) and
             # each 3-glyph star label is centred beneath its node, which is why
@@ -460,6 +471,25 @@ class Renderer:
                 labels.append(self.stars(stars))
             rows.append("     " + "".join(nodes))
             rows.append("    " + "   ".join(labels))
+
+            # Point at the first uncleared level and name it. A map that shows
+            # where you are without showing where to go next sends the player
+            # back to `vibecoder levels` to find out, which is the command the
+            # map was meant to replace.
+            nxt = next(
+                (i for i, lvl in enumerate(levels) if not lvl.get("stars", 0)),
+                None,
+            )
+            if nxt is None:
+                rows.append(
+                    "     " + self.paint(
+                        f"{self.glyph('tick')} world complete", GOOD, bold=True
+                    )
+                )
+            else:
+                level = levels[nxt]
+                label = f"{self.glyph('arrow')} next  {level['title']}"
+                rows.append(" " * (5 + nxt * 6) + self.paint(label, ACCENT))
         return rows
 
     def bar_chart(

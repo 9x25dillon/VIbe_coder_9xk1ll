@@ -363,5 +363,57 @@ class TestHelpers(unittest.TestCase):
         self.assertFalse(PLAIN.unicode)
 
 
+class TestTheWorldMapGuides(unittest.TestCase):
+    """A map that shows where you are but not where to go is half a map."""
+
+    def entries(self, stars):
+        titles = ["Say Hello", "Pick the Larger", "Count What Matters"]
+        return [
+            {"world": 1, "world_title": "First Steps", "id": f"w1-l{i + 1}",
+             "title": titles[i], "stars": s}
+            for i, s in enumerate(stars)
+        ]
+
+    def render(self, stars, caps=None):
+        caps = caps or Capabilities(
+            depth=Depth.TRUECOLOR, unicode=True, animate=False, width=80
+        )
+        return [
+            strip_ansi(line) for line in Renderer(caps).level_map(self.entries(stars))
+        ]
+
+    def test_the_next_uncleared_level_is_named(self):
+        self.assertTrue(
+            any("next" in line and "Pick the Larger" in line
+                for line in self.render([3, 0, 0]))
+        )
+
+    def test_the_arrow_sits_under_its_node(self):
+        """Six-column pitch: the third node starts at column 17."""
+        arrow = next(line for line in self.render([3, 3, 0]) if "next" in line)
+        self.assertEqual(len(arrow) - len(arrow.lstrip()), 5 + 2 * 6)
+
+    def test_a_finished_world_says_so_instead(self):
+        lines = self.render([3, 2, 1])
+        self.assertTrue(any("world complete" in line for line in lines))
+        self.assertFalse(any("next" in line for line in lines))
+
+    def test_the_star_tally_is_on_the_heading(self):
+        heading = next(line for line in self.render([3, 1, 0]) if "WORLD 1" in line)
+        self.assertIn("4/9", heading)
+
+    def test_a_full_tally_is_shown_for_a_finished_world(self):
+        heading = next(line for line in self.render([3, 3, 3]) if "WORLD 1" in line)
+        self.assertIn("9/9", heading)
+
+    def test_the_layout_is_identical_without_unicode(self):
+        """T6: escape-stripped output must match at every capability."""
+        rich = self.render([3, 1, 0])
+        plain = self.render([3, 1, 0], caps=PLAIN)
+        self.assertEqual(len(rich), len(plain))
+        for a, b in zip(rich, plain):
+            self.assertEqual(len(a), len(b), f"{a!r} vs {b!r}")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -30,7 +30,13 @@ from . import levels as level_registry
 from . import sandbox
 from . import style, tips
 from .models import Level, RunResult, Source, TestCase
-from .profiler import profile_path, recommend
+from .profiler import (
+    CONVENTION_PLURALS,
+    CONVENTIONS,
+    profile_path,
+    recommend,
+    style_signature,
+)
 from .runner import reference_benchmark, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
 from .session import Session
@@ -78,17 +84,28 @@ def cmd_profile(args: argparse.Namespace) -> int:
 
     print()
     print(UI.rule("VIBE VECTOR", width=64))
+
+    signature = style_signature(vibe)
     stats = [
         f"{'source':<16}{session.vibe_source}",
         f"{'files':<16}{vibe.files}",
         f"{'functions':<16}{vibe.functions}",
         f"{'code lines':<16}{vibe.code_lines}",
         f"{'avg func lines':<16}{vibe.avg_function_lines}",
-        f"{'max complexity':<16}{vibe.max_complexity}",
+        # A distribution, because one pathological function is not a habit.
+        # `median / p90 / max` says "usually this, sometimes that, once this".
+        f"{'complexity':<16}{vibe.median_complexity:.0f} median"
+        f"   {vibe.p90_complexity:.0f} p90   {vibe.max_complexity} max",
+        f"{'nesting':<16}{vibe.avg_nesting:.1f} avg   {vibe.max_nesting} deepest",
         f"{'docstrings':<16}{vibe.docstring_ratio:.0%} of functions",
+        f"{'comments':<16}{vibe.comment_density:.0%} of lines",
     ]
     for line in UI.box(stats, width=64):
         print(line)
+
+    if signature:
+        print(f"\n  {UI.paint('STYLE', INK, bold=True)}")
+        print(f"    {UI.paint(' / '.join(signature), ACCENT, bold=True)}")
 
     if vibe.libraries:
         print(f"\n  {UI.paint('LIBRARIES', INK, bold=True)}")
@@ -104,9 +121,24 @@ def cmd_profile(args: argparse.Namespace) -> int:
             print(line)
 
     if vibe.naming:
-        print(f"\n  {UI.paint('NAMING', INK, bold=True)}")
+        # Functions and variables only. Class names are judged separately
+        # below, against their own convention -- pooling them here is what
+        # made PascalCase read as 0% in a codebase full of classes.
+        print(f"\n  {UI.paint('NAMING  (functions and variables)', INK, bold=True)}")
         for name, share in list(vibe.naming.items())[:3]:
             print(f"    {name:<18} {UI.gauge(share * 100, width=22, rgb=VIOLET)} {share:5.0%}")
+
+    if vibe.conventions:
+        # Judged per identifier kind, because PEP 8 asks for different shapes
+        # in each and a single pooled percentage cannot tell a well-named
+        # class from a Java-style function.
+        print(f"\n  {UI.paint('PEP 8 CONVENTIONS', INK, bold=True)}")
+        for kind, share in vibe.conventions.items():
+            label = f"{CONVENTION_PLURALS[kind]} are {CONVENTIONS[kind]}"
+            print(
+                f"    {label:<30} {UI.gauge(share * 100, width=16, rgb=GOOD)} "
+                f"{share:5.0%}"
+            )
 
     if vibe.exceptions_caught:
         print(f"\n  {UI.paint('EXCEPTIONS HANDLED', INK, bold=True)}")
@@ -247,6 +279,40 @@ def _print_first_failure(result: RunResult, tests: Sequence[TestCase]) -> None:
         else:
             note = f"{others} more {plural} failed."
         print(f"\n  {UI.paint(note, FAINT)}")
+
+
+def _print_next_up(level: Level, session: Session) -> None:
+    """After a clear, name the level that follows.
+
+    A game that ends a win by returning you to the shell has to be re-entered
+    on willpower. Naming the next level -- and what it adds -- is the cheapest
+    thing that turns one cleared level into two, and it is the same
+    information the world map carries, at the moment it is most useful.
+    """
+    ordered = list(level_registry.all_levels())
+    try:
+        position = [lvl.id for lvl in ordered].index(level.id)
+    except ValueError:
+        return
+
+    remaining = ordered[position + 1:]
+    if not remaining:
+        print(f"\n    {UI.badge('CAMPAIGN COMPLETE', GOLD)} "
+              + UI.paint("every level cleared", GOLD, bold=True))
+        return
+
+    following = remaining[0]
+    if following.world != level.world:
+        # Finishing a world is the milestone worth marking; the next level
+        # happens to be the first of the one after.
+        print(f"\n    {UI.badge(f'WORLD {level.world} COMPLETE', GOLD)} "
+              + UI.paint(level.world_title, GOLD, bold=True))
+    print(
+        f"\n    {UI.paint('next up', MUTED)}  "
+        + UI.paint(following.title, ACCENT, bold=True)
+        + UI.paint(f"   {following.id}", FAINT)
+    )
+    print(f"    {UI.paint(f'  {following.brief.split(chr(46))[0]}.', MUTED)}")
 
 
 def _print_hints(level: Level, failed_attempts: int) -> None:
@@ -476,6 +542,9 @@ def cmd_play(args: argparse.Namespace) -> int:
                 MUTED,
             )
         )
+
+    if result.all_passed and not practice:
+        _print_next_up(level, session)
 
     advice = tips.generate(
         code,

@@ -36,6 +36,36 @@ The result is saved into the player's profile and used automatically by
 | **Complexity** | Cyclomatic: 1 + branch points, counting each extra `BoolOp` operand and each comprehension `if` | Difficulty calibration |
 | **Docstring ratio** | Documented functions ÷ total | Whether documentation goals are worth setting |
 | **Naming** | Classifies every stored name and function name | Presentation, and detecting a house style |
+| **PEP 8 conventions** | Conformance per identifier *kind*: classes vs `PascalCase`, functions vs `snake_case`, module constants vs `SCREAMING_SNAKE` | Detecting a house style without conflating two conventions |
+| **Nesting depth** | Deepest indented block per function, counting an `elif` chain once | Whether somebody returns early or steps right |
+| **Comment density** | Comment lines ÷ non-blank lines | How much prose the player writes alongside code |
+| **Style signature** | A few readable traits derived from all of the above | The sentence a player actually reads |
+
+### Why conventions are judged per kind
+
+`PascalCase` is correct for a class and wrong for a function, and both are the
+same token shape. A single pooled "PascalCase share" cannot tell them apart, so
+the profiler originally left class names out of `naming` altogether — which
+reported **0% PascalCase for a codebase made of classes** and lost the signal
+rather than fixing the conflation. Conventions are now counted per kind, and a
+kind the codebase has none of is *absent* rather than reported as 0%: telling
+somebody they name every class wrongly when they have written no classes is
+worse than saying nothing.
+
+### Why complexity is a distribution
+
+`max_complexity` is one function on a bad day. The profile reports median, p90
+and max together, because "usually 3, sometimes 9, once 29" describes a codebase
+and a single number describes an outlier.
+
+### Why `elif` chains are flat
+
+An `elif` chain nests in the AST — each branch is an `If` inside the previous
+one's `orelse` — and is flat on screen. Counting the AST shape reported this
+profiler's own dispatch chain as **22 levels deep** when a reader sees one. What
+is being measured is the indentation a person looks at, so the chain counts
+once, and a nested function starts its own budget rather than being charged to
+the function containing it.
 
 Directories that are obviously not the player's own code (`.venv`,
 `node_modules`, `__pycache__`, `build`, `site-packages`, …) are skipped, and
@@ -62,7 +92,9 @@ The fix splits the two cases:
 - **File-level patterns** (comprehension, f-string, class, `try`, lambda, …) →
   *share of files containing the pattern*. Bounded by construction, and
   interpretable at any repository size.
-- **Per-function patterns** (`decorator`, `type_hints`, `recursion`, `async`) →
+- **Per-function patterns** (`decorator`, `type_hints`, `recursion`, `async`,
+  `star_args`, `keyword_only_args`, `generator_function`, `nested_function`,
+  `property`, `static_or_class_method`) →
   *share of functions*. "What fraction of your functions are decorated" is a
   meaningful quantity; "what fraction of your files contain a decorator" is not.
 
@@ -105,6 +137,19 @@ pandas-only player straight into async on day one.
 
 Levels with no tags sort last. Without a profile, ordering falls back to
 campaign order.
+
+## The style signature
+
+The numbers are the evidence; the signature is the sentence somebody reads.
+`docstring_ratio 0.43` tells a player nothing about themselves. *"untyped,
+loop-first, %-format era, long functions"* — which is what this profiler says
+about the standard library's `json` — tells them something they can recognise
+and argue with, and arguing with it means they looked.
+
+Every threshold is a judgement about **style, never quality**. A codebase with
+deep nesting and no type hints is not being marked down; the profiler's job is
+to describe how somebody writes so the game can meet them there. A signature
+that read as a scolding would make people stop running it.
 
 ## What it deliberately does not measure
 
