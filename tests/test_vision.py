@@ -15,6 +15,7 @@ from vibecoder.vision import (
     frames,
     layout,
     render,
+    sample,
     still,
 )
 
@@ -285,6 +286,46 @@ class TestTheStillForAPipe(unittest.TestCase):
     def test_an_empty_trace_still_draws_the_machine(self):
         text = still(LOOP, [])
         self.assertIn("for r in rows", text)
+
+
+class TestTheRevealBudget(unittest.TestCase):
+    """The machine view lands in the hottest path, so it has to stay bounded."""
+
+    def frames_of(self, count):
+        return [Frame(i, count, 0, 0, "") for i in range(1, count + 1)]
+
+    def test_a_long_run_is_sampled_down(self):
+        self.assertEqual(len(sample(self.frames_of(400), 36)), 36)
+
+    def test_a_short_run_is_left_alone(self):
+        self.assertEqual(len(sample(self.frames_of(6), 36)), 6)
+
+    def test_sampling_keeps_the_order_of_the_run(self):
+        kept = sample(self.frames_of(400), 36)
+        self.assertTrue(all(a.step < b.step for a, b in zip(kept, kept[1:])))
+
+    def test_the_last_instant_always_survives(self):
+        """The final frame is the answer coming out; dropping it ends the
+        animation somewhere arbitrary."""
+        self.assertEqual(sample(self.frames_of(400), 36)[-1].step, 400)
+
+    def test_the_first_instant_always_survives(self):
+        self.assertEqual(sample(self.frames_of(400), 36)[0].step, 1)
+
+    def test_a_sampled_frame_keeps_the_true_count_at_that_instant(self):
+        """Sampling must not make the loop counter count surviving frames.
+
+        The counters are computed over the whole trace before sampling, so a
+        kept frame reports what had really happened by then.
+        """
+        machine = build_machine(LOOP)
+        built = frames(machine, trace_for([3, 4, 5] * 20))
+        kept = sample(built, 6)
+        self.assertEqual(kept[-1].iterations[1], built[-1].iterations[1])
+        self.assertEqual(built[-1].iterations[1], 20)
+
+    def test_zero_limit_means_no_sampling(self):
+        self.assertEqual(len(sample(self.frames_of(400), 0)), 400)
 
 
 class TestTheRendererStyleHelper(unittest.TestCase):

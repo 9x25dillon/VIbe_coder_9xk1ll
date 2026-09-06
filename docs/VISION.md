@@ -74,13 +74,34 @@ branch, return — and stays readable in eighty columns.
 
 ## Where it runs
 
-Its own command rather than part of the score reveal. The reveal is the hottest
-path in the product, and a visual still finding its feet does not belong there
-until it has earned the place — so `vision` is opt-in first, and wiring it into
-the reveal is a later decision made with the thing in hand.
+Both: `vibecoder vision` on demand, and inside the score reveal — it plays after
+the test results and before the axes land, so you watch the machine work and
+then see what it scored.
 
-When the stream cannot animate — a pipe, a CI log, `VIBECODER_NO_ANIM` — it
-prints a single still frame instead. A recording of cursor movement is not a
-useful artifact, and escape codes in a log file are a bug. Unicode is a
-capability of the stream and colour is a capability of the terminal, so a UTF-8
-pipe still gets box-drawing characters and no escapes.
+The reveal is the hottest path in the product, so the wiring is bounded rather
+than trusted:
+
+| Guard | Value | Why |
+| --- | --- | --- |
+| Time budget | 2.5 s | Between "did something happen" and "get on with it". A player grinding attempts never waits on it |
+| Frame cap | 36 | A trace runs to 400 steps. Racing all of them inside the budget is a blur, so frames are **sampled** instead |
+| Opt out | `--no-vision` | And `VIBECODER_NO_ANIM`, which the whole product already honours |
+| Never raises | — | Nothing decorative may be able to break the reveal. No trace, code that will not parse, no function: it is silent |
+
+Sampling is honest in a way that simply shortening the delay is not. Every frame
+carries state computed over the **whole** trace before any sampling, so a kept
+frame's loop counter is the true count at that instant rather than a count of
+the frames that survived. The step number jumping from 40 to 52 is the reader's
+cue that instants were skipped.
+
+When the stream cannot animate — a pipe, a CI log, `VIBECODER_NO_ANIM` — the
+`vision` command prints a single still frame instead. A recording of cursor
+movement is not a useful artifact, and escape codes in a log file are a bug.
+Unicode is a capability of the stream and colour is a capability of the
+terminal, so a UTF-8 pipe still gets box-drawing characters and no escapes.
+
+**The reveal prints nothing at all in that case.** The still frame exists
+because somebody asked to see the machine; the reveal is a live flourish, and
+adding twenty lines of drawing to every CI log and piped transcript is a change
+nobody asked for. A piped `play` is byte-identical to what it was before this
+landed.

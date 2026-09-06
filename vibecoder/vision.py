@@ -546,6 +546,28 @@ def palette_from(ui: Any) -> dict[str, Any]:
     }
 
 
+def sample(built: Sequence[Frame], limit: int) -> list[Frame]:
+    """At most ``limit`` frames, evenly spaced, always keeping the last.
+
+    A trace runs to 400 steps, which at a watchable frame rate is half a
+    minute -- fine when a player asked for the animation, far too long in the
+    score reveal, which is the hottest path in the product.
+
+    Sampling is honest here in a way that shortening the delay is not. Every
+    `Frame` already carries its own state, computed over the *whole* trace, so
+    a sampled frame's loop counter is the true count at that instant rather
+    than a count of the frames that survived. The step number jumping from 40
+    to 52 is visible, which is the reader's cue that instants were skipped.
+    """
+    if limit <= 0 or len(built) <= limit:
+        return list(built)
+    stride = len(built) / limit
+    kept = [built[min(len(built) - 1, int(i * stride))] for i in range(limit)]
+    if kept[-1] is not built[-1]:
+        kept[-1] = built[-1]
+    return kept
+
+
 def still(
     source: str,
     trace: Sequence[dict[str, Any]],
@@ -580,6 +602,8 @@ def play(
     delay: float = 0.08,
     stream: Any = None,
     interactive: bool = False,
+    budget: float | None = None,
+    limit: int = 0,
 ) -> int:
     """Animate a recorded run through its machine. Returns frames drawn.
 
@@ -610,6 +634,13 @@ def play(
             + "\n"
         )
         return 1
+
+    if limit:
+        built = sample(built, limit)
+    if budget is not None and built:
+        # The budget is a ceiling, never a floor: a six-frame run stays at its
+        # natural pace rather than being stretched to fill the time.
+        delay = min(delay, budget / len(built))
 
     palette = palette_from(ui)
     drawn = 0

@@ -410,6 +410,46 @@ def _load_level(level_id: str) -> Level:
         raise SystemExit(f"unknown level {level_id!r}. Available: {known}")
 
 
+#: The reveal may spend this long on the machine view, and no longer. Chosen
+#: to sit between "did something just happen" and "get on with it": long
+#: enough to see the token take a lap, short enough that a player grinding
+#: attempts never waits on it.
+VISION_BUDGET = 2.5
+
+#: Frames drawn within that budget. Sampling to a fixed count rather than
+#: racing through 400 keeps each frame legible instead of a blur.
+VISION_FRAMES = 36
+
+
+def _play_vision(code: str, result: RunResult, *, enabled: bool) -> None:
+    """The machine view, inside the reveal and on a strict budget.
+
+    Silent whenever there is nothing honest to draw -- no trace, code that
+    does not parse, a submission with no function -- because a failed
+    submission already has a failure block to read and a broken drawing on top
+    of it is noise. This never raises: the reveal is the hottest path in the
+    product and nothing decorative may be able to break it.
+    """
+    if not enabled:
+        return
+    # A pipe gets nothing here, deliberately. `vibecoder vision` falls back to
+    # a still frame because somebody asked to see the machine; the reveal is a
+    # live flourish, and printing twenty lines of drawing into every CI log
+    # and piped transcript is a change nobody asked for.
+    if not UI.caps.animate:
+        return
+    trace = getattr(result, "trace", None) or []
+    if not trace:
+        return
+    try:
+        vision_play(
+            code, trace, delay=0.08,
+            budget=VISION_BUDGET, limit=VISION_FRAMES,
+        )
+    except (ValueError, OSError):
+        return
+
+
 def cmd_play(args: argparse.Namespace) -> int:
     level = _load_level(args.level_id)
     session = Session.load()
@@ -518,6 +558,8 @@ def cmd_play(args: argparse.Namespace) -> int:
     )
     if not practice:
         session.save()
+
+    _play_vision(code, result, enabled=not args.no_vision)
 
     print()
     print(UI.rule("SCORE", width=76))
@@ -976,6 +1018,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--elapsed",
         type=float,
         help="real solve time in seconds; makes a --solution run count for score",
+    )
+    p_play.add_argument(
+        "--no-vision", action="store_true",
+        help="skip the machine view in the reveal",
     )
     p_play.set_defaults(func=cmd_play)
 
