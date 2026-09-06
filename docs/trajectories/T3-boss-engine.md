@@ -1,6 +1,6 @@
 # T3 — Boss engine: interactive slow-motion debugger
 
-**Design phase:** 2 · **Status:** `PLOTTED` · **Target:** 2026-09-20 ·
+**Design phase:** 2 · **Status:** `IN FLIGHT` · **Target:** 2026-09-20 ·
 **Depends on:** T2 (execution boundary must be settled first)
 
 ## Heading

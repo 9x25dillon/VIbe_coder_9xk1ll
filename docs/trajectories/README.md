@@ -31,7 +31,7 @@ Each trajectory document has the same five sections.
 | --- | --- | --- | --- | --- |
 | [T1](T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | Phase 0 | `LANDED` | 2026-08-08 |
 | [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
-| [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `PLOTTED` | 2026-09-20 |
+| [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `IN FLIGHT` | 2026-09-20 |
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
@@ -98,9 +98,19 @@ T6 is `LANDED`, so either it reopens or this and what follows it deserve a
 trajectory of their own. That is Q51 and it is the user's call, recorded here
 rather than absorbed.
 
-Two trajectories hold `IN FLIGHT` at once, against the rule in the status
-vocabulary above. T7 was opened at the user's request while T2 was still in
-flight. That is a fact, not an amendment: T2 is the one that is late.
+**T3 waypoint state:** W1 `LANDED`
+([S016](../../journal/2026-09-06-S016-boss-format.md)). W2–W8 outstanding. T3
+was started at the user's request with T2 one waypoint from landing and
+externally blocked, which is the honest reason it went first rather than a
+claim that T2 finished.
+
+**Three** trajectories now hold `IN FLIGHT` at once, against the rule in the
+status vocabulary above, which says exactly one should. T7 was opened while T2
+was in flight; T3 was opened while both were. That is a fact rather than an
+amendment, and it is worth reading as one: T2 is late and blocked, T7 is
+complete through W8 but never formally landed, and the count says the board is
+being used as a set of open workstreams rather than a heading. Landing T7 or
+closing out T2's W4 would put it back to one.
 
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).

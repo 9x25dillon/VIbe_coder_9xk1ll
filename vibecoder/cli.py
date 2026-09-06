@@ -7,6 +7,7 @@
     vibecoder replay <run-id>       slow-motion playback of a recorded run
     vibecoder verify                run every level's reference against its tests
     vibecoder showcase              render every visual element
+    vibecoder boss <id>             run a boss fight step by step
     vibecoder vision                animate your last run as a machine
     vibecoder reset                 delete the local profile
 
@@ -39,7 +40,7 @@ from .profiler import (
     recommend,
     style_signature,
 )
-from .runner import reference_benchmark, run_submission
+from .runner import reference_benchmark, run_code, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
 from .session import Session
 from .replay import play as play_replay
@@ -828,6 +829,68 @@ def cmd_vision(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_boss(args: argparse.Namespace) -> int:
+    """Run a boss fight step by step (T3 W1).
+
+    Steps are checked in order and stop at the first failure, because a boss
+    is a sequence: reporting step three against a buffer whose step one is
+    wrong grades a situation the player is not in. Live stepping is W2; this
+    is the format being playable, which is what makes W1 a waypoint rather
+    than a data structure.
+    """
+    try:
+        boss = level_registry.get_boss(args.boss_id)
+    except KeyError as exc:
+        raise SystemExit(str(exc))
+
+    seed = args.seed if args.seed is not None else 1
+    if args.solution:
+        code = Path(args.solution).read_text(encoding="utf-8")
+    elif args.reference:
+        code = boss.reference_source()
+    else:
+        code = boss.starter_source(0)
+
+    print()
+    print(UI.rule(f"BOSS  {boss.title}", width=76))
+    print(f"\n  {UI.paint(boss.brief, INK)}\n")
+
+    cleared = 0
+    for index, step in enumerate(boss.steps):
+        tests = step.tests_for(seed)
+        result = run_code(code, step.func_name, tests, source=Source.PLAYER)
+        passed = [o for o in result.outcomes if o.passed]
+        ok = len(passed) == len(tests) and not result.error
+        mark = UI.glyph("tick") if ok else UI.glyph("cross")
+        colour = GOOD if ok else BAD
+        print(
+            f"  {UI.paint(mark, colour, bold=True)} "
+            f"{UI.paint(f'step {index + 1}/{boss.step_count}', FAINT)}  "
+            f"{step.title:<24} "
+            f"{UI.paint(f'{len(passed)}/{len(tests)}', colour)}  "
+            + UI.paint(step.func_name, MUTED)
+        )
+        if not ok:
+            if result.error:
+                print(f"      {UI.paint(result.error.splitlines()[-1], BAD)}")
+            else:
+                _print_first_failure(result, tests)
+            print(
+                f"\n  {UI.paint('the fight stops here', WARN)}  "
+                + UI.paint(f"{cleared}/{boss.step_count} steps cleared", MUTED)
+                + "\n"
+            )
+            return 1
+        cleared += 1
+
+    print(
+        f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}  "
+        + UI.paint(f"{cleared}/{boss.step_count} steps cleared", MUTED)
+        + "\n"
+    )
+    return 0
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     """Every reference solution must pass its own tests on several variants.
 
@@ -852,7 +915,35 @@ def cmd_verify(args: argparse.Namespace) -> int:
                     f"{UI.paint('OK', GOOD)}    {level.id} seed {seed}: "
                     + UI.paint(f"{ops} ops, {peak / 1024:.1f} KiB", MUTED)
                 )
-    total = len(level_registry.all_levels()) * args.seeds
+    # Bosses are verified too, per step. A boss reference is checked in the
+    # presence of the steps before it, because a step that calls an earlier
+    # function cannot be shown correct in isolation.
+    boss_runs = 0
+    for boss in level_registry.all_bosses():
+        for index, step in enumerate(boss.steps):
+            source = boss.reference_source(index)
+            for seed in range(1, args.seeds + 1):
+                boss_runs += 1
+                result = run_code(
+                    source, step.func_name, step.tests_for(seed),
+                    source=boss.source,
+                )
+                failed = [o.name for o in result.outcomes if not o.passed]
+                if failed or result.error:
+                    failures += 1
+                    print(
+                        f"  {UI.paint(UI.glyph('cross'), BAD)} "
+                        f"{UI.paint('FAIL', BAD)}  {boss.id}/{step.id} "
+                        f"seed {seed}: {result.error or failed}"
+                    )
+                elif args.verbose:
+                    print(
+                        f"  {UI.paint(UI.glyph('tick'), GOOD)} "
+                        f"{UI.paint('OK', GOOD)}    {boss.id}/{step.id} "
+                        f"seed {seed}"
+                    )
+
+    total = len(level_registry.all_levels()) * args.seeds + boss_runs
     clean = total - failures
     print(
         f"\n  {UI.gauge(clean, width=30, maximum=max(1, total))}  "
@@ -1084,6 +1175,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_vision.add_argument("--step", action="store_true",
                           help="advance one frame per keypress")
     p_vision.set_defaults(func=cmd_vision)
+
+    p_boss = sub.add_parser("boss", help="run a boss fight step by step")
+    p_boss.add_argument("boss_id")
+    p_boss.add_argument("--seed", type=int, help="pick a variant")
+    p_boss.add_argument("--solution", help="run a file instead of the starter")
+    p_boss.add_argument(
+        "--reference", action="store_true",
+        help="run the reference solution, to see the fight completed",
+    )
+    p_boss.set_defaults(func=cmd_boss)
 
     p_verify = sub.add_parser("verify", help="check every level's reference solution")
     p_verify.add_argument("--seeds", type=int, default=3)

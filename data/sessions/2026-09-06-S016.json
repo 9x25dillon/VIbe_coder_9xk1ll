@@ -1,0 +1,108 @@
+{
+  "id": "S016",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S016-boss-format.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A boss level format exists that links steps without cascading failures", "result": "met", "note": "per-step canonical tests; the shared source file is the link"},
+    {"id": 2, "statement": "The linking is enforced, not merely described", "result": "met", "note": "uses is AST-checked, must name an earlier step, and the reference must fail in isolation"},
+    {"id": 3, "statement": "A boss is playable from the CLI today, not after W2", "result": "met", "note": "vibecoder boss runs the fight step by step and stops at the first failure"},
+    {"id": 4, "statement": "verify covers bosses", "result": "met", "note": "45/45, up from 36/36, checking each step with its earlier steps present"},
+    {"id": 5, "statement": "The board says honestly what starting T3 costs", "result": "met", "note": "three trajectories now IN FLIGHT against a rule saying one; recorded rather than absorbed"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/models.py", "kind": "module", "note": "BossStep and BossLevel, with shape rules enforced in __post_init__"},
+    {"path": "vibecoder/levels/__init__.py", "kind": "module", "note": "all_bosses and get_boss, discovered from a module-level BOSS"},
+    {"path": "vibecoder/levels/w1_boss_pipeline.py", "kind": "level", "note": "New. The first boss: parse, filter, summarise"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "cmd_boss, and verify extended to cover bosses per step"},
+    {"path": "tests/test_bosses.py", "kind": "test", "note": "New. 28 contract tests for the multi-step shape"},
+    {"path": "docs/LEVEL_AUTHORING.md", "kind": "doc", "note": "the boss format, the contract, and how to play one"},
+    {"path": "docs/trajectories/T3-boss-engine.md", "kind": "doc", "note": "status PLOTTED to IN FLIGHT"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T3 W1 LANDED; three trajectories in flight recorded as a fact"},
+    {"path": "journal/2026-09-06-S016-boss-format.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A boss with fewer than two steps is refused", "method": "tests/test_bosses.py::test_a_boss_needs_at_least_two_steps", "result": "ValueError", "verdict": "verified"},
+    {"claim": "Two steps may not share a function name", "method": "::test_two_steps_may_not_share_a_function_name", "result": "ValueError naming the clash", "verdict": "verified"},
+    {"claim": "Duplicate step ids are refused", "method": "::test_duplicate_step_ids_are_refused", "result": "ValueError", "verdict": "verified"},
+    {"claim": "A declared dependency is actually called by the reference", "method": "::test_a_step_that_declares_uses_actually_calls_them, AST walk", "result": "parse_rows and above_floor both called", "verdict": "verified"},
+    {"claim": "A declared dependency names an earlier step", "method": "::test_a_declared_dependency_names_an_earlier_step", "result": "no forward references", "verdict": "verified"},
+    {"claim": "A linked step's reference fails in isolation", "method": "::test_a_linked_step_fails_without_the_steps_it_builds_on", "result": "summarise alone does not pass", "verdict": "verified"},
+    {"claim": "Every reference passes its step on every seed with earlier steps present", "method": "::test_every_reference_solves_every_step_on_every_seed, seeds 1-3", "result": "no failures", "verdict": "verified"},
+    {"claim": "No starter already passes its own step", "method": "::test_no_starter_already_passes_its_own_step", "result": "1/6, 2/6, 2/6 for the three steps", "verdict": "verified"},
+    {"claim": "The shared buffer carries what the player wrote", "method": "::test_a_later_step_carries_what_the_player_wrote", "result": "the player's earlier function appears in the buffer", "verdict": "verified"},
+    {"claim": "An unsolved earlier step falls back to its starter, never the reference", "method": "::test_an_unsolved_earlier_step_falls_back_to_its_starter", "result": "starter present, reference absent", "verdict": "verified"},
+    {"claim": "The buffer is valid Python at every step", "method": "::test_the_buffer_is_valid_python_at_every_step", "result": "ast.parse succeeds for each", "verdict": "verified"},
+    {"claim": "A boss is never returned as an ordinary level", "method": "::test_a_boss_is_not_returned_as_an_ordinary_level", "result": "id sets disjoint", "verdict": "verified"},
+    {"claim": "Each step has at least four cases and a hand-written edge case", "method": "::test_every_step_has_enough_test_cases, ::test_every_step_has_a_hand_written_edge_case", "result": "6 cases per step, named edge cases present", "verdict": "verified"},
+    {"claim": "Seeds reproduce and differ per step", "method": "::TestVariants", "result": "same seed equal, different seeds differ", "verdict": "verified"},
+    {"claim": "verify covers bosses per step", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45 clean, up from 36/36", "verdict": "verified"},
+    {"claim": "The boss is playable end to end", "method": "vibecoder boss w1-boss-pipeline, with and without --reference", "result": "3/3 cleared with the reference; stops at step 1 from the starter", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "779 tests OK", "verdict": "verified"},
+    {"claim": "The fight is any good to play", "method": "contract tests prove well-formedness only", "result": "not played by anyone but me", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M31",
+      "believed": "'Ordered steps, per-step tests, shared state' meant the format needed somewhere to put the state: a namespace threaded between steps, or step n's return value passed into step n+1's tests. I started designing how step two would receive step one's output.",
+      "revealed_by": "Working through what happens when step one is wrong. Every version of that design fails step three for a step-one mistake, which scores one error three times and tells the player the wrong thing about where they went wrong. The mechanism I was designing existed to create a problem.",
+      "corrected_to": "The shared state is the source file, and it needs no mechanism at all. The steps are functions in one module; a later step calls an earlier one because that is what Python does. Grading stays per-step and independent, and the unlock order means an earlier function has already passed its own tests before anything calls it.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The waypoint's own wording pointed at a mechanism, and the right answer was that the format already had one."
+    }
+  ],
+  "decisions": [
+    {"id": "D102", "decision": "Each step is graded against its own canonical tests", "alternatives": ["Feed step n's output into step n+1's tests"], "rationale": "Otherwise a step-one mistake fails step three, scoring one error three times and misreporting where it happened.", "reversible": false, "seam": "vibecoder/models.py::BossStep"},
+    {"id": "D103", "decision": "The shared state is one source file rather than a namespace", "alternatives": ["A threaded state object", "Explicit inter-step plumbing"], "rationale": "The steps are functions in a module; a later step calling an earlier one is ordinary Python. The mechanism existed only to create the cascade problem.", "reversible": true, "seam": "vibecoder/models.py::BossLevel.starter_source"},
+    {"id": "D104", "decision": "Steps unlock in order", "alternatives": ["Let the player attempt any step"], "rationale": "It is what makes calling an earlier function safe: it has already passed its own tests.", "reversible": true, "seam": "vibecoder/cli.py::cmd_boss"},
+    {"id": "D105", "decision": "uses is checked against the reference, never the player", "alternatives": ["Enforce the dependency on submissions"], "rationale": "It documents intent and keeps the boss honest. A player who finds another way that passes has not done anything wrong.", "reversible": true, "seam": "tests/test_bosses.py::TestTheStepsLink"},
+    {"id": "D106", "decision": "A linked step's reference must fail in isolation", "alternatives": ["Only check that it passes in context"], "rationale": "A reference that passes alone proves the step never needed its dependencies, and the boss is three levels wearing one name.", "reversible": true, "seam": "tests/test_bosses.py::test_a_linked_step_fails_without_the_steps_it_builds_on"},
+    {"id": "D107", "decision": "Two steps may not share a function name", "alternatives": ["Allow it, last definition wins"], "rationale": "The later definition replaces the earlier in the shared file, so the first step's tests would grade code written for the second.", "reversible": false, "seam": "vibecoder/models.py::BossLevel.__post_init__"},
+    {"id": "D108", "decision": "Bosses are a separate registry from levels", "alternatives": ["One registry with a kind flag"], "rationale": "A boss is a different shape, and every caller that walks levels would otherwise have to remember to ask which it was holding.", "reversible": true, "seam": "vibecoder/levels/__init__.py::all_bosses"},
+    {"id": "D109", "decision": "The fight stops at the first failed step", "alternatives": ["Report every step every time"], "rationale": "Reporting step three against a buffer whose step one is wrong grades a situation the player is not in.", "reversible": true, "seam": "vibecoder/cli.py::cmd_boss"}
+  ],
+  "friction": [
+    {"description": "style_goals=('comprehension',) was wrong: the registry keys are uses_comprehension and friends. Caught immediately by the contract test copied from test_levels, which is the argument for copying it.", "impact": "low", "resolved": true},
+    {"description": "Three consecutive attempts to patch cli.py aborted midway because the patch helper called sys.exit on a missed anchor before the file was written, discarding earlier successful replacements silently. Twice I read a FAILED line and assumed only that one edit had been skipped.", "impact": "medium", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T3 W1 is landed. BossStep and BossLevel exist, bosses are auto-discovered from a module-level BOSS, w1-boss-pipeline ships as the first fight, vibecoder boss plays it step by step, and verify covers bosses per step at 45/45. 779 tests green unpinned.",
+    "next_action": "T3 W2, live stepping under sys.settrace with pause, resume and abort. Read the trajectory's hazard list first: the trace format is load-bearing and the live engine must emit the same shape replay.py and vision.py already consume - there are now two renderers depending on it, not one. Also read the slow-motion hazard before building: 1 line / 2 s is about two minutes for a 60-line function, and variable speed, a skip control and auto-fast-forward through loop bodies are named as requirements rather than polish. vision.sample already solves that problem for the reveal.",
+    "blockers": [
+      "None for T3",
+      "T2 W4 remains blocked on a registered OAuth application; T2 is otherwise one waypoint from landing"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D102 and M31 before redesigning how steps link: the independence is the format, not an implementation detail",
+      "D107 before relaxing the function-name rule",
+      "Three trajectories now hold IN FLIGHT against a rule saying exactly one should"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q59", "question": "A boss has no scoring, no HP and no session record yet: vibecoder boss reports pass/fail and banks nothing. W6 and W7 own that, but a player can currently beat a boss with no trace of it. Should W1's command refuse to look like progress until then, or is a practice-mode-shaped run correct?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q60", "question": "index=99 puts the boss last in World 1 by convention rather than by rule. Nothing says a boss belongs at the end of a world, and levels --map does not draw bosses at all. Where does a boss sit in the campaign structure?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q61", "question": "Three trajectories hold IN FLIGHT: T2 is late and blocked, T7 is complete through W8 but never formally landed, and T3 is now open. Landing T7 is bookkeeping that would put the board back to two. Is that worth a session?", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q62", "question": "Boss steps forbid nothing about side effects, and T3's hazard list says replay needs them forbidden or recorded. The contract tests do not check for print, file writes, or imports of os. Should that become a contract test now, before W4 needs it?", "owner": "T3", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 779,
+    "tests_passing": 779,
+    "tests_added": 28,
+    "boss_tests": 28,
+    "bosses": 1,
+    "boss_steps": 3,
+    "reference_runs_clean": 45,
+    "reference_runs_levels": 36,
+    "reference_runs_boss_steps": 9,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 24,
+    "dependencies": 0,
+    "trajectories_in_flight": 3
+  }
+}

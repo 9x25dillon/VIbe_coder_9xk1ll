@@ -212,6 +212,130 @@ class ScoreBreakdown:
 
 
 # --------------------------------------------------------------------------
+# Boss fights (T3)
+# --------------------------------------------------------------------------
+
+@dataclass
+class BossStep:
+    """One function in a boss fight.
+
+    A boss is *n* linked functions rather than one big one, and each step is
+    graded against its **own** tests. That independence is deliberate: a boss
+    whose later steps are tested through the player's earlier output would
+    fail step three for a mistake in step one, which teaches the wrong lesson
+    and scores the same mistake twice.
+
+    The linking is still real, because the steps share one source file and a
+    later step may call an earlier function by name. Steps unlock in order, so
+    by the time step three runs, step one has already passed its own tests --
+    which is what makes calling it safe rather than a cascade waiting to
+    happen.
+    """
+
+    id: str
+    title: str
+    brief: str
+    func_name: str
+    starter: str
+    reference: str
+    make_tests: Callable[[random.Random], Sequence[TestCase]]
+    hints: tuple[str, ...] = ()
+    style_goals: tuple[str, ...] = ()
+    #: Functions from earlier steps this one is meant to build on. Documented
+    #: for the player and asserted against the *reference* by the contract
+    #: tests; never enforced on the player, who may solve it any way that
+    #: passes.
+    uses: tuple[str, ...] = ()
+
+    def tests_for(self, seed: int) -> list[TestCase]:
+        return list(self.make_tests(random.Random(seed)))
+
+
+@dataclass
+class BossLevel:
+    """An ordered sequence of `BossStep`, played as one fight.
+
+    The steps share a single source file: the player's accepted solutions to
+    earlier steps stay in the buffer while they write the next one. That file
+    is the "shared state" the design asks for, and it is a plain Python module
+    rather than a bespoke namespace, so a later step calling an earlier
+    function is ordinary code rather than a framework feature.
+    """
+
+    id: str
+    world: int
+    world_title: str
+    index: int
+    title: str
+    brief: str
+    steps: tuple[BossStep, ...]
+    par_seconds: float = 900.0
+    tags: tuple[str, ...] = ()
+    #: Bundled like any other level. See `Level.source` for what this does and,
+    #: more importantly, what it does not cover.
+    source: "Source" = Source.BUNDLED
+
+    def __post_init__(self) -> None:
+        if len(self.steps) < 2:
+            raise ValueError(f"boss {self.id!r} needs at least two steps")
+        ids = [step.id for step in self.steps]
+        duplicates = {i for i in ids if ids.count(i) > 1}
+        if duplicates:
+            raise ValueError(f"boss {self.id!r} has duplicate step ids: {sorted(duplicates)}")
+        names = [step.func_name for step in self.steps]
+        clashes = {n for n in names if names.count(n) > 1}
+        if clashes:
+            # Two steps defining the same function means the second silently
+            # replaces the first in the shared file, and the earlier step's
+            # tests would then be grading code the player wrote for a later one.
+            raise ValueError(
+                f"boss {self.id!r} reuses function name(s): {sorted(clashes)}"
+            )
+
+    @property
+    def step_count(self) -> int:
+        return len(self.steps)
+
+    def step(self, index: int) -> BossStep:
+        return self.steps[index]
+
+    def index_of(self, step_id: str) -> int:
+        for index, step in enumerate(self.steps):
+            if step.id == step_id:
+                return index
+        raise KeyError(f"unknown step {step_id!r} in boss {self.id!r}")
+
+    def starter_source(self, upto: int = 0, *, solved: Sequence[str] = ()) -> str:
+        """The buffer a player faces when they reach step ``upto``.
+
+        Earlier steps appear as whatever the player actually wrote -- passed in
+        as ``solved`` -- and the current step as its starter. Falling back to
+        the reference for an unsolved earlier step would hand out the answer,
+        so the fallback is the starter instead.
+        """
+        parts: list[str] = []
+        for index in range(upto):
+            if index < len(solved) and solved[index].strip():
+                parts.append(solved[index].strip("\n"))
+            else:
+                parts.append(self.steps[index].starter.strip("\n"))
+        parts.append(self.steps[upto].starter.strip("\n"))
+        return "\n\n\n".join(parts) + "\n"
+
+    def reference_source(self, upto: int | None = None) -> str:
+        """Every reference up to and including ``upto``, as one module.
+
+        This is what `verify` runs: a step's reference has to pass its own
+        tests *in the presence of the earlier ones*, because a step that calls
+        an earlier function cannot be checked in isolation.
+        """
+        last = self.step_count - 1 if upto is None else upto
+        return "\n\n\n".join(
+            step.reference.strip("\n") for step in self.steps[: last + 1]
+        ) + "\n"
+
+
+# --------------------------------------------------------------------------
 # Vibe profile
 # --------------------------------------------------------------------------
 

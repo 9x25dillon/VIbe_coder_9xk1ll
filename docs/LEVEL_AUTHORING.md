@@ -150,3 +150,76 @@ python3 -m vibecoder.cli play w3-l1-total      # actually play it
 
 The third one is not optional. Contract tests confirm a level is *well-formed*;
 only playing it tells you whether it is any good.
+
+
+---
+
+## Boss fights (T3 W1)
+
+A boss is **n linked functions**, not one big one. A module exposing a
+module-level `BOSS` is registered as a boss fight the same way `LEVEL` registers
+an ordinary level, and `tests/test_bosses.py` enforces the contract.
+
+```python
+BOSS = BossLevel(
+    id="w1-boss-pipeline", world=1, world_title="First Contact", index=99,
+    title="The Feed", brief="...",
+    steps=(PARSE, FILTER, SUMMARY),
+)
+```
+
+### Each step is graded on its own tests
+
+That independence is deliberate. A boss whose later steps were tested through
+the player's earlier output would fail step three for a mistake in step one —
+which teaches the wrong lesson and scores the same mistake twice.
+
+The linking is still real, because **the steps share one source file** and a
+later step may call an earlier function by name. That file is the "shared
+state": a plain Python module rather than a bespoke namespace, so a later step
+calling an earlier function is ordinary code rather than a framework feature.
+Steps unlock in order, so by the time step three runs, step one has already
+passed its own tests — which is what makes calling it safe rather than a
+cascade waiting to happen.
+
+A step declares what it builds on with `uses=("parse_rows", "above_floor")`.
+That is documentation for the player and a contract test against the
+*reference*; it is never enforced on the player, who may solve it any way that
+passes.
+
+### The contract, enforced automatically
+
+Everything a level must satisfy, plus:
+
+- **At least two steps.** One step is a level; the format exists for the
+  linking.
+- **No two steps share a function name.** The later definition would silently
+  replace the earlier one in the shared file, and the first step's tests would
+  then grade code written for the second. `BossLevel.__post_init__` refuses it.
+- **A declared dependency names an *earlier* step.** Depending on a later one
+  is a cycle the unlock order cannot serve.
+- **A step's reference must actually call what it declares** — checked by
+  walking the AST.
+- **A linked step's reference must *fail* in isolation.** If it passes without
+  the steps it builds on, it never needed them, and the boss is three unrelated
+  levels wearing one name.
+- **Every step's reference passes with the earlier steps present**, on every
+  seed. `vibecoder verify` covers bosses per step for exactly this reason.
+- **No starter already passes its own step.**
+- **The buffer parses at every step**, so a player never opens a broken file.
+
+### Playing one
+
+```bash
+vibecoder boss w1-boss-pipeline               # from the starter
+vibecoder boss w1-boss-pipeline --reference   # watch the fight completed
+vibecoder boss w1-boss-pipeline --solution attempt.py --seed 3
+```
+
+Steps are checked in order and **stop at the first failure**, because a boss is
+a sequence: reporting step three against a buffer whose step one is wrong grades
+a situation the player is not in.
+
+Live stepping, step-back, and edit-and-resume are T3 W2–W4. What exists today is
+the format being playable, which is what makes W1 a waypoint rather than a data
+structure.
