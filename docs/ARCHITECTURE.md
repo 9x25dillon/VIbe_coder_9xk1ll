@@ -71,6 +71,49 @@ from the package: it is the boundary where a stranger's archive arrives, and it
 should be readable and testable without the game around it. Nothing imports
 `cli.py`.
 
+## Live stepping (T3 W2)
+
+`LiveRun` drives a submission one line at a time. The protocol is one
+decision and everything follows from it:
+
+> **The child runs a line, reports it, and blocks waiting to be told what to
+> do next.**
+
+- **Pause needs no implementation.** It is the parent not answering yet, so
+  there is no pause state on either side to get out of sync.
+- **The child never sleeps.** Pacing, variable speed and fast-forward all live
+  in the parent, which is where the player is.
+- **A paused fight cannot time out.** The child's budget counts *executing*
+  time, never time blocked on the parent — otherwise a fight would fail for
+  being watched carefully, which is the whole feature.
+
+The payload and the control channel share the child's stdin, which is why the
+harness reads its payload with `readline` rather than `json.load`: the latter
+waits for a close that stepping never performs.
+
+```
+ parent (LiveRun)                │  child (_harness._run_stepped)
+                                 │
+ write payload line ────────────▶│  readline() -> payload
+                                 │  settrace(...)
+                       ◀──────── │  {"event": "step", line, func, locals}
+ step() / resume() / abort() ───▶│  _control() unblocks
+                       ◀──────── │  {"event": "result", ...}
+```
+
+Two rules in the trace hook look like details and are not. **Every line is
+reported; only the first 400 are kept** — recording is bounded because it is
+memory the parent is handed, while reporting is what keeps the parent in
+control, and stopping it at the cap would leave a paused parent waiting for a
+line that never arrives. And **the budget is checked on every line**, so a loop
+that runs away after `run` is still stopped.
+
+The step event carries exactly `{line, func, locals}`, the same shape
+`_record_trace` produces, so [`replay.py`](../vibecoder/replay.py) and
+[`vision.py`](../vibecoder/vision.py) render a live run with no translation.
+`tests/test_stepping.py` asserts a live trace and a recorded trace agree line
+for line.
+
 ## The execution boundary
 
 This is the most important structural decision in the codebase.

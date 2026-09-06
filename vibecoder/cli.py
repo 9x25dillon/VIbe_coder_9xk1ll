@@ -40,7 +40,7 @@ from .profiler import (
     recommend,
     style_signature,
 )
-from .runner import reference_benchmark, run_code, run_submission
+from .runner import LiveRun, reference_benchmark, run_code, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
 from .session import Session
 from .replay import play as play_replay
@@ -829,6 +829,61 @@ def cmd_vision(args: argparse.Namespace) -> int:
     return 0
 
 
+#: Seconds per line when a live fight runs itself. The design's figure is
+#: 2.0, which is two minutes for a 60-line function -- T3 names that as a
+#: hazard rather than a setting, so this is the floor and `--speed` moves it.
+LIVE_DELAY = 0.35
+
+#: After this many laps of the same line, stop waiting on it. The hazard list
+#: calls for auto-fast-forward through loop bodies; a loop is exactly where a
+#: fixed delay stops teaching and starts costing.
+LOOP_PATIENCE = 3
+
+
+def _live_step(boss, index: int, code: str, seed: int, delay: float) -> bool:
+    """Watch one boss step execute, line by line. True if it passed.
+
+    The pacing is here rather than in the child on purpose: the child runs a
+    line, reports it, and blocks, so it never sleeps and the whole feel of the
+    thing is the parent's business -- which is where the player is.
+    """
+    step = boss.step(index)
+    tests = step.tests_for(seed)
+    print(f"\n  {UI.paint(step.title, INK, bold=True)}  "
+          + UI.paint(f"{step.func_name}()", MUTED))
+
+    seen: dict[int, int] = {}
+    previous: dict[str, str] = {}
+    with LiveRun(code, step.func_name, tests[0], source=Source.PLAYER) as live:
+        while True:
+            event = live.step()
+            if event is None:
+                break
+            seen[event.line] = seen.get(event.line, 0) + 1
+            # The value that *changed*, not whichever happens to be last in
+            # the dict. Same diff `vision.frames` does, and for the same
+            # reason: the point of watching is seeing something move.
+            changed = ""
+            for name, value in event.locals.items():
+                if previous.get(name) != value:
+                    changed = f"{name} = {value}"
+            previous = dict(event.locals)
+            print(
+                f"    {UI.paint(f'{event.line:>3}', FAINT)} "
+                f"{UI.paint(UI.glyph('arrow'), ACCENT)} "
+                + UI.paint(changed[:60], MUTED)
+            )
+            # A loop seen four times has taught what it is going to teach.
+            if seen[event.line] <= LOOP_PATIENCE:
+                time.sleep(delay)
+        result = live.drain()
+
+    if result.error:
+        print(f"    {UI.paint(result.error, BAD)}")
+        return False
+    return True
+
+
 def cmd_boss(args: argparse.Namespace) -> int:
     """Run a boss fight step by step (T3 W1).
 
@@ -844,6 +899,20 @@ def cmd_boss(args: argparse.Namespace) -> int:
         raise SystemExit(str(exc))
 
     seed = args.seed if args.seed is not None else 1
+    if getattr(args, "live", False):
+        code = boss.reference_source() if args.reference else (
+            Path(args.solution).read_text(encoding="utf-8")
+            if args.solution else boss.starter_source(0)
+        )
+        print()
+        print(UI.rule(f"BOSS  {boss.title}  (live)", width=76))
+        for index in range(boss.step_count):
+            if not _live_step(boss, index, code, seed, args.speed):
+                print(f"\n  {UI.paint('the fight stops here', WARN)}\n")
+                return 1
+        print(f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}\n")
+        return 0
+
     if args.solution:
         code = Path(args.solution).read_text(encoding="utf-8")
     elif args.reference:
@@ -1183,6 +1252,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument(
         "--reference", action="store_true",
         help="run the reference solution, to see the fight completed",
+    )
+    p_boss.add_argument(
+        "--live", action="store_true",
+        help="watch each step execute line by line",
+    )
+    p_boss.add_argument(
+        "--speed", type=float, default=LIVE_DELAY,
+        help="seconds per line while watching live",
     )
     p_boss.set_defaults(func=cmd_boss)
 

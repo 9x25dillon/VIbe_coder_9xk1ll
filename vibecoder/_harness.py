@@ -201,8 +201,120 @@ def _emit(payload: dict[str, Any], own_pid: int) -> None:
     REPLY.flush()
 
 
+class _Aborted(Exception):
+    """The parent asked us to stop. Raised inside the trace hook to unwind."""
+
+
+def _control(default: str = "step") -> str:
+    """Block until the parent says what to do next.
+
+    The child never sleeps and never decides pacing. It runs one line, reports
+    it, and waits here -- so "paused" is simply the parent not answering yet,
+    and needs no state on this side at all. Variable speed, fast-forward and
+    the whole feel of the thing live in the parent, which is where the player
+    is.
+
+    EOF means the parent is gone. Continuing to execute at full speed for a
+    parent that will never read the result is the one behaviour that is
+    certainly wrong, so it reads as an abort.
+    """
+    line = sys.stdin.readline()
+    if not line:
+        return "abort"
+    try:
+        command = json.loads(line)
+    except (TypeError, ValueError):
+        return default
+    return str(command.get("cmd", default))
+
+
+def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
+                 budget: float) -> tuple[list, str, str]:
+    """Execute under ``settrace``, reporting each line and awaiting orders.
+
+    Emits the same ``{line, func, locals}`` shape `_record_trace` produces, so
+    the live engine and the recording feed one renderer rather than two. That
+    shape is load-bearing in both directions now: `replay` and `vision` already
+    read it.
+
+    Two rules that look like details and are not:
+
+    **Every line is reported; only the first `MAX_TRACE_STEPS` are kept.**
+    Recording is what has to be bounded, because it is memory the parent will
+    be handed. Reporting is what keeps the parent in control -- stopping it at
+    the cap would leave a paused parent waiting forever for a line that never
+    arrives.
+
+    **The budget counts executing time, never time blocked on the parent.** A
+    fight paused while somebody reads it must not time out for being watched
+    carefully, and a loop that runs away after ``run`` still must not.
+    """
+    steps: list[dict[str, Any]] = []
+    state = {"free": False, "blocked": 0.0, "reason": ""}
+    started = time.perf_counter()
+
+    def local_trace(frame, event, arg):
+        if event != "line":
+            return local_trace
+
+        record = {
+            "line": frame.f_lineno,
+            "func": frame.f_code.co_name,
+            "locals": {
+                k: _short(v)
+                for k, v in list(frame.f_locals.items())[:12]
+                if not k.startswith("__")
+            },
+        }
+        if len(steps) < MAX_TRACE_STEPS:
+            steps.append(record)
+        _emit(
+            {"event": "step", "index": len(steps), "recorded": len(steps) < MAX_TRACE_STEPS + 1, **record},
+            own_pid,
+        )
+
+        if not state["free"]:
+            waited = time.perf_counter()
+            command = _control()
+            state["blocked"] += time.perf_counter() - waited
+            if command == "abort":
+                state["reason"] = "stopped by the player"
+                raise _Aborted()
+            if command == "run":
+                state["free"] = True
+
+        executing = (time.perf_counter() - started) - state["blocked"]
+        if executing > budget:
+            state["reason"] = f"step budget of {budget:g}s exceeded"
+            raise _Aborted()
+        return local_trace
+
+    def global_trace(frame, event, arg):
+        if frame.f_code.co_filename == filename:
+            return local_trace
+        return None
+
+    error = ""
+    error_type = ""
+    sys.settrace(global_trace)
+    try:
+        fn(*args, **kwargs)
+    except _Aborted:
+        error_type = "Aborted"
+        error = state["reason"] or "stopped"
+    except BaseException as exc:  # noqa: BLE001 - a crash is a result to report
+        error = f"{type(exc).__name__}: {exc}"
+        error_type = type(exc).__name__
+    finally:
+        sys.settrace(None)
+    return steps, error, error_type
+
+
 def main() -> int:
-    payload = json.load(sys.stdin)
+    # One JSON object on one line, rather than everything up to EOF: stepping
+    # keeps stdin open afterwards so the parent can steer, and `json.load`
+    # would block waiting for a close that never comes.
+    payload = json.loads(sys.stdin.readline() or "{}")
     _apply_limits(payload)
     # Anything this process forks inherits stdout, and would go on to write a
     # second result object into the same stream. One JSON reply per run is the
@@ -249,6 +361,21 @@ def main() -> int:
         result["error"] = f"no function named {func_name!r} was defined"
         result["error_type"] = "MissingFunction"
         result["stdout"] = captured.getvalue()
+        _emit({"event": "result", **result}, _own_pid)
+        return 0
+
+    if payload.get("mode") == "step":
+        tests = payload["tests"]
+        first = tests[0] if tests else {"args": [], "kwargs": {}}
+        with redirect_stdout(captured):
+            steps, error, error_type = _run_stepped(
+                fn, first.get("args", []), first.get("kwargs", {}),
+                filename, _own_pid, float(payload.get("timeout", 10.0)),
+            )
+        result["trace"] = steps
+        result["error"] = error
+        result["error_type"] = error_type
+        result["stdout"] = captured.getvalue()[:4000]
         _emit({"event": "result", **result}, _own_pid)
         return 0
 

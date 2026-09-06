@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 779 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 804 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -230,7 +230,7 @@ vibecoder/            The game. 24 modules, no dependencies.
 ├── vision.py         Your function drawn as a machine, run by its own trace
 └── levels/           One file per level, auto-discovered
 
-tests/                779 tests, stdlib unittest
+tests/                804 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

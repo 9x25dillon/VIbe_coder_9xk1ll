@@ -99,7 +99,11 @@ trajectory of their own. That is Q51 and it is the user's call, recorded here
 rather than absorbed.
 
 **T3 waypoint state:** W1 `LANDED`
-([S016](../../journal/2026-09-06-S016-boss-format.md)). W2–W8 outstanding. T3
+([S016](../../journal/2026-09-06-S016-boss-format.md)),
+W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)).
+W3–W8 outstanding. Exit criterion 1 — a boss runs step by step with a visible
+current line and live locals — is verified; criterion 2 needs W3's pause-on-error
+and criterion 6 needs the fight to be scored, not merely watched. T3
 was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.

@@ -18,6 +18,7 @@ import os
 import select
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -126,14 +127,23 @@ def run_code(
             error="sandbox returned malformed output", error_type="SandboxCrash"
         )
 
+    return _result_from(raw)
+
+
+def _result_from(raw: dict) -> RunResult:
+    """Turn a harness ``result`` event into a `RunResult`.
+
+    Shared with `LiveRun`, which receives the same event over a pipe it is
+    still holding open rather than from a finished process.
+    """
     return RunResult(
-        outcomes=[TestOutcome(**o) for o in raw["outcomes"]],
-        wall_seconds=raw["wall_seconds"],
-        ops=raw["ops"],
-        peak_bytes=raw["peak_bytes"],
-        stdout=raw["stdout"],
-        error=raw["error"],
-        error_type=raw["error_type"],
+        outcomes=[TestOutcome(**o) for o in raw.get("outcomes", [])],
+        wall_seconds=raw.get("wall_seconds", 0.0),
+        ops=raw.get("ops", 0),
+        peak_bytes=raw.get("peak_bytes", 0),
+        stdout=raw.get("stdout", ""),
+        error=raw.get("error", ""),
+        error_type=raw.get("error_type", ""),
         trace=raw.get("trace", []),
     )
 
@@ -309,3 +319,238 @@ def reference_benchmark(level: Level, seed: int) -> tuple[int, int]:
     benchmark = (result.ops, result.peak_bytes)
     _REFERENCE_BENCHMARKS[key] = benchmark
     return benchmark
+
+
+# --------------------------------------------------------------------------
+# Live stepping (T3 W2)
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Step:
+    """One line, as it executed.
+
+    Deliberately the same ``{line, func, locals}`` shape `_record_trace`
+    produces, because `replay` and `vision` already read that and a second
+    shape would mean a second renderer. ``index`` is the parent's convenience
+    and is ignored by anything consuming a recorded trace.
+    """
+
+    index: int
+    line: int
+    func: str
+    locals: dict[str, str]
+
+    def to_trace(self) -> dict:
+        return {"line": self.line, "func": self.func, "locals": dict(self.locals)}
+
+
+class LiveRun:
+    """A submission executing under the parent's control, one line at a time.
+
+    The child runs a line, reports it, and blocks waiting to be told what to
+    do next, so **pause needs no implementation**: it is the parent not
+    answering yet. That also means the child never sleeps, so pacing, variable
+    speed and fast-forward all live here, where the player is -- and a paused
+    fight cannot time out for being watched carefully, because the child's
+    budget counts executing time only.
+
+    Not a context manager by accident: `close` is idempotent and safe to call
+    twice, and the caller almost always wants ``with``.
+    """
+
+    def __init__(
+        self,
+        code: str,
+        func_name: str,
+        test: TestCase,
+        *,
+        source: Source,
+        timeout: float = DEFAULT_TIMEOUT,
+        mem_limit_mb: int = DEFAULT_MEM_LIMIT_MB,
+        filename: str = SUBMISSION_FILENAME,
+    ) -> None:
+        self._payload = {
+            "code": code,
+            "func_name": func_name,
+            "tests": [test.to_json()],
+            "timeout": timeout,
+            "mem_limit_mb": mem_limit_mb,
+            "record_trace": False,
+            "filename": filename,
+            "mode": "step",
+        }
+        self._source = source
+        self._mem_limit_mb = mem_limit_mb
+        self._context = None
+        self._process = None
+        self._pending = ""
+        self._result: dict | None = None
+        self._steps: list[Step] = []
+        self._free = False
+        self._told_free = False
+        # The child emits a step and then blocks, whether or not we have read
+        # it yet. Tracking that explicitly is what stops `resume` before the
+        # first `step` from deadlocking: the parent owes a command it does not
+        # otherwise know about.
+        self._awaiting = False
+        self._closed = False
+
+    # -- lifecycle ---------------------------------------------------------
+
+    def __enter__(self) -> "LiveRun":
+        self.start()
+        return self
+
+    def __exit__(self, *exc_info) -> bool:
+        self.close()
+        return False
+
+    def start(self) -> None:
+        backend = sandbox.select(untrusted=self._source.requires_isolation)
+        if backend.isolating:
+            self._payload["proc_limit"] = PROC_LIMIT
+        self._context = backend.launch(HARNESS, mem_limit_mb=self._mem_limit_mb)
+        launch = self._context.__enter__()
+        self._process = subprocess.Popen(
+            launch.argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            pass_fds=launch.pass_fds,
+        )
+        # One line, and stdin stays open: the payload and the control channel
+        # share the pipe, which is what makes this steerable at all.
+        self._write(json.dumps(self._payload))
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        if self._process is not None:
+            for pipe in (self._process.stdin, self._process.stdout,
+                         self._process.stderr):
+                try:
+                    if pipe is not None:
+                        pipe.close()
+                except OSError:
+                    pass
+            if self._process.poll() is None:
+                self._process.kill()
+            self._process.wait()
+        if self._context is not None:
+            self._context.__exit__(None, None, None)
+
+    # -- driving -----------------------------------------------------------
+
+    def step(self) -> Step | None:
+        """Advance one line and return it, or ``None`` when the run is over.
+
+        Returning ``None`` rather than raising, because reaching the end of a
+        function is the ordinary case here and a loop that stops is easier to
+        read than one that catches.
+        """
+        if self._result is not None:
+            return None
+        if self._awaiting:
+            self._write('{"cmd": "step"}')
+            self._awaiting = False
+        return self._read_step()
+
+    def resume(self) -> None:
+        """Let it run to completion without waiting for us again."""
+        if self._result is not None:
+            return
+        self._free = True
+        self._release()
+
+    def abort(self) -> None:
+        """Stop the run where it stands."""
+        if self._result is not None:
+            return
+        if self._awaiting:
+            self._write('{"cmd": "abort"}')
+            self._awaiting = False
+        self.drain()
+
+    def drain(self) -> RunResult:
+        """Read to the end and return the result, whatever is left to happen."""
+        while self._result is None:
+            if self._read_step() is None:
+                break
+        return self.result()
+
+    def result(self) -> RunResult:
+        payload = self._result or {
+            "outcomes": [], "wall_seconds": 0.0, "ops": 0, "peak_bytes": 0,
+            "stdout": "", "error": "the run produced no result",
+            "error_type": "NoReply", "trace": [t.to_trace() for t in self._steps],
+        }
+        return _result_from(payload)
+
+    @property
+    def steps(self) -> list[Step]:
+        return list(self._steps)
+
+    @property
+    def finished(self) -> bool:
+        return self._result is not None
+
+    # -- plumbing ----------------------------------------------------------
+
+    def _release(self) -> None:
+        """Tell a blocked child to stop waiting for us, once."""
+        if self._free and self._awaiting and not self._told_free:
+            self._write('{"cmd": "run"}')
+            self._told_free = True
+            self._awaiting = False
+
+    def _write(self, line: str) -> None:
+        try:
+            self._process.stdin.write((line + "\n").encode())
+            self._process.stdin.flush()
+        except (BrokenPipeError, OSError, AttributeError, ValueError):
+            # The child is gone. `_read_step` will see EOF and settle it.
+            pass
+
+    def _read_step(self) -> Step | None:
+        while True:
+            line = self._readline()
+            if line is None:
+                return None
+            try:
+                event = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            if event.get("event") == "step":
+                step = Step(
+                    index=int(event.get("index", len(self._steps) + 1)),
+                    line=int(event.get("line", 0)),
+                    func=str(event.get("func", "")),
+                    locals={str(k): str(v)
+                            for k, v in (event.get("locals") or {}).items()},
+                )
+                self._steps.append(step)
+                self._awaiting = True
+                self._release()
+                return step
+            if event.get("event") == "result":
+                self._result = event
+                return None
+
+    def _readline(self) -> str | None:
+        if "\n" in self._pending:
+            line, self._pending = self._pending.split("\n", 1)
+            return line
+        while True:
+            try:
+                chunk = self._process.stdout.readline()
+            except (OSError, ValueError, AttributeError):
+                return None
+            if not chunk:
+                return None
+            self._pending += chunk.decode("utf-8", "replace")
+            if "\n" in self._pending:
+                line, self._pending = self._pending.split("\n", 1)
+                return line

@@ -1,0 +1,109 @@
+{
+  "id": "S017",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S017-live-stepping.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A submission runs one line at a time under the parent's control", "result": "met", "note": "LiveRun drives a real child through settrace"},
+    {"id": 2, "statement": "Pause, resume and abort work without a state machine on both sides", "result": "met", "note": "pause is the parent not answering; the child blocks after each line"},
+    {"id": 3, "statement": "A paused fight cannot time out for being watched", "result": "met", "note": "the child's budget counts executing time only"},
+    {"id": 4, "statement": "The live engine emits the trace shape both renderers already read", "result": "met", "note": "{line, func, locals}; a live trace and a recorded one agree line for line"},
+    {"id": 5, "statement": "A boss is watchable from the CLI", "result": "met", "note": "vibecoder boss --live, with loop fast-forward after three laps"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/_harness.py", "kind": "module", "note": "_run_stepped, _control, _Aborted; payload read with readline so stdin stays open"},
+    {"path": "vibecoder/runner.py", "kind": "module", "note": "LiveRun and Step; _result_from factored out and shared"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "boss --live and --speed, with the changed local diffed per step"},
+    {"path": "tests/test_stepping.py", "kind": "test", "note": "New. 25 tests driving real child processes"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "the stepping protocol and the three properties that follow from it"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T3 W2 LANDED; exit criterion 1 verified, 2 explicitly not"},
+    {"path": "journal/2026-09-06-S017-live-stepping.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Each call advances exactly one line", "method": "tests/test_stepping.py::test_each_call_advances_exactly_one_line", "result": "indices 1,2,3,4", "verdict": "verified"},
+    {"claim": "Locals arrive as they were at that instant", "method": "::test_locals_arrive_as_they_were_at_that_instant", "result": "total observed changing across steps", "verdict": "verified"},
+    {"claim": "The child does not advance while the parent does not ask", "method": "::test_the_child_does_not_advance_while_we_do_not_ask, 0.3s of silence", "result": "step count unchanged, run unfinished", "verdict": "verified"},
+    {"claim": "A pause longer than the timeout does not fail the run", "method": "::test_a_long_pause_does_not_time_out_the_run, 1.5s pause on a 1s budget", "result": "run completes with no error", "verdict": "verified"},
+    {"claim": "Resuming runs to completion unprompted", "method": "::test_resuming_runs_to_completion_without_further_prompting", "result": "no error, more than three steps", "verdict": "verified"},
+    {"claim": "Abort stops the run where it stands", "method": "::test_aborting_stops_the_run_where_it_stands", "result": "error_type Aborted, 'stopped by the player'", "verdict": "verified"},
+    {"claim": "An aborted run keeps the steps it reached", "method": "::test_an_aborted_run_keeps_the_steps_it_reached", "result": "5 steps in the trace", "verdict": "verified"},
+    {"claim": "A runaway loop is stopped by its own budget", "method": "::test_a_runaway_loop_is_stopped_by_its_own_budget", "result": "Aborted, 'step budget of 1s exceeded'", "verdict": "verified"},
+    {"claim": "Stepping past the recording cap does not hang the parent", "method": "::test_stepping_past_the_recording_cap_does_not_hang_the_parent", "result": "430 events reported without stalling", "verdict": "verified"},
+    {"claim": "The recorded trace is still capped at 400", "method": "::test_the_recorded_trace_is_still_capped", "result": "400 records", "verdict": "verified"},
+    {"claim": "A crash is reported rather than raised, keeping prior steps", "method": "::test_a_crash_is_reported_rather_than_raised, ::test_a_crash_keeps_the_steps_that_ran_before_it", "result": "ValueError reported, trace non-empty", "verdict": "verified"},
+    {"claim": "A step carries exactly the recorded fields", "method": "::test_a_step_carries_exactly_the_recorded_fields", "result": "{line, func, locals}", "verdict": "verified"},
+    {"claim": "vision renders a live trace without translation", "method": "::test_vision_renders_a_live_trace_without_translation", "result": "frames built, loop iterations counted", "verdict": "verified"},
+    {"claim": "A live trace and a recorded trace agree line for line", "method": "::test_a_live_trace_and_a_recorded_trace_agree", "result": "identical (line, func) sequences", "verdict": "verified"},
+    {"claim": "Closing an unfinished run does not hang", "method": "::test_closing_without_finishing_does_not_hang", "result": "close is idempotent and returns", "verdict": "verified"},
+    {"claim": "The existing non-stepping protocol still works after the readline change", "method": "tests/test_runner.py and tests/test_sandbox.py", "result": "41 tests green", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "804 tests OK in 71.555s", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "The pacing feels right to watch", "method": "--speed and loop patience set by eye on one boss", "result": "not tuned against a player", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M32",
+      "believed": "The parent can infer whether the child is blocked from whether it has read a step yet, so resume() only needed to send its command if a step had already been read.",
+      "revealed_by": "A test hanging forever. It called resume() before any step(). The child had already emitted its first line and was blocked; the parent set its own free flag, told the child nothing, and waited for a child that was waiting for it. Every test that stepped once before resuming passed, so the green ones were not evidence.",
+      "corrected_to": "Whether the child owes us a line and whether we owe the child a command are different facts, and the parent only knows the second by tracking it. _awaiting is set when a step event is read and cleared when a command is written, so resume before the first step releases a child the parent had not yet heard from.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A deadlock reports nothing at all, so most of the cost was finding which test hung rather than fixing it."
+    }
+  ],
+  "decisions": [
+    {"id": "D110", "decision": "The child blocks after each line; the parent sends the next command", "alternatives": ["The child sleeps at a configured rate and streams"], "rationale": "Pause becomes the absence of a command rather than a state on both sides, and pacing ends up where the player is.", "reversible": false, "seam": "vibecoder/_harness.py::_control"},
+    {"id": "D111", "decision": "The budget counts executing time, excluding time blocked on the parent", "alternatives": ["One wall clock for the whole run"], "rationale": "A fight paused while somebody reads it must not fail for being watched carefully.", "reversible": false, "seam": "vibecoder/_harness.py::_run_stepped"},
+    {"id": "D112", "decision": "Every line is reported; only the first 400 are recorded", "alternatives": ["Stop reporting at the cap, as the recorder does"], "rationale": "Recording is memory the parent is handed; reporting is what keeps the parent in control, and stopping it strands a paused parent.", "reversible": false, "seam": "vibecoder/_harness.py::_run_stepped"},
+    {"id": "D113", "decision": "The step event is exactly the recorded trace shape", "alternatives": ["A richer live event with extra fields"], "rationale": "replay and vision already read that shape, and a second one means a second renderer.", "reversible": false, "seam": "vibecoder/runner.py::Step.to_trace"},
+    {"id": "D114", "decision": "The harness reads its payload with readline", "alternatives": ["Keep json.load and open a second channel"], "rationale": "json.load waits for a close stepping never performs. One pipe carrying the payload then the commands is fewer moving parts than two.", "reversible": true, "seam": "vibecoder/_harness.py::main"},
+    {"id": "D115", "decision": "_awaiting is tracked explicitly by the parent", "alternatives": ["Infer it from whether a step has been read"], "rationale": "The two facts differ, and inferring produced a deadlock.", "reversible": false, "seam": "vibecoder/runner.py::LiveRun"},
+    {"id": "D116", "decision": "Loop bodies fast-forward after three laps", "alternatives": ["A single configurable delay"], "rationale": "A fixed delay inside a loop stops teaching and starts costing; T3 names this a requirement rather than polish.", "reversible": true, "seam": "vibecoder/cli.py::LOOP_PATIENCE"},
+    {"id": "D117", "decision": "EOF on the control channel reads as abort", "alternatives": ["Continue at full speed"], "rationale": "Executing on for a parent that will never read the result is the one behaviour that is certainly wrong.", "reversible": true, "seam": "vibecoder/_harness.py::_control"}
+  ],
+  "friction": [
+    {"description": "The first draft of the trace hook returned early once MAX_TRACE_STEPS was reached, stopping both reporting and the budget check. The runaway test then passed for the wrong reason: the sandbox CPU rlimit killed the child and the parent reported NoReply. The error type is what distinguished 'the thing under test worked' from 'something else caught it'.", "impact": "medium", "resolved": true},
+    {"description": "Three attempts to inspect the hanging test using timeout with a trailing status echo returned exit 144 from the shell and swallowed the output, including one that silently discarded a redirect. Running it as a background task and reading the log worked first time.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T3 W2 is landed. LiveRun drives a submission line by line with pause, resume and abort; vibecoder boss --live watches a fight execute. 804 tests green unpinned, verify clean on 45 reference runs, showcase prints zero escapes in a pipe.",
+    "next_action": "T3 W3, step-back over the recorded trace. It is read-only history with no re-execution, so it is the cheapest remaining waypoint and the one that makes W4 approachable, and LiveRun.steps already holds exactly the history it needs. W3 also unlocks exit criterion 2, which W2 did not attempt: a deliberate error should pause on the offending line rather than ending the run. The hook currently unwinds on exception; pausing there means reporting the exception as a step and waiting.",
+    "blockers": [
+      "None for T3",
+      "T2 W4 remains blocked on a registered OAuth application, with T2 otherwise one waypoint from landing"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D110 before adding any sleep to the child: pacing belongs to the parent and pause depends on it",
+      "D112 before making the recording cap stop reporting",
+      "M32 before simplifying the _awaiting tracking away"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q63", "question": "--live runs each step against its first test case only. That is enough to watch and wrong as a verdict: a step can pass the case you watched and fail the other five. Should the live view say which case it is running, or run all of them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q64", "question": "The parent has no wall-clock guard at all in stepping mode; the child's executing budget and the player's abort are the only limits. A child that blocks before emitting its first step would hang the parent forever. Is a start-up deadline worth adding?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q65", "question": "Loop patience is three laps, chosen by eye. The hazard list also asks for variable speed; --speed exists but nothing adapts it. Should the delay shrink as the step count grows, the way vision.sample bounds the reveal?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q66", "question": "Stepping runs through Source.PLAYER, so it takes the host path. A community boss (T5) stepped live would run untrusted code under settrace in a subprocess with an open control channel, which is a wider aperture than a normal run. Does stepping need its own provenance rule?", "owner": "T2", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 804,
+    "tests_passing": 804,
+    "tests_added": 25,
+    "stepping_tests": 25,
+    "stepping_test_seconds": 3.825,
+    "suite_seconds_unpinned": 71.555,
+    "trace_step_cap": 400,
+    "loop_patience_laps": 3,
+    "t3_waypoints_landed": 2,
+    "t3_waypoints_total": 8,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 24,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}
