@@ -77,6 +77,17 @@ code costs. The percentile S007 adopted was hiding a real defect rather than
 noise — keystroke latency was proportional to the process's total live object
 count — which is Q27's answer and M15's subject.
 
+**Outside every waypoint:** the machine view — a submitted function drawn as
+apparatus with its own recorded run moving through it — shipped in
+[S013](../../journal/2026-09-06-S013-machine-view.md) at the user's request
+while T2 W6 was being started. It belongs to no waypoint on any trajectory.
+T3's own heading draws the line it falls on: "replaying a recording is a
+visualisation", and T3's waypoints are all the live engine. It is filed under
+T6 because presentation is the closest honest home, not a comfortable one —
+T6 is `LANDED`, so either it reopens or this and what follows it deserve a
+trajectory of their own. That is Q51 and it is the user's call, recorded here
+rather than absorbed.
+
 Two trajectories hold `IN FLIGHT` at once, against the rule in the status
 vocabulary above. T7 was opened at the user's request while T2 was still in
 flight. That is a fact, not an amendment: T2 is the one that is late.

@@ -1,0 +1,123 @@
+{
+  "id": "S013",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T6",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S013-machine-view.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player can see why their solution cost what it cost", "result": "met", "note": "the machine view: boxes, return rails, a token following the trace"},
+    {"id": 2, "statement": "The picture is driven by the recording, never guessed from the source", "result": "met", "note": "a branch that never ran never lights up"},
+    {"id": 3, "statement": "Every frame is testable without a terminal", "result": "met", "note": "render returns a Screen; 46 tests assert on as_text()"},
+    {"id": 4, "statement": "It plays in the score reveal without slowing the submit loop", "result": "met", "note": "sampled to 36 frames, measured worst case 2.50s against a 400-step trace"},
+    {"id": 5, "statement": "T2 W6 started", "result": "deferred", "note": "superseded mid-session by the user's request; two design decisions taken and recorded, field additions reverted (D86)"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/vision.py", "kind": "module", "note": "New. build_machine, frames, layout, render, sample, still, play"},
+    {"path": "vibecoder/ui.py", "kind": "module", "note": "Renderer.style for cell-level styling; nine glyph pairs for the machine view"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "cmd_vision, and _play_vision wired into the reveal with --no-vision"},
+    {"path": "tests/test_vision.py", "kind": "test", "note": "New. 46 tests, all on plain text with no pty"},
+    {"path": "docs/VISION.md", "kind": "doc", "note": "New. What is drawn, the rules it follows, and the reveal budget"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "vision.py in the module map and dependency direction"},
+    {"path": "README.md", "kind": "doc", "note": "24 modules, 706 tests, the vision command"},
+    {"path": "journal/2026-09-06-S013-machine-view.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A traced line lights the box that owns it", "method": "tests/test_vision.py::test_a_line_lights_the_box_that_owns_it", "result": "parts 0,1,2,3,4 for lines 2..6", "verdict": "verified"},
+    {"claim": "A branch that was never taken never lights up", "method": "::test_a_branch_never_taken_never_lights_up", "result": "part 3 absent from the frames", "verdict": "verified"},
+    {"claim": "A compound statement owns its header line only", "method": "::test_a_compound_statement_owns_only_its_header_line", "result": "loop owns line 3; line 5 maps to the body", "verdict": "verified"},
+    {"claim": "An elif chain invents no else box", "method": "::test_an_elif_chain_does_not_invent_an_else_box", "result": "exactly one else label", "verdict": "verified"},
+    {"claim": "A loop counts laps rather than visits", "method": "::test_staying_in_the_loop_body_does_not_count_an_iteration", "result": "1 iteration for 3,4,5,4,5", "verdict": "verified"},
+    {"claim": "A step inside a helper keeps the last box lit and says where", "method": "::test_a_step_inside_a_helper_keeps_the_last_box_lit_and_says_where", "result": "part unchanged, where == 'in helper()'", "verdict": "verified"},
+    {"claim": "The return rail reaches the loop's deepest nested box", "method": "::test_the_return_rail_reaches_the_last_nested_box, plus reintroducing the bug", "result": "green; fails when the fix is reverted", "verdict": "verified"},
+    {"claim": "Nested boxes share one right edge", "method": "::test_nested_boxes_share_a_right_edge, plus reintroducing the bug", "result": "one edge column; fails when the fix is reverted", "verdict": "verified"},
+    {"claim": "The layout is identical without Unicode", "method": "::test_the_layout_is_identical_without_unicode", "result": "equal line lengths, different glyphs", "verdict": "verified"},
+    {"claim": "A frame carries no escape sequence of its own", "method": "::test_a_frame_carries_no_escape_sequence_of_its_own", "result": "no ESC in as_text()", "verdict": "verified"},
+    {"claim": "The viewport keeps the live box on screen for a tall function", "method": "::test_the_viewport_keeps_the_live_box_on_screen", "result": "42 parts, live box present in a 20-row frame", "verdict": "verified"},
+    {"claim": "Sampling preserves the true loop count at each instant", "method": "::test_a_sampled_frame_keeps_the_true_count_at_that_instant", "result": "20 laps reported after sampling 60 frames to 6", "verdict": "verified"},
+    {"claim": "The first and last instants always survive sampling", "method": "::test_the_first_instant_always_survives, ::test_the_last_instant_always_survives", "result": "steps 1 and 400 kept", "verdict": "verified"},
+    {"claim": "The reveal cannot exceed its budget", "method": "measured against a synthetic 400-step trace", "result": "36 frames at 0.069s = 2.50s, budget 2.5s", "verdict": "verified"},
+    {"claim": "A piped play is unchanged by the reveal wiring", "method": "diff of piped output with the wiring stashed and restored", "result": "identical", "verdict": "verified"},
+    {"claim": "It runs end to end on a real recorded run", "method": "vibecoder vision on w2-l1-revenue", "result": "14 steps, 5 laps, token on the return", "verdict": "verified"},
+    {"claim": "Profiling a 5,000-file repository completes rather than degrading", "method": "synthetic 5,000-file / 6.56 MB tree", "result": "12.0s, 2.4 ms per file", "verdict": "verified"},
+    {"claim": "Profiler analysis is linear, not quadratic", "method": "parse versus analyse split across the stdlib", "result": "parse 4.37s, analyse 7.69s; 1.1-1.8 MB/s uniformly", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "706 tests OK in 54.271s", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36", "verdict": "verified"},
+    {"claim": "Presentation still emits no escapes in a pipe", "method": "showcase piped to grep", "result": "0", "verdict": "verified"},
+    {"claim": "The animation reads well to a player mid-solve", "method": "judged by eye on one level by one person", "result": "plausible, untested with a player", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M27",
+      "believed": "T2 W6's budgets could be sized by measuring the profiler against Python's standard library: 732 files in 12.5s is 17.1 ms per file, so 5,000 files would take about 85 seconds and exit criterion 6 would have to settle for a partial profile on an ordinary repository.",
+      "revealed_by": "Building an actual 5,000-file repository and profiling it: 12.0s, 2.4 ms per file. The stdlib averages 16.6 KB per file against the synthetic repo's 1.3 KB.",
+      "corrected_to": "Per-file cost and per-byte cost are different quantities and the stdlib is an outlier on the one I extrapolated through. A 5,000-file repository completes, so criterion 6 is met by finishing rather than degrading. The honest figure is 1.1-1.8 MB/s with analysis at 64% of the work, linear rather than quadratic.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Extrapolating a per-item cost from a corpus whose items are twelve times the normal size sizes the budget for the wrong shape of input."
+    },
+    {
+      "id": "M28",
+      "believed": "The still-frame fallback for a stream that cannot animate was a property of the machine view, so the score reveal should inherit it.",
+      "revealed_by": "Reading the piped transcript after wiring it in. Every piped play had gained twenty lines of box drawing, and therefore so had every CI log and captured transcript.",
+      "corrected_to": "The fallback belongs to the command, not to the reveal. A still frame answers somebody asking to see the machine; the reveal is a live flourish with no business changing a non-interactive transcript. The reveal now draws nothing when the stream cannot animate, and the claim that piped output is unchanged is verified by diffing across the commit boundary rather than asserted.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A fallback can be correct where it is written and wrong one caller up, which no test of the original module would catch."
+    }
+  ],
+  "decisions": [
+    {"id": "D78", "decision": "The machine is a vertical spine with loop return rails", "alternatives": ["A flowchart with edge routing"], "rationale": "Edge routing needs a graph layout engine: a dependency (N1) and a lot of code to draw diagonal lines. Sequence, loop, branch and return is what player solutions are made of.", "reversible": true, "seam": "vibecoder/vision.py::layout"},
+    {"id": "D79", "decision": "Frames come from the recorded trace, never from the source", "alternatives": ["Animate the AST directly"], "rationale": "A branch that never ran must never light up. Anything derived from the source alone is a diagram, not a run.", "reversible": false, "seam": "vibecoder/vision.py::frames"},
+    {"id": "D80", "decision": "render returns a Screen; frames are values", "alternatives": ["Write to the terminal directly, as replay.py does"], "rationale": "A frame that is a value is a frame a test can compare with no pty, and it keeps the module free of escape sequences.", "reversible": true, "seam": "vibecoder/vision.py::render"},
+    {"id": "D81", "decision": "ui.Renderer.style added; vision emits no escape of its own", "alternatives": ["Copy editor.py's private style helper"], "rationale": "The rule is that ui owns escape sequences. editor.py rolling its own predates this and was left alone as out of scope.", "reversible": true, "seam": "vibecoder/ui.py::Renderer.style"},
+    {"id": "D82", "decision": "A compound statement owns its header line only", "alternatives": ["Own the whole line span"], "rationale": "Owning the span puts the token in two boxes at once, which is a false claim about where control is rather than a drawing artifact.", "reversible": false, "seam": "vibecoder/vision.py::_own_lines"},
+    {"id": "D83", "decision": "The reveal samples to 36 frames rather than shortening the delay", "alternatives": ["Race all 400 frames inside the budget"], "rationale": "Sampling keeps each frame legible and every counter true, because state is computed before sampling. 400 frames in 2.5s is a blur.", "reversible": true, "seam": "vibecoder/vision.py::sample"},
+    {"id": "D84", "decision": "A non-animating stream gets nothing in the reveal", "alternatives": ["Inherit the command's still-frame fallback"], "rationale": "The still frame answers a request to see the machine. Adding it to the reveal changes every CI log and piped transcript.", "reversible": true, "seam": "vibecoder/cli.py::_play_vision"},
+    {"id": "D85", "decision": "_play_vision never raises", "alternatives": ["Let errors surface"], "rationale": "Nothing decorative may be able to break the reveal. A failed submission already has a failure block to read.", "reversible": true, "seam": "vibecoder/cli.py::_play_vision"},
+    {"id": "D86", "decision": "The parked W6 VibeVector fields were reverted rather than left in place", "alternatives": ["Keep them as groundwork for the next session"], "rationale": "Three defaulted fields nothing sets is a persisted schema change with no behaviour behind it, and a later reader has to work out why partial is always false.", "reversible": true, "seam": "vibecoder/models.py::VibeVector"}
+  ],
+  "friction": [
+    {"description": "Two rendering bugs shipped into the first draft and were caught by looking at output rather than by reasoning: the loop's return rail terminated on the loop's own body row so it never reached the code it returns from, and nested boxes kept a fixed width so right edges were ragged. Both now have tests, and both tests were confirmed to fail when the bug is reintroduced.", "impact": "low", "resolved": true},
+    {"description": "The --no-vision argument was inserted against a text anchor that matched earlier in the file than the p_play parser it belonged to, referencing an undefined name. Caught immediately by --help. Anchoring an edit on a string that appears more than once is the hazard.", "impact": "low", "resolved": true},
+    {"description": "The first scratch solution used >= where the level's reference uses >, so the run animated end to end was a 4/5 run rather than a clean pass. The animation was real; calling it a passing run would have been wrong.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "The machine view ships in two places: vibecoder vision [run-id] on demand, and inside the score reveal bounded at 2.5s. 706 tests green unpinned, verify clean on 36 reference runs, showcase prints zero escapes in a pipe. Working tree clean.",
+    "next_action": "T2 W6, started and parked. Two decisions were taken with the user and still stand: the vector records partial, partial_reason and files_seen, and a partial profile is saved and flagged. The field additions were reverted (D86), so W6 restarts from a clean models.py with those decisions already made - do not re-ask them. What remains, in order: a lazy pruning walk using os.walk with in-place dirnames pruning, because today's sorted(root.rglob('*.py')) descends into .git and node_modules and only then filters, which is the hang on a monorepo; a ProfileBudget enforced in profile_sources; and the answer to Q46.",
+    "blockers": ["T2 W4 remains blocked on a registered OAuth application"],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "Measurements already taken, do not redo them: 5,000 files / 6.56 MB profiles in 12.0s at 2.4 ms per file; the stdlib's 732 files / 12.16 MB in 12.5s; analysis is 64% of the work and linear. A 5,000-file repository completes rather than degrading",
+      "M27 before sizing any ingestion budget from the standard library",
+      "D79 before making the machine view show anything the trace does not say",
+      "D84 before adding output to the reveal"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q48", "question": "The machine view has been judged by one person on one level. Does it read to somebody mid-solve, or is it decoration they skip? The --no-vision opt-out is the cheapest instrument available: if it gets used, that is the answer.", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q49", "question": "Sampling makes the step number jump, which is the cue that instants were skipped, but nothing says so. Is the jump enough, or should a sampled run be labelled as sampled?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q50", "question": "_target_function picks solve, else the last function. A submission whose real work is in a helper draws the wrong machine and only says 'in helper()'. Should the view follow the call, or draw every function and let the token move between them?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q51", "question": "This work belongs to no waypoint and is filed under a LANDED trajectory. Either T6 reopens, or the machine view and what follows it deserve a trajectory of their own. That is a call for the user rather than for a session looking for somewhere to file its entry.", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q52", "question": "editor.py carries a private copy of the style helper that now lives on ui.Renderer (D81). Folding it in is a small change to the T7 hot path. Worth doing, or is a duplicated six-line helper cheaper than touching the editor?", "owner": "T7", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 706,
+    "tests_passing": 706,
+    "tests_added": 46,
+    "vision_tests": 46,
+    "suite_seconds_unpinned": 54.271,
+    "reveal_budget_seconds": 2.5,
+    "reveal_frames": 36,
+    "reveal_worst_case_seconds": 2.5,
+    "trace_step_cap": 400,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 24,
+    "dependencies": 0,
+    "reference_runs_clean": 36,
+    "profiler_files_per_second": 417,
+    "profiler_ms_per_file": 2.4
+  }
+}
