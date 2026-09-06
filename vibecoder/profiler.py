@@ -17,15 +17,19 @@ archive is allowed to cost before we stop reading it.
 from __future__ import annotations
 
 import ast
+import os
+import time
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable, Iterator
 
 from .ingest import (
     DEFAULT_LIMITS,
     IngestLimits,
-    iter_python_sources,
+    inspect_zip,
     looks_like_archive,
+    read_plan,
 )
 from .models import VibeVector
 
@@ -544,13 +548,94 @@ def _percentile(values: list[int], fraction: float) -> float:
     return float(ordered[index])
 
 
-def iter_python_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for path in sorted(root.rglob("*.py")):
-        if any(part in SKIP_DIRS for part in path.parts):
-            continue
-        files.append(path)
-    return files
+@dataclass(frozen=True)
+class ProfileBudget:
+    """What profiling a codebase is allowed to cost before it stops looking.
+
+    Distinct from `ingest.IngestLimits`, and the difference is the verdict.
+    Ingest limits decide whether an archive is *hostile*, and a hostile archive
+    is refused. A budget decides whether we have looked at *enough*, and a
+    codebase that is merely enormous is not refused -- it is profiled as far as
+    the budget goes and the result says so. Refusing to profile a monorepo
+    would be the worse failure: 20,000 files is an ample sample of how somebody
+    writes, and the alternative is telling them their code is too big to look
+    at.
+
+    Defaults are sized from measurement rather than taste. A 5,000-file,
+    6.6 MB repository profiles in 12 seconds (2.4 ms per file), so the
+    criterion-6 repository finishes comfortably and the budget only bites for
+    something several times larger. See M27 in S013 for why these were not
+    sized from the standard library.
+    """
+
+    #: Files profiled. Four times the repository exit criterion 6 describes.
+    max_files: int = 20_000
+
+    #: Source bytes analysed. Python's whole standard library is 12 MB.
+    max_total_bytes: int = 64 * 1024 * 1024
+
+    #: Wall clock, across the walk *and* the analysis. The one limit that
+    #: bounds the shapes the other two cannot predict: a slow disk, a network
+    #: mount, a pathological file.
+    max_seconds: float = 60.0
+
+    #: Paths the walk will enumerate. Bounds the memory the file list itself
+    #: costs, and is what stops a tree with millions of entries before the
+    #: list does the damage the budget exists to prevent.
+    max_walk_files: int = 200_000
+
+
+DEFAULT_BUDGET = ProfileBudget()
+
+
+def iter_python_files(root: Path) -> Iterator[Path]:
+    """Every Python file under ``root``, pruning directories we never profile.
+
+    Prunes *during* traversal rather than filtering afterwards. The previous
+    implementation was ``sorted(root.rglob("*.py"))``, which descends into
+    ``.git``, ``node_modules`` and ``.venv`` in full and only then discards
+    what it found -- on a large repository that is most of the walk, and the
+    walk is the part that has to not hang.
+
+    Entries are sorted within each directory, so the order is deterministic
+    without materialising the tree first. That matters more than it looks:
+    when a budget truncates a profile, *which* files were seen must not depend
+    on the order the filesystem happened to return them, or the same
+    repository would profile differently on two runs.
+
+    Symlinked directories are not followed, which is what keeps a link loop
+    from being an infinite walk.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        base = Path(dirpath)
+        for name in sorted(filenames):
+            if name.endswith(".py"):
+                yield base / name
+
+
+def walk_python_files(
+    root: Path,
+    *,
+    budget: ProfileBudget = DEFAULT_BUDGET,
+    deadline: float | None = None,
+) -> tuple[list[Path], str]:
+    """The files to profile, and why the walk stopped early if it did.
+
+    Enumerating before analysing costs one pass over the tree and buys an
+    honest ``files_seen``: "412 of 5,183" tells a player their repository is
+    twelve times the budget, where "412, stopped early" tells them nothing.
+    Enumeration is a stat walk with no file reads, so on the repositories this
+    is sized for it is milliseconds against seconds of analysis.
+    """
+    found: list[Path] = []
+    for path in iter_python_files(root):
+        if len(found) >= budget.max_walk_files:
+            return found, f"walk budget: {budget.max_walk_files:,} paths"
+        if deadline is not None and time.monotonic() > deadline:
+            return found, f"time budget: {budget.max_seconds:g}s"
+        found.append(path)
+    return found, ""
 
 
 def _read_files(paths: Iterable[Path]) -> Iterator[tuple[str, str]]:
@@ -567,7 +652,12 @@ def _read_files(paths: Iterable[Path]) -> Iterator[tuple[str, str]]:
             continue
 
 
-def profile_path(root: str | Path, *, top_libraries: int = 15) -> VibeVector:
+def profile_path(
+    root: str | Path,
+    *,
+    budget: ProfileBudget = DEFAULT_BUDGET,
+    top_libraries: int = 15,
+) -> VibeVector:
     """Build a Vibe Vector from every Python file under ``root``.
 
     An archive routes to `profile_archive`, decided by content rather than by
@@ -579,15 +669,31 @@ def profile_path(root: str | Path, *, top_libraries: int = 15) -> VibeVector:
     if not root.exists():
         raise FileNotFoundError(f"no such path: {root}")
     if looks_like_archive(root):
-        return profile_archive(root, top_libraries=top_libraries)
-    paths = [root] if root.is_file() else iter_python_files(root)
-    return profile_sources(_read_files(paths), top_libraries=top_libraries)
+        return profile_archive(root, budget=budget, top_libraries=top_libraries)
+
+    # One clock across the walk and the analysis. Starting it here rather than
+    # inside `profile_sources` is what stops a slow enumeration from spending
+    # the whole budget and leaving the analysis none.
+    deadline = time.monotonic() + budget.max_seconds
+    if root.is_file():
+        paths, stopped = [root], ""
+    else:
+        paths, stopped = walk_python_files(root, budget=budget, deadline=deadline)
+    return profile_sources(
+        _read_files(paths),
+        top_libraries=top_libraries,
+        budget=budget,
+        deadline=deadline,
+        files_seen=len(paths),
+        stopped=stopped,
+    )
 
 
 def profile_archive(
     path: str | Path,
     *,
     limits: IngestLimits = DEFAULT_LIMITS,
+    budget: ProfileBudget = DEFAULT_BUDGET,
     top_libraries: int = 15,
 ) -> VibeVector:
     """Build a Vibe Vector from the Python inside an archive.
@@ -603,16 +709,35 @@ def profile_archive(
     directories are uninteresting is a fact about profiling, not about zip
     files.
     """
+    # Inspected here rather than inside `iter_python_sources` so the member
+    # count is known before anything is decompressed, which is what makes
+    # `files_seen` honest for an archive without a second pass.
+    plan = inspect_zip(path, limits)
+    eligible = [
+        info for info in plan.members
+        if not any(part in SKIP_DIRS for part in PurePosixPath(info.filename).parts)
+    ]
     sources = (
         (name, source)
-        for name, source in iter_python_sources(path, limits)
+        for name, source in read_plan(plan, limits)
         if not any(part in SKIP_DIRS for part in PurePosixPath(name).parts)
     )
-    return profile_sources(sources, top_libraries=top_libraries)
+    return profile_sources(
+        sources,
+        top_libraries=top_libraries,
+        budget=budget,
+        files_seen=len(eligible),
+    )
 
 
 def profile_sources(
-    sources: Iterable[tuple[str, str]], *, top_libraries: int = 15
+    sources: Iterable[tuple[str, str]],
+    *,
+    top_libraries: int = 15,
+    budget: ProfileBudget | None = None,
+    deadline: float | None = None,
+    files_seen: int = 0,
+    stopped: str = "",
 ) -> VibeVector:
     """Build a Vibe Vector from ``(label, source)`` pairs.
 
@@ -628,7 +753,29 @@ def profile_sources(
     code_lines = 0
     comment_lines = 0
 
+    if budget is not None and deadline is None:
+        deadline = time.monotonic() + budget.max_seconds
+    total_bytes = 0
+
+    # ``stopped`` arrives from the transport and means "there is more we did
+    # not enumerate" -- it must not stop us analysing what *was* found, which
+    # is a different claim entirely. ``halted`` is this loop's own verdict.
+    halted = ""
+
     for _label, source in sources:
+        # Checked before the work, not after: a budget that notices it was
+        # exceeded has already spent what it was meant to save.
+        if budget is not None:
+            if parsed_files >= budget.max_files:
+                halted = f"file budget: {budget.max_files:,} files"
+            elif total_bytes >= budget.max_total_bytes:
+                halted = f"size budget: {budget.max_total_bytes:,} bytes"
+            elif deadline is not None and time.monotonic() > deadline:
+                halted = f"time budget: {budget.max_seconds:g}s"
+        if halted:
+            break
+
+        total_bytes += len(source)
         try:
             tree = ast.parse(source)
         except (SyntaxError, ValueError):
@@ -703,6 +850,16 @@ def profile_sources(
         max_nesting=max(totals.depths) if totals.depths else 0,
         comment_density=round(
             comment_lines / max(1, comment_lines + code_lines), 3
+        ),
+        partial=bool(halted or stopped),
+        # The analysis's own verdict wins when both fired: it is the more
+        # immediate reason, and the walk's is implied by it anyway.
+        partial_reason=halted or stopped,
+        # A complete run has seen exactly what it profiled. Reporting the
+        # transport's count in that case would quietly disagree with `files`
+        # whenever a file failed to parse, which is not what "seen" means here.
+        files_seen=(
+            max(files_seen, parsed_files) if (halted or stopped) else parsed_files
         ),
     )
     vibe.tags = derive_tags(vibe)

@@ -76,6 +76,65 @@ likes to build with.
 Files that fail to parse are counted and skipped. A repository with one Python 2
 file in it still profiles.
 
+## Budgets, and what a partial profile is
+
+A codebase can be enormous. `vibecoder profile` bounds what it will spend
+before it stops looking, and — this is the whole design — **stopping is not
+refusing**. `ProfileBudget` is deliberately a different thing from
+`ingest.IngestLimits`, and the difference is the verdict:
+
+| | Decides | On breach |
+| --- | --- | --- |
+| `IngestLimits` | Is this archive **hostile**? | Refuse it. Nothing is read |
+| `ProfileBudget` | Have we looked at **enough**? | Keep what was profiled, flag it partial |
+
+Refusing a monorepo would be the worse failure. 20,000 files is an ample sample
+of how somebody writes, and the alternative is telling them their code is too
+big to look at.
+
+| Budget | Default | What it bounds |
+| --- | --- | --- |
+| `max_files` | 20,000 | Files profiled. Four times the repository exit criterion 6 describes |
+| `max_total_bytes` | 64 MB | Source analysed. Python's whole standard library is 12 MB |
+| `max_seconds` | 60 s | Wall clock across the walk *and* the analysis — the one limit that bounds shapes the others cannot predict: a slow disk, a network mount |
+| `max_walk_files` | 200,000 | Paths enumerated, bounding what the file list itself costs |
+
+The defaults are sized from measurement, not taste: a 5,000-file, 6.6 MB
+repository profiles in **11.7 s**, so exit criterion 6's repository finishes
+comfortably and the budget only bites for something several times larger. They
+were *not* sized from the standard library, whose files average 16.6 KB against
+a normal repository's 1.3 KB — see M27 in
+[S013](../journal/2026-09-06-S013-machine-view.md).
+
+A partial profile **is saved**. It describes real code — a smaller sample, not a
+wrong one — and it says so on its face:
+
+```
+  files            412 of 5,183
+  [PARTIAL]  stopped by file budget: 412 files; 4,771 files not read
+```
+
+`partial` means *we stopped looking*, never *something was unusable*. A
+repository with one Python 2 file in it is completely profiled; it just has one
+file's less signal.
+
+### The walk prunes rather than filters
+
+`iter_python_files` walks with `os.walk` and prunes `SKIP_DIRS` from `dirnames`
+**during** traversal. The previous implementation was
+`sorted(root.rglob("*.py"))`, which descends into `.git`, `node_modules` and
+`.venv` in full and only then discards what it found — on a real repository
+that is most of the walk, and the walk is the part that has to not hang. On a
+tree of 50 source files beside 20,000 vendored ones, pruning is **551× faster**
+(167 ms → 0.3 ms) for an identical result.
+
+Entries are sorted within each directory, so the order is deterministic without
+materialising the tree. That matters more than it looks: when a budget truncates
+a profile, *which* files were seen must not depend on the order the filesystem
+happened to return them, or the same repository would profile differently twice.
+
+Symlinked directories are not followed, so a link loop is not an infinite walk.
+
 ## Reading an archive
 
 `vibecoder profile` accepts a `.zip` as well as a directory, which is [T2](trajectories/T2-sandbox.md)
@@ -108,8 +167,15 @@ the bytes that actually arrive are measured against what the directory claimed.
 | `max_entries` | 50,000 | A million empty members that expand to nothing and still cost a million iterations |
 | `max_declared_bytes` | 500 MB | The zip bomb proper, decided from the directory |
 | `max_file_bytes` | 4 MB | One enormous member. CPython's largest stdlib module is under 1 MB |
-| `max_source_bytes` | 64 MB | Total source held, if every declared size is a lie |
 | `max_ratio` | 100:1 | A bomb spread thinly across members, each one individually legal |
+
+There is deliberately **no total size limit here** — that was Q46, and the
+answer is that by the streaming stage hostility has already been ruled out:
+every signal that an archive is an attack lives in the central directory and was
+judged before a byte was decompressed. What is left is an archive that is merely
+large, which is the same situation as a large directory, and the honest response
+is a partial profile rather than a refusal. `ProfileBudget` owns size for both
+transports.
 
 The ratio only applies above `ratio_floor` (1 MB): a 12 KB file that compresses
 200:1 is a text file full of spaces, not an attack. Deflate tops out near

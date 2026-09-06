@@ -352,15 +352,26 @@ class TestRejection(ArchiveTestBase):
             inspect_zip(self.root)
         self.assertEqual(caught.exception.reason, "not-a-file")
 
-    def test_the_total_source_budget_is_enforced_while_reading(self):
-        limits = IngestLimits(
-            max_file_bytes=1024 * 1024,
-            max_source_bytes=4096,
-            max_declared_bytes=1024 * 1024,
-            max_ratio=1e9,
-        )
+    def test_a_large_but_honest_archive_is_not_rejected_for_its_size(self):
+        """Q46's answer, and the line between the two modules.
+
+        Every signal that an archive is an *attack* lives in the central
+        directory and was judged before a byte was decompressed. What is left
+        at the streaming stage is an archive that is merely large, which is
+        the same situation as a large directory -- so it is profiled as far as
+        the budget goes and flagged partial, rather than refused. Ingest
+        decides hostile; `ProfileBudget` decides enough.
+        """
+        from vibecoder.profiler import ProfileBudget, profile_archive
+
         path = self.archive_from({f"m{i}.py": "x = 1\n" * 400 for i in range(4)})
-        self.assertRejected(path, "source-budget-exhausted", limits)
+        self.assertEqual(len(list(iter_python_sources(path))), 4)
+
+        vibe = profile_archive(path, budget=ProfileBudget(max_total_bytes=1024))
+        self.assertTrue(vibe.partial)
+        self.assertIn("size budget", vibe.partial_reason)
+        self.assertEqual(vibe.files_seen, 4)
+        self.assertLess(vibe.files, 4)
 
 
 class TestAForgedDirectory(ArchiveTestBase):

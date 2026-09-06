@@ -1,0 +1,111 @@
+{
+  "id": "S014",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T2",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S014-ingestion-budgets.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A 5,000-file repository profiles without hanging", "result": "met", "note": "it completes in 11.7s against a 60s budget, rather than degrading"},
+    {"id": 2, "statement": "A codebase past its budget degrades rather than failing", "result": "met", "note": "ProfileBudget truncates and never raises"},
+    {"id": 3, "statement": "A partial profile says so, and says how much it missed", "result": "met", "note": "partial, partial_reason, files_seen; '412 of 5,183' in the panel"},
+    {"id": 4, "statement": "The walk stops being the thing that hangs", "result": "met", "note": "os.walk with in-place pruning; 551x on a vendored tree"},
+    {"id": 5, "statement": "Q46 answered rather than carried forward", "result": "met", "note": "the streaming size rejection became a truncation; D94"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/profiler.py", "kind": "module", "note": "ProfileBudget, walk_python_files, a pruning iter_python_files, budget enforcement in profile_sources"},
+    {"path": "vibecoder/ingest.py", "kind": "module", "note": "read_plan made public; max_source_bytes and its rejection removed (Q46)"},
+    {"path": "vibecoder/models.py", "kind": "module", "note": "VibeVector gains partial, partial_reason and files_seen"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_files_line and the PARTIAL notice in the profile panel"},
+    {"path": "tests/test_budget.py", "kind": "test", "note": "New. 21 tests: the walk, the budgets, exit criterion 6, and what gets stored"},
+    {"path": "tests/test_ingest.py", "kind": "test", "note": "the source-budget rejection test replaced by Q46's truncation behaviour"},
+    {"path": "docs/VIBE_PROFILER.md", "kind": "doc", "note": "budgets versus limits, the partial profile, and why the walk prunes"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T2 W6 LANDED; criterion 6 verified; W7 now more pressing"},
+    {"path": "journal/2026-09-06-S014-ingestion-budgets.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A 5,000-file repository completes within its budget", "method": "tests/test_budget.py::test_a_five_thousand_file_repository_completes, plus a 6.56 MB realistic tree measured by hand", "result": "partial=False, files=5000; 11.7s against a 60s budget", "verdict": "verified"},
+    {"claim": "The same repository under a small budget degrades rather than hanging", "method": "::test_the_same_repository_under_a_small_budget_degrades_rather_than_hangs", "result": "files=250, files_seen=5000, partial=True", "verdict": "verified"},
+    {"claim": "Vendored directories are never descended into", "method": "::test_vendored_directories_are_never_descended_into, os.walk spied on", "result": "no node_modules or .git path visited", "verdict": "verified"},
+    {"claim": "Pruning during traversal is materially faster than filtering after", "method": "50 source files beside 20,000 vendored, both implementations timed", "result": "167.3 ms to 0.3 ms, 551x, identical result", "verdict": "verified"},
+    {"claim": "The walk order is deterministic", "method": "::test_the_order_is_deterministic", "result": "two walks equal", "verdict": "verified"},
+    {"claim": "A symlink loop does not hang the walk", "method": "::test_a_symlink_loop_does_not_hang_the_walk", "result": "one file found, no stop reason", "verdict": "verified"},
+    {"claim": "Each budget truncates and names itself", "method": "four tests covering file, size, time and walk budgets", "result": "partial=True with the matching reason in each", "verdict": "verified"},
+    {"claim": "The budget is checked before the work rather than after", "method": "::test_the_budget_is_checked_before_the_work_not_after", "result": "exactly 10 files profiled under max_files=10", "verdict": "verified"},
+    {"claim": "A walk truncation still profiles what was found", "method": "::test_a_walk_truncation_is_carried_into_the_vector", "result": "files=8 with reason 'walk budget'", "verdict": "verified"},
+    {"claim": "A complete profile is never flagged partial", "method": "::test_a_complete_profile_is_never_flagged", "result": "partial=False, reason empty, files_seen == files", "verdict": "verified"},
+    {"claim": "An unparseable file does not make a profile partial", "method": "::test_an_unparseable_file_does_not_make_a_profile_partial", "result": "partial=False with a broken file present", "verdict": "verified"},
+    {"claim": "files_seen is never below files profiled", "method": "::test_files_seen_is_never_below_files_profiled, three budgets", "result": "holds in each", "verdict": "verified"},
+    {"claim": "The new fields survive a round trip", "method": "::test_the_new_fields_survive_a_round_trip", "result": "partial, reason and files_seen preserved", "verdict": "verified"},
+    {"claim": "A profile written before these fields still loads", "method": "::test_a_profile_written_before_these_fields_still_loads", "result": "defaults applied, partial=False", "verdict": "verified"},
+    {"claim": "A large but honest archive is truncated rather than rejected", "method": "tests/test_ingest.py::test_a_large_but_honest_archive_is_not_rejected_for_its_size", "result": "4 members readable; profile partial under a small budget", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "727 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "36/36", "verdict": "verified"},
+    {"claim": "The defaults suit real application repositories", "method": "sized against two synthetic trees and the standard library", "result": "no third-party repository was profiled", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M29",
+      "believed": "One 'stopped' reason could carry both facts: the walk sets it when it runs out of budget, the analysis loop checks it, and either way the profile comes out partial. The loop began with 'if stopped: break'.",
+      "revealed_by": "A test written to check the walk's reason reached the vector reported files=0 instead. When the walk truncated, the analysis loop saw a reason already set on its first iteration and stopped before profiling a single file, so a budget meant to give a partial profile gave an empty one.",
+      "corrected_to": "They are different claims. The transport's reason means 'there is more we did not enumerate'; the analysis's own reason means 'stop now'. They are tracked separately and merged only at the end, where the analysis's verdict wins as the more immediate one. Every other test truncates during analysis, where a single variable behaves correctly, which is why nothing else caught it.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Two facts that are both 'why we stopped' are not one fact. The shared variable read as an economy and was a conflation, the same shape as M22's naming histogram and S012's two kinds of limit."
+    }
+  ],
+  "decisions": [
+    {"id": "D87", "decision": "ProfileBudget is a separate type from IngestLimits", "alternatives": ["One limits object covering both"], "rationale": "They produce opposite verdicts: hostile is refused, enormous is truncated. One type would make the breach behaviour a per-field footnote.", "reversible": true, "seam": "vibecoder/profiler.py::ProfileBudget"},
+    {"id": "D88", "decision": "Budgets truncate and never raise", "alternatives": ["Raise and let the caller decide"], "rationale": "The caller is a player who asked to be profiled. An exception hands them nothing where a sample would have served.", "reversible": true, "seam": "vibecoder/profiler.py::profile_sources"},
+    {"id": "D89", "decision": "The walk prunes during traversal", "alternatives": ["Keep rglob and filter afterwards"], "rationale": "The filtering version walks the directories it is about to discard, which is where the time goes on a real repository.", "reversible": false, "seam": "vibecoder/profiler.py::iter_python_files"},
+    {"id": "D90", "decision": "Enumerate fully, then analyse", "alternatives": ["Stream files lazily into the analysis"], "rationale": "Enumeration is a stat walk against seconds of parsing, and it buys an honest files_seen. '412 of 5,183' says the repository is twelve times the budget; '412, stopped early' says nothing.", "reversible": true, "seam": "vibecoder/profiler.py::walk_python_files"},
+    {"id": "D91", "decision": "One deadline spans the walk and the analysis", "alternatives": ["A separate budget for each phase"], "rationale": "Two budgets can each be respected while the total is twice what was promised.", "reversible": true, "seam": "vibecoder/profiler.py::profile_path"},
+    {"id": "D92", "decision": "The walk's stop reason and the analysis's are tracked separately", "alternatives": ["One shared stopped variable"], "rationale": "They are different claims, and conflating them profiled nothing at all.", "reversible": false, "seam": "vibecoder/profiler.py::profile_sources"},
+    {"id": "D93", "decision": "partial means 'we stopped looking', never 'something was unusable'", "alternatives": ["Flag any incomplete reading"], "rationale": "Otherwise one Python 2 file makes an entire repository partial and the flag stops meaning anything.", "reversible": true, "seam": "vibecoder/profiler.py::profile_sources"},
+    {"id": "D94", "decision": "ingest lost its total-size rejection", "alternatives": ["Keep max_source_bytes as a backstop"], "rationale": "Hostility is decided from the central directory. A large honest archive is a large codebase, and two mechanisms for one concept is how they drift apart.", "reversible": true, "seam": "vibecoder/ingest.py::_stream"}
+  ],
+  "friction": [
+    {"description": "Adding tests moved the suite count three times in one session (660, 699, 706, 727) and each time the doc-count check failed after a full unpinned run. The check is right; running it last is the bad habit. Counting before the final run costs nothing.", "impact": "low", "resolved": true},
+    {"description": "The flight board linked to this journal entry before it existed, so the link checker failed. Writing the board entry before the journal entry guarantees one red run.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T2 W6 is landed. vibecoder profile bounds files, bytes, wall clock and enumerated paths; a codebase past its budget yields a flagged partial profile that is still banked. Exit criterion 6 is verified by finishing. 727 tests green unpinned, verify clean on 36 reference runs.",
+    "next_action": "T2 W7, vector versioning and migration, which W6 made more pressing rather than less. VibeVector gained three fields today, so a profile written now and read by an older build loses more than it did when Q40 was raised, and from_json still drops unknown keys silently. The vector is three sessions into 'the schema will change' with no version on it.",
+    "blockers": [
+      "T2 W4 remains blocked on a registered OAuth application and the client-versus-server profiling decision",
+      "T2 cannot land: W4 and W7 remain, and exit criterion 5 stays open for the clone path that does not exist yet"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D87 before merging the two limit types: they exist to produce different verdicts",
+      "M29 before simplifying the two stop reasons back into one variable",
+      "D93 before widening what partial means"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q44", "question": "The budgets and limits were sized against two synthetic trees and the standard library. No third-party repository has been profiled. Does 20,000 files / 64 MB / 60 s clear a real monorepo?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q46", "question": "Should the streaming source-budget rejection in ingest become a truncation, and is that W6's answer rather than W5's?", "owner": "T2", "status": "answered", "answer": "Yes. By the streaming stage hostility has already been ruled out, since every signal that an archive is an attack lives in the central directory and was judged before decompression. What remains is an archive that is merely large, which is the same situation as a large directory. The limit was removed and ProfileBudget owns size for both transports (D94)."},
+    {"id": "Q53", "question": "max_walk_files bounds enumeration at 200,000 paths, so a repository larger than that reports a files_seen that is a floor rather than a count, and the panel says '412 of 200,000' as though that were the total. Should a walk-truncated profile say 'of at least'?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q54", "question": "The time budget is checked between files, so a single pathological file can overrun it. max_file_bytes bounds an archive member but nothing bounds a file on disk. Is a per-file read cap worth adding, or is that a shape that does not occur?", "owner": "T2", "status": "open", "answer": null},
+    {"id": "Q55", "question": "A partial profile is banked and drives level selection exactly like a complete one. Should recommend weigh a 250-file sample the same as a 5,000-file one, or is sample size worth carrying into the decision?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 727,
+    "tests_passing": 727,
+    "tests_added": 21,
+    "budget_tests": 21,
+    "profile_budgets": 4,
+    "criterion_six_seconds": 11.7,
+    "criterion_six_files": 5000,
+    "criterion_six_budget_seconds": 60,
+    "walk_speedup": 551,
+    "walk_before_ms": 167.3,
+    "walk_after_ms": 0.3,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 24,
+    "dependencies": 0,
+    "reference_runs_clean": 36
+  }
+}

@@ -69,10 +69,6 @@ class IngestLimits:
     #: under 1 MB, so a 4 MB Python file is already an outlier.
     max_file_bytes: int = 4 * 1024 * 1024
 
-    #: Python source actually decompressed and held, across the whole run.
-    #: The last line of defence if every declared size is a lie.
-    max_source_bytes: int = 64 * 1024 * 1024
-
     #: Declared expansion divided by compressed size. Deflate tops out near
     #: 1032:1 on repetitive input; prose and code land between 2:1 and 5:1, so
     #: 100:1 is far outside anything a codebase does by accident.
@@ -278,8 +274,15 @@ def _stream(plan: ArchivePlan, limits: IngestLimits) -> Iterator[tuple[str, str]
     forged header, so it fails the whole archive rather than being skipped:
     at that point the central directory we made every other decision from is
     known to be untrue.
+
+    There is deliberately no *total* size limit here. That was Q46, and the
+    answer is that by the streaming stage hostility has already been ruled
+    out -- every signal that an archive is an attack lives in the central
+    directory and was judged before a byte was decompressed. What is left is
+    an archive that is merely large, which is the same situation as a large
+    directory, and the honest response to that is a partial profile rather
+    than a refusal. `profiler.ProfileBudget` owns it for both transports.
     """
-    budget = limits.max_source_bytes
     with zipfile.ZipFile(plan.path) as zf:
         for info in plan.members:
             try:
@@ -299,15 +302,19 @@ def _stream(plan: ArchivePlan, limits: IngestLimits) -> Iterator[tuple[str, str]
                     f"{info.file_size:,} bytes",
                 )
 
-            budget -= len(raw)
-            if budget < 0:
-                raise ArchiveRejected(
-                    "source-budget-exhausted",
-                    f"archive holds more than {limits.max_source_bytes:,} "
-                    f"bytes of Python source",
-                )
-
             yield info.filename, raw.decode("utf-8", errors="replace")
+
+
+def read_plan(
+    plan: ArchivePlan, limits: IngestLimits = DEFAULT_LIMITS
+) -> Iterator[tuple[str, str]]:
+    """Read the members an already-inspected plan approved.
+
+    Public so a caller that needs the plan's counts -- how many Python members
+    the archive holds, before any of them are read -- does not have to inspect
+    the central directory twice to get them.
+    """
+    return _stream(plan, limits)
 
 
 def iter_python_sources(

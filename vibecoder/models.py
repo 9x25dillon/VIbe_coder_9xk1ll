@@ -246,6 +246,19 @@ class VibeVector:
     max_nesting: int = 0
     #: Comment lines over all non-blank lines.
     comment_density: float = 0.0
+    #: Set when an ingestion budget stopped the profile early. The vector still
+    #: describes real code -- it is a smaller sample, not a wrong one -- but it
+    #: is not a complete description of the codebase, and anything comparing
+    #: two profiles or reporting one needs to know which it is holding.
+    partial: bool = False
+    #: Which budget ended the run, phrased for a person ("time budget: 60s").
+    #: Empty exactly when ``partial`` is false.
+    partial_reason: str = ""
+    #: Eligible files found, against ``files`` actually profiled. Zero means
+    #: "not recorded" rather than "none found": a profile written before this
+    #: field existed loads with zero and is always complete, so ``files`` is
+    #: the count to trust whenever ``partial`` is false.
+    files_seen: int = 0
     tags: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:

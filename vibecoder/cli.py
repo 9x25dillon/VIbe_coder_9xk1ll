@@ -31,7 +31,7 @@ from . import levels as level_registry
 from . import sandbox
 from . import style, tips
 from .ingest import ArchiveRejected
-from .models import Level, RunResult, Source, TestCase
+from .models import Level, RunResult, Source, TestCase, VibeVector
 from .profiler import (
     CONVENTION_PLURALS,
     CONVENTIONS,
@@ -98,6 +98,18 @@ def _fit_path(text: str, limit: int = PANEL_VALUE) -> str:
     return "..." + text[-(limit - 3):]
 
 
+def _files_line(vibe: VibeVector) -> str:
+    """The file count, saying what it is a count *of*.
+
+    A partial profile reports "412 of 5,183" because the ratio is the useful
+    part: it says the repository is twelve times what the budget covered, where
+    a bare 412 would read as a small codebase.
+    """
+    if not vibe.partial:
+        return str(vibe.files)
+    return f"{vibe.files:,} of {vibe.files_seen:,}"
+
+
 def cmd_profile(args: argparse.Namespace) -> int:
     try:
         vibe = profile_path(args.path)
@@ -121,7 +133,7 @@ def cmd_profile(args: argparse.Namespace) -> int:
     signature = style_signature(vibe)
     stats = [
         f"{'source':<16}{_fit_path(session.vibe_source)}",
-        f"{'files':<16}{vibe.files}",
+        f"{'files':<16}{_files_line(vibe)}",
         f"{'functions':<16}{vibe.functions}",
         f"{'code lines':<16}{vibe.code_lines}",
         f"{'avg func lines':<16}{vibe.avg_function_lines}",
@@ -135,6 +147,19 @@ def cmd_profile(args: argparse.Namespace) -> int:
     ]
     for line in UI.box(stats, width=64):
         print(line)
+
+    if vibe.partial:
+        # Said once, plainly, next to the numbers it qualifies. A profile that
+        # does not admit it is a sample is one somebody will compare against a
+        # complete one without knowing.
+        print(
+            f"\n  {UI.badge('PARTIAL', WARN)}  "
+            + UI.paint(
+                f"stopped by {vibe.partial_reason}; "
+                f"{vibe.files_seen - vibe.files:,} files not read",
+                MUTED,
+            )
+        )
 
     if signature:
         print(f"\n  {UI.paint('STYLE', INK, bold=True)}")
