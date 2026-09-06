@@ -7,6 +7,7 @@
     vibecoder replay <run-id>       slow-motion playback of a recorded run
     vibecoder verify                run every level's reference against its tests
     vibecoder showcase              render every visual element
+    vibecoder vision                animate your last run as a machine
     vibecoder reset                 delete the local profile
 
 All output is drawn through the renderer in ``ui.py``, which detects what the
@@ -42,6 +43,7 @@ from .runner import reference_benchmark, run_submission
 from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
 from .session import Session
 from .replay import play as play_replay
+from .vision import play as vision_play
 from .ui import (
     ACCENT,
     BAD,
@@ -703,6 +705,49 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_vision(args: argparse.Namespace) -> int:
+    """Animate a recorded run as the machine its function describes.
+
+    Its own command rather than part of the score reveal: the reveal is the
+    hottest path in the product, and a visual that is still finding its feet
+    does not belong there until it has earned the place.
+    """
+    session = Session.load()
+    run_id = args.run_id
+    if not run_id:
+        runs = session.list_runs()
+        if not runs:
+            print("no recorded runs yet - play a level first")
+            return 1
+        run_id = runs[-1]
+
+    try:
+        payload = session.load_run(run_id)
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc))
+
+    trace = payload.get("result", {}).get("trace", [])
+    if not trace:
+        print(f"run {run_id} recorded no trace - nothing to animate")
+        return 1
+
+    print()
+    print(UI.rule(f"VISION  {run_id}", width=76))
+    print("  " + UI.paint(f"{len(trace)} steps", FAINT))
+    try:
+        vision_play(
+            payload["code"],
+            trace,
+            function=args.function,
+            delay=args.delay,
+            interactive=args.step,
+        )
+    except ValueError as exc:
+        print(f"\n  {UI.paint('cannot draw this run', WARN, bold=True)}  {exc}\n")
+        return 2
+    return 0
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     """Every reference solution must pass its own tests on several variants.
 
@@ -942,6 +987,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_replay.add_argument("--delay", type=float, default=0.35)
     p_replay.add_argument("--step", action="store_true", help="advance on Enter")
     p_replay.set_defaults(func=cmd_replay)
+
+    p_vision = sub.add_parser(
+        "vision", help="animate a recorded run as a machine"
+    )
+    p_vision.add_argument(
+        "run_id", nargs="?", help="run to animate (default: the most recent)"
+    )
+    p_vision.add_argument("--function", help="which function to draw")
+    p_vision.add_argument("--delay", type=float, default=0.08,
+                          help="seconds between frames")
+    p_vision.add_argument("--step", action="store_true",
+                          help="advance one frame per keypress")
+    p_vision.set_defaults(func=cmd_vision)
 
     p_verify = sub.add_parser("verify", help="check every level's reference solution")
     p_verify.add_argument("--seeds", type=int, default=3)

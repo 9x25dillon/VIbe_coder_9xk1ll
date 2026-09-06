@@ -31,6 +31,7 @@ vibecoder/
 ├── screen.py      Cell grid; diffs frames so a keystroke repaints one cell.
 ├── highlight.py   Syntax colour. A tokenise failure is the normal case.
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
+├── vision.py      The machine view. Pure frames; the trace drives them.
 └── levels/        One module per level; auto-discovered.
 ```
 
@@ -51,6 +52,7 @@ vibecoder/
      _harness         tips ──┘
 
   cli, profiler ──► ingest         (T2 W5: archives, and what we refuse to read)
+  cli ──► vision ──► screen, ui    (the machine view; frames, never a terminal)
 
   editor ──┬─► term ──┬─► keys      (T7: the interactive front-end)
            ├─► screen ├─► editing

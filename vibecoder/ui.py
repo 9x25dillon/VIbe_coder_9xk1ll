@@ -218,6 +218,13 @@ GLYPHS = {
     "pause": ("·", "."),
     "run": ("▶", ">"),
     "hint": ("✦", "*"),
+    # The machine view (vision.py). Square corners so a statement box reads as
+    # apparatus rather than as another rounded panel, and every pair is one
+    # column wide in both modes so the layout is identical without Unicode.
+    "box_tl": ("┌", "+"), "box_tr": ("┐", "+"),
+    "box_bl": ("└", "+"), "box_br": ("┘", "+"),
+    "rail_top": ("╭", "+"), "rail_bottom": ("╰", "+"),
+    "token": ("●", "@"), "loop": ("↻", "o"), "down": ("▼", "v"),
 }
 
 SPARKS = "▁▂▃▄▅▆▇█"
@@ -237,6 +244,25 @@ class Renderer:
         self.stream = stream or sys.stdout
 
     # -- primitives --------------------------------------------------------
+
+    def style(self, rgb: RGB | None = None, *, bold: bool = False,
+              reverse: bool = False) -> str:
+        """SGR prefix for a single cell, honouring the stream's colour depth.
+
+        The cell-level counterpart to `paint`: `paint` wraps a string and
+        resets after it, which is right for a line of output and wrong for a
+        grid, where the reset belongs to whoever emits the frame. Frame
+        renderers hand this to `screen.Screen`, which is what keeps them free
+        of escape sequences of their own.
+        """
+        parts = ""
+        if bold:
+            parts += "\033[1m"
+        if reverse:
+            parts += "\033[7m"
+        if rgb is not None and self.caps.depth > Depth.NONE:
+            parts += sgr(rgb, self.caps.depth)
+        return parts
 
     def glyph(self, name: str) -> str:
         unicode_glyph, ascii_glyph = GLYPHS[name]

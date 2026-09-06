@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 660 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 699 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.

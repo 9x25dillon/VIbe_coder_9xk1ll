@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 660 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 699 tests, **zero third-party
 dependencies**. Boss fights are designed and scheduled, not yet built — see
 [Trajectories](#trajectories).
 
@@ -199,6 +199,7 @@ consume.
 | `play <id>` | Play a level (`--seed` for a specific variant, `--solution` to score a file) |
 | `status` | Progression, stars, streak, global score |
 | `replay [run-id]` | Slow-motion playback (`--step` to advance manually) |
+| `vision [run-id]` | Your function drawn as a machine, animated by its own run |
 | `verify` | Run every level's reference against its own tests |
 | `showcase` | Render every visual element and the detected terminal capabilities |
 | `reset` | Delete the local profile |
@@ -208,7 +209,7 @@ State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
 ## Repository layout
 
 ```
-vibecoder/            The game. 23 modules, no dependencies.
+vibecoder/            The game. 24 modules, no dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — builds payloads, parses replies
 ├── sandbox.py        Backend selection: subprocess / bubblewrap / docker
@@ -225,9 +226,10 @@ vibecoder/            The game. 23 modules, no dependencies.
 ├── screen.py         Cell grid that emits only what changed
 ├── highlight.py      Syntax colour that survives incomplete input
 ├── pulse.py          Keystroke rhythm; stays on this machine
+├── vision.py         Your function drawn as a machine, run by its own trace
 └── levels/           One file per level, auto-discovered
 
-tests/                660 tests, stdlib unittest
+tests/                699 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs
