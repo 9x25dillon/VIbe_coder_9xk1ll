@@ -32,12 +32,12 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 887 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 924 tests, **zero third-party
 dependencies**. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
-that raised, and lets you fix that line and carry on — telling you if the
-resumed run stopped matching the one you watched. Scoring the fight is still
-ahead. See [Trajectories](#trajectories).
+that raised, and lets you **type a fix into the paused fight** and carry on —
+telling you if the resumed run stopped matching the one you watched. Scoring
+the fight is still ahead. See [Trajectories](#trajectories).
 
 **New to Python?** Start at `w1-l1-greet`. World 1 is six levels that assume
 nothing beyond having installed Python: return a value, make a decision, write
@@ -191,9 +191,10 @@ python3 -m vibecoder.cli replay w2-l3-join-1786155331 --step
 This is playback only. Pause, step-back and **edit-and-resume** are the
 boss-fight engine in [T3](docs/trajectories/T3-boss-engine.md), and they run
 against a live interpreter rather than a recording — `boss <id> --live` steps a
-real child process one line at a time, pauses *on* the line that raised, and
-`--fix` swaps in edited source and carries on from there. Shipping the replay
-first was deliberate: it validated the trace format the live engine now emits.
+real child process one line at a time and pauses *on* the line that raised.
+From there you edit that line and the fight carries on from where it stopped,
+without re-running what you already watched. Shipping the replay first was
+deliberate: it validated the trace format the live engine now emits.
 
 ## Commands
 
@@ -205,7 +206,7 @@ first was deliberate: it validated the trace format the live engine now emits.
 | `status` | Progression, stars, streak, global score |
 | `replay [run-id]` | Slow-motion playback (`--step` to advance manually) |
 | `vision [run-id]` | Your function drawn as a machine, animated by its own run |
-| `boss <id>` | Run a multi-step boss fight (`--live` to watch it execute line by line, `--fix` to edit a failed step and resume) |
+| `boss <id>` | Run a multi-step boss fight (`--live` to watch it execute line by line; when a step breaks, fix the line and resume — `--fix <file>` scripts the same edit) |
 | `verify` | Run every level's reference against its own tests |
 | `showcase` | Render every visual element and the detected terminal capabilities |
 | `reset` | Delete the local profile |
@@ -236,7 +237,7 @@ vibecoder/            The game. 25 modules, no dependencies.
 ├── timeline.py       A cursor over execution history; nothing is re-run
 └── levels/           One file per level, auto-discovered
 
-tests/                887 tests, stdlib unittest
+tests/                924 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

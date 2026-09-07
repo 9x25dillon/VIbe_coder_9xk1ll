@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 
 from . import levels as level_registry
 from . import style
-from .keymap import KEYMAP, describe_keys
+from .keymap import KEYMAP, binding, describe_keys
 from .editing import Buffer
 from .highlight import highlight_window
 from .keys import Key, KeyDecoder
@@ -429,17 +429,11 @@ class Editor:
             self.buffer.insert(key.char)
             return
 
-        action = KEYMAP.get(self._binding(key))
+        action = KEYMAP.get(binding(key))
         if action is None:
             return
         self.pulse.press(now)
         action(self)
-
-    @staticmethod
-    def _binding(key: Key) -> str:
-        if key.ctrl and key.char:
-            return f"ctrl-{key.char}"
-        return key.name
 
     # -- running -----------------------------------------------------------
 

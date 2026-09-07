@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 887 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 924 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -83,9 +83,11 @@ python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
 python3 -m vibecoder.cli sandbox                  # which backends this host offers
 python3 -m vibecoder.cli edit w2-l1-revenue       # the full-screen editor (T7)
 
-# The boss engine (T3). `--live` steps a real child one line at a time; `--fix`
-# swaps in edited source at a failed step and resumes from there (W4), saying so
-# if the replay stopped matching what was already watched (W5).
+# The boss engine (T3). `--live` steps a real child one line at a time. When a
+# step breaks, a real terminal opens the repair pane and the fix is typed into
+# the paused fight (Q67); `--fix` scripts the same edit from a file, which is
+# the path the test suite drives. Either way the resume says so if the replay
+# stopped matching what was already watched (W5).
 python3 -m vibecoder.cli boss w1-boss-pipeline --live --speed 0.4
 python3 -m vibecoder.cli boss w1-boss-pipeline --live --solution broken.py --fix fixed.py
 
@@ -165,11 +167,17 @@ Full map in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - **The trace format is load-bearing.** `replay.py` consumes it today and T3's
   live engine will consume the same shape. Changing it is a cross-trajectory
   decision, not a local one.
-- **`ui.py` is the only module that may emit an escape sequence.** Never write
-  `\033` anywhere else — draw through the renderer. Every element computes its
-  plain-text layout first and paints last, which is what keeps escape-stripped
-  output identical at every colour depth. Read [`docs/UI.md`](docs/UI.md) before
-  adding a visual element.
+- **`cli.py` emits no escape sequence at all, and line-based drawing goes
+  through `ui.py`.** Every element computes its plain-text layout first and
+  paints last, which is what keeps escape-stripped output identical at every
+  colour depth; `showcase | grep -c $'\033'` must print `0`. The full-screen
+  stack is the **documented exception** — `term.py`, `screen.py`, `editor.py`
+  and `repair.py` build their own SGR, because a cell-diffed grid cannot be
+  routed through a line renderer — and pays for it with pure composition and
+  frames asserted as plain text. This bullet used to say `ui.py` was the only
+  module emitting one, which had been false since T7; see M36 in
+  [S020](journal/2026-09-06-S020-typing-the-fix.md). Read
+  [`docs/UI.md`](docs/UI.md) before adding a visual element.
 
 ---
 

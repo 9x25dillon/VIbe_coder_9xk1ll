@@ -103,8 +103,9 @@ Each one has an owner trajectory.
 | [S017](2026-09-06-S017-live-stepping.md) | 2026-09-06 | Pause is the parent not answering | T3 | `Create` |
 | [S018](2026-09-06-S018-step-back.md) | 2026-09-06 | Stepping back is not running backwards | T3 | `Create` |
 | [S019](2026-09-06-S019-edit-and-resume.md) | 2026-09-06 | The memo was already in the payload | T3 | `Create` |
+| [S020](2026-09-06-S020-typing-the-fix.md) | 2026-09-06 | A fix nobody can type is not playable | T3 | `Create` |
 
-Nineteen sessions, and the band column is worth reading as a column rather
+Twenty sessions, and the band column is worth reading as a column rather
 than a set of cells: one `Analyse`, one `Evaluate`, and the rest `Create`. That
 is a project still building mechanisms rather than tuning them, which is the
 right place to be in Phase 2 and will stop being so.

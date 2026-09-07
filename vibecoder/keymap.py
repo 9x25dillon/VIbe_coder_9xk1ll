@@ -14,7 +14,21 @@ from __future__ import annotations
 
 from typing import Callable
 
+from .keys import Key
+
 Action = Callable[["Editor"], None]  # noqa: F821 - avoids a circular import
+
+
+def binding(key: Key) -> str:
+    """The table key for a key press.
+
+    Lives here rather than on the application because two applications now
+    share this table -- the editor and the boss-fight repair pane -- and a
+    binding that resolved differently in each would make the table a lie.
+    """
+    if key.ctrl and key.char:
+        return f"ctrl-{key.char}"
+    return key.name
 
 
 def _page(editor, direction: int) -> None:
@@ -72,6 +86,16 @@ HELP = (
     ("ctrl-x", "quit"),
 )
 
+#: The same bindings in the boss-fight repair pane, where they mean the same
+#: thing pointed at a paused child: ctrl-r runs the level there and resumes
+#: the fight here. Only the labels differ, because only the labels should.
+REPAIR_HELP = (
+    ("ctrl-r", "resume"),
+    ("ctrl-z", "undo"),
+    ("ctrl-k", "kill line"),
+    ("ctrl-x", "give up"),
+)
 
-def describe_keys() -> str:
-    return "   ".join(f"{key} {label}" for key, label in HELP)
+
+def describe_keys(entries: "tuple[tuple[str, str], ...]" = HELP) -> str:
+    return "   ".join(f"{key} {label}" for key, label in entries)

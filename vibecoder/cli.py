@@ -30,6 +30,7 @@ from typing import Sequence
 
 from . import levels as level_registry
 from . import sandbox
+from . import repair
 from . import style, tips
 from .ingest import ArchiveRejected
 from .models import Level, RunResult, Source, TestCase, VibeVector
@@ -845,8 +846,8 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
     """Watch one boss step execute, line by line.
 
     Returns whether it cleared and the source it cleared with -- which is not
-    necessarily the source it started with, because `fix` may have replaced it
-    mid-fight. Handing the edited text back is what makes T3's exit criterion
+    necessarily the source it started with, because the player (or `fix`) may
+    have replaced it mid-fight. Handing the edited text back is what makes T3's exit criterion
     3 true of the *fight* rather than of one step: later steps are run against
     what the player actually ended up writing.
 
@@ -891,10 +892,22 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
                     f"{UI.paint(UI.glyph('cross'), BAD, bold=True)} "
                     + UI.paint(event.error[:60], BAD)
                 )
+                edited = None
                 if fix is not None:
-                    code = fix.read_text(encoding="utf-8")
-                    fix = None  # one edit per step: a fix that still fails is
-                                # a failure, not a loop
+                    edited = fix.read_text(encoding="utf-8")
+                    fix = None  # one scripted edit per step: a fix that still
+                                # fails is a failure, not a loop
+                elif repair.available():
+                    # Q67: the player types the fix into the paused fight.
+                    # The child stays blocked while they do, and its budget
+                    # counts executing time only, so thinking is free.
+                    edited = repair.offer(
+                        code, line=event.line, error=event.error,
+                        func=step.func_name, values=event.locals,
+                        title=step.title,
+                    )
+                if edited is not None:
+                    code = edited
                     _apply_edit(live, code)
                     previous = dict(live.steps[-1].locals) if live.steps else {}
                     last_failure = None
@@ -1315,7 +1328,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument("--solution", help="run a file instead of the starter")
     p_boss.add_argument(
         "--fix",
-        help="with --live: on a failed step, resume from edited source in this file",
+        help="with --live: take the fix from this file instead of asking "
+             "you to type it (the scriptable path; a real terminal gets the "
+             "editor)",
     )
     p_boss.add_argument(
         "--reference", action="store_true",

@@ -1,7 +1,19 @@
 # The presentation layer
 
-Everything VibeCoder draws goes through [`vibecoder/ui.py`](../vibecoder/ui.py).
-No other module emits an escape sequence, and `cli.py` contains none at all.
+Everything VibeCoder draws **in lines** goes through
+[`vibecoder/ui.py`](../vibecoder/ui.py), and `cli.py` contains no escape
+sequence at all — `showcase | grep -c $'\033'` prints `0`, and that is the
+half of this rule which is checked.
+
+The full-screen stack is the documented exception, and has been since T7:
+`term.py` owns the terminal mode, `screen.py` diffs a cell grid, and the
+applications that compose into a `Screen` — [`editor.py`](../vibecoder/editor.py)
+and [`repair.py`](../vibecoder/repair.py) — build their own SGR prefixes,
+because a grid painted by cell damage cannot be routed through a line
+renderer. They pay the same price in return: composition is pure, frames are
+asserted as plain text, and `Depth.NONE` yields no escapes at all. This
+paragraph used to claim no other module emitted one, which stopped being true
+the moment the editor shipped.
 
 ## The one rule
 

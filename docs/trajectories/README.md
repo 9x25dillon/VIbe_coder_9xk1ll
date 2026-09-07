@@ -121,7 +121,16 @@ honest if divergence is detected — the safety net is not optional equipment.
 The instrument check T3 asks for — *divergence rate on edit-and-resume,
 measured over real play sessions; if it exceeds ~5%, strategy C is justified* —
 is now measurable and unmeasured. Nobody has played a fight and been diverged
-on. T3
+on.
+
+**Q67 is answered** ([S020](../../journal/2026-09-06-S020-typing-the-fix.md)):
+the edit is typed into the paused fight, in a repair pane that reuses the T7
+editor's buffer, decoder and keymap rather than the editor itself. Criterion 6
+loses that blocker but is still **not** claimed, because S018 read it as also
+requiring the fight to be *scored* rather than merely watched, and that is W6
+and W7. Two readings of one criterion is itself worth noticing: "fully
+playable" was written before anyone had to decide whether playable means
+scored. T3
 was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.

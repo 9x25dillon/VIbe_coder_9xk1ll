@@ -1,0 +1,123 @@
+{
+  "id": "S020",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S020-typing-the-fix.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player types the fix into the paused fight and it completes", "result": "met", "note": "verified through a real pty: keystrokes in, BOSS DOWN, exit 0"},
+    {"id": 2, "statement": "The pane opens on the line that raised, and keeps it findable", "result": "met", "note": "cursor past the indent; the gutter mark survives scrolling"},
+    {"id": 3, "statement": "A fix that will not compile costs no part of the fight", "result": "met", "note": "compiled before the child is restarted; the complaint is shown in the frame"},
+    {"id": 4, "statement": "The bindings are the editor's, not a second set to learn", "result": "met", "note": "one KEYMAP, one binding(); only the help labels differ"},
+    {"id": 5, "statement": "The pane is testable without a pty, a child, or a terminal", "result": "met", "note": "37 tests in 0.020s against pure composition"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/repair.py", "kind": "module", "note": "New. The pane a player types a boss-fight fix into; pure compose, same keymap as the editor"},
+    {"path": "vibecoder/keymap.py", "kind": "module", "note": "binding() shared by both applications; REPAIR_HELP; describe_keys takes its labels"},
+    {"path": "vibecoder/editor.py", "kind": "module", "note": "delegates to keymap.binding instead of keeping a private copy"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "a failed live step opens the repair pane on a real terminal; --fix is the scripted path"},
+    {"path": "tests/test_repair.py", "kind": "test", "note": "New. 37 tests, headless composition, no pty"},
+    {"path": "docs/UI.md", "kind": "doc", "note": "the escape-sequence rule corrected: the full-screen stack is a documented exception (M36)"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "Typing the fix (Q67): what the pane is, what it deliberately is not, and why the child waiting is free"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "Q67 answered; criterion 6 still not claimed, and why"},
+    {"path": "README.md", "kind": "doc", "note": "status and the boss command describe typing the fix; test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "boss commands describe the repair pane; test count"},
+    {"path": "journal/2026-09-06-S020-typing-the-fix.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A player can type a fix and finish the fight", "method": "boss --live driven through a real pty; ctrl-k, the corrected line, ctrl-r", "result": "reached the FIX pane, then BOSS DOWN, exit status 0", "verdict": "verified"},
+    {"claim": "The cursor opens on the failing line, past the indent", "method": "tests/test_repair.py::test_the_cursor_is_on_the_failing_line, ::test_the_cursor_skips_the_indent", "result": "row 2, column 4", "verdict": "verified"},
+    {"claim": "A failing line beyond the buffer is clamped", "method": "::test_a_failing_line_past_the_end_is_clamped", "result": "line 99 lands on row 2", "verdict": "verified"},
+    {"claim": "The failing line is visible on a minimum-size terminal", "method": "::test_it_opens_with_the_failing_line_in_view", "result": "line 61 of 61 on screen at MIN_HEIGHT", "verdict": "verified"},
+    {"claim": "The mark survives scrolling away from it", "method": "::test_the_mark_survives_scrolling_away_from_it", "result": "gutter cross on the failing line only", "verdict": "verified"},
+    {"claim": "The locals at the failure are on screen", "method": "::test_the_locals_at_the_failure_are_shown", "result": "floor = 10.0 in the frame", "verdict": "verified"},
+    {"claim": "A fix that will not compile does not resume", "method": "::test_broken_syntax_does_not_resume", "result": "applied False, still running", "verdict": "verified"},
+    {"claim": "It says what is wrong, in the frame", "method": "::test_the_complaint_reaches_the_frame", "result": "'not resuming' composed into the status row", "verdict": "verified"},
+    {"claim": "A fixed fix then resumes", "method": "::test_a_fixed_fix_then_resumes", "result": "applied True after backspacing the typo", "verdict": "verified"},
+    {"claim": "Valid but wrong Python is allowed through", "method": "::test_valid_python_that_is_still_wrong_is_allowed_through", "result": "return None resumes; the fight grades it", "verdict": "verified"},
+    {"claim": "Giving up is not resuming", "method": "::test_giving_up_is_not_resuming", "result": "edited then ctrl-x leaves applied False", "verdict": "verified"},
+    {"claim": "A fix may add lines, not only retype one", "method": "::test_a_new_line_can_be_added", "result": "a new statement lands above the failing line", "verdict": "verified"},
+    {"claim": "Both applications resolve one binding table", "method": "::test_the_bindings_come_from_the_one_table", "result": "the same action object for ctrl-r", "verdict": "verified"},
+    {"claim": "Frames are identical text at every colour depth", "method": "::test_the_frame_is_the_same_text_at_every_depth", "result": "PLAIN and ANSI16 compose identical plain text", "verdict": "verified"},
+    {"claim": "A tiny terminal says so rather than drawing rubbish", "method": "::test_a_tiny_terminal_says_so_rather_than_drawing_rubbish", "result": "'too small' below MIN_WIDTH x MIN_HEIGHT", "verdict": "verified"},
+    {"claim": "The pane is testable with no pty", "method": "python3.11 -m unittest tests.test_repair", "result": "37 tests in 0.020s", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "924 tests OK", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "900 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "cli.py still emits no escape sequence", "method": "python3.11 -m vibecoder.cli showcase | grep -c $'\\033'", "result": "0", "verdict": "verified"},
+    {"claim": "Anyone but me has played a boss fight", "method": "nobody has", "result": "the loop is exercised, the audience is not", "verdict": "unverified"},
+    {"claim": "Divergence rate over real play", "method": "nothing collects it; Q71", "result": "still uncollected", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M36",
+      "believed": "ui.py is the only module that emits an escape sequence. docs/UI.md states it in its second sentence and CLAUDE.md section 6 repeats it as an architecture rule, so I took it as a live invariant and started designing the repair pane to route its colour through ui.py, which for a cell-diffed grid means not using the grid.",
+      "revealed_by": "grep -rn '\\\\033' vibecoder/*.py before writing any of it: ui.py 11, term.py 7, replay.py 5, screen.py 3, editor.py 2.",
+      "corrected_to": "The rule was true when written and stopped being true the moment T7 shipped a full-screen stack; replay.py had already broken it before that. A grid painted by cell damage cannot be routed through a line renderer. The half that is true and is enforced is the one about cli.py, checked by showcase piped through grep printing 0. docs/UI.md now documents the exception, names the modules in it, and states what they pay in return: pure composition, frames asserted as plain text, no escapes at Depth.NONE.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "An invariant nothing tests is a comment. N9 has test_provenance, N8 has CI, the record system has test_records; this one had nothing and drifted for two trajectories without anyone noticing, including me reading it at the start of this session. Had I not grepped, I would either have reimplemented screen diffing badly to avoid the grid, or quietly added a fifth escape-emitting module and left the documented invariant one module further from true."
+    }
+  ],
+  "decisions": [
+    {"id": "D133", "decision": "The repair pane is its own application, not editor.Editor", "alternatives": ["Open the T7 editor on the boss source", "Extend Editor to accept a boss step"], "rationale": "Editor runs a level's tests, scores against LEVEL_WEIGHTS and banks to the session. A boss step is none of those, and threading one through a Level-shaped API is a mismatch dressed as reuse.", "reversible": true, "seam": "vibecoder/repair.py::Repair"},
+    {"id": "D134", "decision": "It reuses Buffer, KeyDecoder and the same KEYMAP; only the help labels differ", "alternatives": ["A minimal bespoke line editor with its own keys"], "rationale": "A player who has used the editor should not learn a second set of bindings for the same actions. describe_keys takes the labels because only the labels should differ.", "reversible": true, "seam": "vibecoder/keymap.py::describe_keys"},
+    {"id": "D135", "decision": "The whole submission is editable, not only the failing line", "alternatives": ["A one-line editor, matching T3's 'fix the line' wording"], "rationale": "A KeyError on line 16 is often a misspelling on line 8. Restricting the edit decides for the player that every bug is where it surfaced, and editing earlier is exactly what W5 exists to report.", "reversible": true, "seam": "vibecoder/repair.py::Repair.buffer"},
+    {"id": "D136", "decision": "The edit is compiled before the fight resumes", "alternatives": ["Let the child fail on import and report it as the step failing"], "rationale": "A typo would otherwise cost a step of the fight to discover, when the pane can point at it with the cursor still next to it. Compiling only: being wrong is the fight's job.", "reversible": true, "seam": "vibecoder/repair.py::Repair.execute"},
+    {"id": "D137", "decision": "Giving up returns None, not the edited text", "alternatives": ["Resume with whatever is in the buffer"], "rationale": "A player who edits and then quits has not asked for their edit to be run. Resuming a fight they were trying to leave is the wrong guess.", "reversible": true, "seam": "vibecoder/repair.py::offer"},
+    {"id": "D138", "decision": "--fix <path> stays as the scriptable path", "alternatives": ["Remove it now that a person can type"], "rationale": "It is the same loop driven by a file, and it is the only one the test suite can drive: repair.available() is false without a real terminal on both streams.", "reversible": true, "seam": "vibecoder/cli.py::_live_step"},
+    {"id": "D139", "decision": "binding() moves into keymap.py, shared by both applications", "alternatives": ["Duplicate the three lines in the pane"], "rationale": "Two applications sharing a table must resolve its keys identically, or the table is a lie.", "reversible": true, "seam": "vibecoder/keymap.py::binding"},
+    {"id": "D140", "decision": "docs/UI.md documents the full-screen exception rather than the rule being restored", "alternatives": ["Route the pane's colour through ui.py", "Delete the rule"], "rationale": "The rule's cli.py half is true, valuable and tested. The full-screen half has been false since T7 and cannot be made true without reimplementing screen diffing through a line renderer. See M36.", "reversible": false, "seam": "docs/UI.md"}
+  ],
+  "friction": [
+    {"description": "A heredoc containing a Python docstring inside a Markdown code fence terminated the heredoc early. Spliced the doc section from a file instead, which is now the reason doc edits here go through files rather than inline strings.", "impact": "low", "resolved": true},
+    {"description": "The first pty run looked like the pane had opened at line 1 rather than 16. It had not: the printout was the last 900 bytes of a raw terminal stream and the frame ran past that window. Checked before changing anything, and a test now covers the real property so the question is not re-asked from a byte dump.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "Q67 is answered. repair.py is a pane a player types the fix into, reusing the T7 editor's buffer, decoder and keymap but not the editor. A fight now runs end to end from the CLI with no file paths: watch, fail, type, resume, win, verified through a real pty. 924 tests green unpinned, 900 pinned, verify clean on 45 reference runs.",
+    "next_action": "T3 W6, the boss HP model tied to first-try step completions. Read Q74 before starting: the repair pane allows unlimited attempts while --fix allows one, and W6 is about to make 'how many attempts did that take' a scored quantity that the interactive path does not currently count. That is a design conflict this session created and did not resolve.",
+    "blockers": [
+      "None for T3",
+      "T2 W4 remains blocked on a registered OAuth application, with T2 otherwise one waypoint from landing"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M36 before trusting any invariant in CLAUDE.md section 6 or docs/UI.md that has no test behind it",
+      "D133 before adding boss features to editor.py",
+      "D136 before moving correctness checking into the pane"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q67", "question": "Where does the typed edit belong: boss --live as a keystroke, the T7 editor, or somewhere else?", "owner": "T3", "status": "answered", "answer": "In the fight, in repair.py: a pane reusing the editor's Buffer, KeyDecoder and KEYMAP but not Editor itself, which is bound to a Level (D133, D134)."},
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them into one entry carrying both the values and the failure?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one; compare handles both by inspection.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "The recording cap is 400 steps, so an edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "T3's instrument check, divergence rate over real play, is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q72", "question": "A stepped run executes tests[0] only, so a live boss step is cleared on one case.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "The pane shows the locals at the failure but not what the step was expected to return. Would showing the expected value help the fix, or hand over the answer?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q74", "question": "The pane allows unlimited repair attempts; --fix allows one. W6 ties boss HP to first-try step completions, so how many attempts a step took is about to become a scored quantity that the interactive path does not count. Does a repair spend something?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "The rule that drifted in M36 is T6's, and it drifted because nothing tested it. Three of this project's invariants are enforced by tests and the rest are prose. Which of the remaining non-negotiables can be given one? Filed under T6 because that is the rule that broke, not because the question stops there.", "owner": "T6", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 924,
+    "tests_passing": 924,
+    "tests_added": 37,
+    "repair_tests": 37,
+    "repair_test_seconds": 0.02,
+    "suite_seconds_unpinned": 77.27,
+    "suite_tests_pinned_bwrap": 900,
+    "t3_waypoints_landed": 5,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 4,
+    "t3_exit_criteria_total": 6,
+    "open_questions_answered": 1,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 25,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}

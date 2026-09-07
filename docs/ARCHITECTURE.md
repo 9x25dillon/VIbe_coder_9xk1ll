@@ -32,6 +32,7 @@ vibecoder/
 ├── highlight.py   Syntax colour. A tokenise failure is the normal case.
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 ├── vision.py      The machine view. Pure frames; the trace drives them.
+├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.
 └── levels/        One module per level; auto-discovered.
@@ -207,6 +208,57 @@ Two decisions in the comparison:
 knows who is watching. The CLI prints it as a warning and keeps the fight
 going, because a divergent resume is still playable — it just is not
 continuous, and the player is told so.
+
+### Typing the fix (Q67)
+
+`--fix <path>` proves the engine and is not playing. The player types the fix
+into the paused fight itself, in [`repair.py`](../vibecoder/repair.py):
+
+```
+─ FIX Drop the cheap stock above_floor() ─────────────────────────────────────
+ ✘ line 16: KeyError: 'prise'
+   floor = 10.0
+──────────────────────────────────────────────────────────────────────────────
+   14 def above_floor(rows, floor):
+   15     ...docstring...
+ ✘ 16     return [row for row in rows if row["prise"] >= floor]
+   17
+──────────────────────────────────────────────────────────────────────────────
+ ctrl-r resume   ctrl-z undo   ctrl-k kill line   ctrl-x give up
+```
+
+**The pane is not the T7 editor.** `editor.Editor` is bound to a `Level` — it
+runs that level's tests, scores the attempt and banks the result — and a boss
+step is none of those; threading one through a `Level`-shaped API would be
+dressing a mismatch up as reuse. What is reused sits a layer down and is
+reused whole: `Buffer` for the text, `KeyDecoder` for the input, and the same
+`KEYMAP`, so ctrl-R runs a level in one and resumes a fight in the other and
+there is no second set of bindings to learn. Only the help *labels* differ,
+which is why `describe_keys` takes them as an argument.
+
+Three details that are the feature rather than decoration:
+
+- **It opens on the line that raised, past the indent**, and that line stays
+  marked in the gutter however far the player scrolls. A submission is longer
+  than a short terminal, and making someone hunt for the line they just
+  watched fail is the feature not working.
+- **The locals at the failure are drawn in the pane.** The alternate screen
+  has just hidden the scrollback, so a fix argued from remembered values is a
+  guess.
+- **The edit is compiled before the fight resumes.** A fix with a syntax error
+  would otherwise restart the child only to have it die on import, spending a
+  step of the fight on something the pane can point at while the cursor is
+  still next to it. The guard is about compiling, never about being right —
+  deciding a fix is *wrong* is the fight's job.
+
+**The child stays blocked for as long as the player types, and that is free:**
+its budget counts executing time and never time spent waiting on the parent
+(T3 W2). A fight cannot time out for being thought about, which is what makes
+opening an editor at the pause point safe at all.
+
+`--fix` remains as the scriptable path — the same loop driven by a file
+instead of a person, and the one the test suite can drive, since
+`repair.available()` is false without a real terminal on both streams.
 
 ## The execution boundary
 
