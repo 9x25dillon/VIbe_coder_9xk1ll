@@ -145,6 +145,60 @@ replaying a level badly can never lower a banked total.
 A **streak** of consecutive 3-star clears compounds at `1.0 + 0.1 × streak`,
 capped at 2.0×. Anything short of 3 stars resets it.
 
+## Boss fights: hit points and repairs (T3 W6)
+
+A boss fight is not scored on the three axes yet — that is T3 W7, and
+`BOSS_WEIGHTS` (40/30/30) is defined and unused. What a fight *does* have is
+two resources, and their numbers belong here with the rest.
+
+| Number | Value | Why |
+| --- | --- | --- |
+| Starting HP | `100` | Round, so the bar reads as a percentage without anyone being told it is one |
+| Per-step damage | `100 / steps`, cumulatively rounded | The damages sum to **exactly** 100, so a flawless fight lands on `0` rather than on `1` |
+| Repairs per fight | `5` | Enough to survive a bad step or two, not enough to brute-force three. That band is what makes the pool a decision rather than a formality |
+| Damage after a repair | `× 0.5`, compounding | Steep on purpose: a second repair on one step leaves it worth a quarter, which stops "fix it until it passes" scoring like solving it |
+| Heal per repair | up to `10%` of starting HP, scaled by `1 − accuracy` | See below. This is the number that carries the mechanic |
+
+### The heal is the mechanic
+
+Spending a repair does two things: it reduces the damage that step will deal,
+**and it hands the boss back health scaled by how wrong the code was.**
+
+```
+heal = 100 × 0.10 × (1 − accuracy)
+```
+
+Accuracy here is the fraction of *that step's own tests* the code passed at the
+moment it failed — measured by an ordinary run against the whole set, not by
+the single case the player watched execute.
+
+The direction is deliberate and it is the same argument the Functional axis
+rests on: **being close is rewarded.**
+
+| What you repaired | Accuracy | Boss recovers |
+| --- | --- | --- |
+| Nearly right | 90% | 1 |
+| Half working | 50% | 5 |
+| A guess | 0% | 10 |
+
+A player who ships something almost correct and patches it keeps nearly all of
+their damage. A player who repairs a guess watches the bar climb back. Over a
+five-repair pool the difference between those two players is roughly half the
+boss's health, which is the gap the mechanic exists to create.
+
+### Why repairs do not simply cost HP
+
+Two alternatives were considered and rejected. Making a repair cost *player*
+HP adds a fail state to a game where nothing else can beat you. Making the
+damage reduction the only cost leaves the pool as a statistic rather than a
+resource — and a bounded resource is the thing [T4](trajectories/T4-adaptive.md)
+W10's abilities can meaningfully act on.
+
+`BOSS DOWN` is therefore reserved for HP actually reaching zero, which only a
+fight with nothing spent can do. Everyone else clears the boss and leaves it
+standing, and is told the difference. Clearing and acing are separate
+outcomes, which is the same distinction stars draw for an ordinary level.
+
 ## Worked example
 
 From the design document, and reproducible today:

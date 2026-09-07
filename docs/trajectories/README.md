@@ -102,13 +102,17 @@ rather than absorbed.
 ([S016](../../journal/2026-09-06-S016-boss-format.md)),
 W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)),
 W3 `LANDED` ([S018](../../journal/2026-09-06-S018-step-back.md)),
-W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)).
-W6–W8 outstanding. Exit criteria 1, 2, 3 and 4 are verified — a boss runs step
-by step with a visible current line and live locals, a deliberate error pauses
-*on* the offending line, editing that line and resuming completes the fight
-with the edit in the submitted source, and a replay that stops matching is
-reported rather than presented as continuous. Criterion 5 (boss HP) is W6.
-Criterion 6 needs the fight to be scored rather than merely watched (W6, W7).
+W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)),
+W6 `LANDED` ([S021](../../journal/2026-09-06-S021-boss-hp.md)).
+W7 and W8 outstanding. **Exit criteria 1 through 5 are verified.** A boss runs
+step by step with a visible current line and live locals; a deliberate error
+pauses *on* the offending line; editing that line and resuming completes the
+fight with the edit in the submitted source; a replay that stops matching is
+reported rather than presented as continuous; and the per-step damages sum to
+exactly the starting HP, so nothing but clearing every step reaches zero.
+Criterion 6 needs the fight *scored* on the three axes, which is W7 — the only
+thing now standing between T3 and its exit criteria, with W8 (a second boss
+fight) a waypoint no criterion points at.
 
 W4 was the one waypoint in the project whose difficulty the trajectory itself
 called genuinely uncertain, and the hazard list said to ship W1–W3 as a

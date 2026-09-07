@@ -47,6 +47,38 @@ A decay term matters too: mastery drifts back toward the middle over weeks, so
 returning players get re-assessed instead of being permanently pinned to a
 rating they earned in August.
 
+## Classes, attributes and abilities
+
+Folded in here rather than opened as a trajectory of its own, because the
+thing that makes them work already lives in T4: this is the only trajectory
+that models a player over time.
+
+The design has three layers and **the split between them is load-bearing**,
+for exactly the reason the third hazard below already gives. Merging them is
+the tempting and wrong simplification, and it is available here twice over.
+
+| Layer | Derived from | What it is | What it must never be |
+| --- | --- | --- | --- |
+| **Function class** | The Vibe Vector — *how you write* | An identity. "You reach for comprehensions and delegate to the stdlib." | A rating. A class is never better than another class |
+| **Attributes** | Per-tag mastery — *what you are good at* | A measurement, already the model above | Flavour text. An attribute the player cannot see the evidence for is a horoscope |
+| **Abilities** | Earned by performance, flavoured by class | Things that spend or refill a fight's resources | Free. An ability that costs nothing is a difficulty setting wearing a costume |
+
+**Classes come from habits, attributes from performance, and the two are not
+averaged together.** A player who writes `pandas` constantly is not thereby
+good at it — the hazard list says so already, and a class system is the most
+attractive way anyone will ever find to violate it. The class says what your
+code looks like. The attributes say what it scores. A screen that shows both
+is honest; a single number blending them is not.
+
+Abilities have somewhere concrete to act because [T3](T3-boss-engine.md) W6
+built one: a boss fight now has **hit points and a bounded repair pool**, and
+a repair both reduces the damage its step deals and hands the boss back an
+amount scaled by how wrong the code was. That is a resource with a cost curve
+already attached, which is what an ability can meaningfully modify — refill a
+repair, soften a heal, bank unspent repairs into damage. Designing abilities
+before that existed would have been designing against nothing, which is why
+this waited for W6 rather than being started when it was first raised.
+
 ## Waypoints
 
 | ID | Waypoint | Notes |
@@ -58,6 +90,10 @@ rating they earned in August.
 | W5 | Drill injection: repeated short exercises on the weakest tag | The design's "struggle with recursion → extra recursive drills". |
 | W6 | Time decay on mastery | Re-assess returning players. |
 | W7 | Explanation surface: `vibecoder status --why` | The player can see why they were given a level. Non-negotiable. |
+| W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | Named from habits, never from score. `status` shows which patterns earned it. |
+| W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
+| W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
+| W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
 
 ## Exit criteria
 
@@ -69,6 +105,16 @@ rating they earned in August.
 4. Every difficulty decision is explainable in one sentence generated from the
    model, with no hidden state.
 5. Practice-mode runs provably do not affect mastery.
+6. A player's function class is derivable from the Vibe Vector alone, and
+   changing their *scores* without changing their *code* never changes it.
+7. Every ability has a stated cost, and a fight with abilities available is
+   still losable.
+8. No screen anywhere presents a single number blending habits with mastery.
+
+Criteria 6–8 were added when classes, attributes and abilities were folded in
+(see [S021](../../journal/2026-09-06-S021-boss-hp.md)). They are new scope with
+new criteria, not the existing five re-cut to fit something already built —
+1–5 are untouched.
 
 ## Known hazards
 
@@ -83,6 +129,15 @@ rating they earned in August.
   constantly may still be bad at it. Keep the two separate — merging them is the
   most tempting and most wrong simplification available here.
 - **Unexplainable adaptation feels broken, not smart.** Hence W7.
+- **Power creep dissolves the boss engine.** T3 W6 made a fight cost
+  something; an ability that refills repairs freely gives that back and
+  returns the boss to the pre-W6 state where fixing was unlimited. Every
+  ability needs a cost, and the instrument check is whether a fight with a
+  full ability loadout can still be lost.
+- **A class system is a horoscope by default.** "You are a Comprehensionist"
+  is flattery unless the patterns that earned it are on screen next to it.
+  W8's evidence requirement is not decoration; it is the difference between a
+  measurement and a personality quiz.
 
 ## Instrument checks
 

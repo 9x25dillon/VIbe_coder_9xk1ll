@@ -30,6 +30,7 @@ from typing import Sequence
 
 from . import levels as level_registry
 from . import sandbox
+from . import fight as fight_model
 from . import repair
 from . import style, tips
 from .ingest import ArchiveRejected
@@ -842,7 +843,7 @@ LOOP_PATIENCE = 3
 
 
 def _live_step(boss, index: int, code: str, seed: int, delay: float,
-               fix: "Path | None" = None) -> tuple[bool, str]:
+               fight, fix: "Path | None" = None) -> tuple[bool, str]:
     """Watch one boss step execute, line by line.
 
     Returns whether it cleared and the source it cleared with -- which is not
@@ -892,7 +893,24 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
                     f"{UI.paint(UI.glyph('cross'), BAD, bold=True)} "
                     + UI.paint(event.error[:60], BAD)
                 )
+                offered = fix is not None or repair.available()
+                if offered and not fight.can_repair:
+                    # The pool is the constraint, so running out has to end
+                    # the fight rather than quietly offering a sixth repair.
+                    # Aborting rather than breaking: the child is blocked
+                    # mid-run, and draining one that nobody has released
+                    # waits forever.
+                    print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
+                    live.abort()
+                    return False, code
                 edited = None
+                if offered:
+                    # Measured against the code *as it failed*, before any
+                    # edit: the heal is scaled by how wrong this was, not by
+                    # how good the fix is. Skipped entirely when no repair is
+                    # on offer, so a scripted run does not pay for a verdict
+                    # nothing reads.
+                    accuracy = _accuracy(code, step, tests)
                 if fix is not None:
                     edited = fix.read_text(encoding="utf-8")
                     fix = None  # one scripted edit per step: a fix that still
@@ -907,6 +925,12 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
                         title=step.title,
                     )
                 if edited is not None:
+                    # Spent only when an edit is actually applied: a player
+                    # who opens the pane and gives up has not used one.
+                    cost = fight.repair(accuracy)
+                    tone = GOOD if cost.healed <= 2 else WARN
+                    print(f"    {UI.paint(str(cost), tone)}  "
+                          + UI.paint(f"(accuracy {accuracy:.0%})", FAINT))
                     code = edited
                     _apply_edit(live, code)
                     previous = dict(live.steps[-1].locals) if live.steps else {}
@@ -926,14 +950,51 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
     if result.error:
         print(f"    {UI.paint(result.error, BAD)}")
         return False, code
-    # Not crashing is not the same as answering. A stepped run now reports one
-    # outcome for the one test it executes, so a step cleared by ``return
-    # None`` is caught here rather than celebrated.
-    for outcome in result.outcomes:
-        if not outcome.passed:
-            print(f"    {UI.paint(f'expected {outcome.expected}, got {outcome.got}', BAD)}")
-            return False, code
+    # Not crashing is not the same as answering, and the one case we watched
+    # is not the same as the set. The step is judged on all of them (Q72).
+    accuracy = _accuracy(code, step, tests)
+    if accuracy < 1.0:
+        print(f"    {UI.paint(f'{accuracy:.0%} of cases pass', BAD)}")
+        return False, code
     return True, code
+
+
+def _accuracy(code: str, step, tests) -> float:
+    """Fraction of the step's own tests this code passes.
+
+    A stepped run watches *one* case, which cannot say how wrong the code was
+    — and how wrong it was is exactly what a repair's heal is scaled by. So
+    accuracy is measured by an ordinary run against the whole set, in a
+    process of its own, while the paused child sits untouched.
+
+    This is also what decides whether a step cleared, which answers Q72: a
+    live step is now judged on the same cases the same step faces when it is
+    scored normally.
+    """
+    if not tests:
+        return 0.0
+    result = run_code(code, step.func_name, tests, source=Source.PLAYER)
+    return sum(1 for o in result.outcomes if o.passed) / len(tests)
+
+
+def _repairs(count: int) -> str:
+    return f"{count} repair" if count == 1 else f"{count} repairs"
+
+
+def _fight_bar(fight) -> str:
+    """The boss's health and what the player has left to spend.
+
+    The bar is painted `BAD` rather than heat-coloured, because heat reads a
+    full bar as good news and a full bar here is a healthy enemy.
+    """
+    pips = (UI.glyph("token") * fight.repairs_left
+            + UI.glyph("pause") * fight.spent)
+    return (
+        f"  {UI.paint('boss', FAINT)} "
+        f"{UI.gauge(fight.remaining, width=20, rgb=BAD)} "
+        f"{UI.paint(f'{fight.remaining:>3}', INK, bold=True)}"
+        f"   {UI.paint('repairs', FAINT)} {UI.paint(pips, ACCENT)}"
+    )
 
 
 def _apply_edit(live, code: str) -> None:
@@ -954,6 +1015,26 @@ def _apply_edit(live, code: str) -> None:
           + UI.paint(f"replay diverged: {divergence}", WARN))
     note = "the re-run is not a continuation of what you watched"
     print(f"      {UI.paint(note, FAINT)}")
+
+
+def _finish(fight) -> int:
+    """How a cleared fight ended, and what it cost.
+
+    ``BOSS DOWN`` is reserved for HP actually reaching zero, which only a
+    fight with nothing spent on it can do. Everyone else cleared the boss and
+    left it standing, and is told the difference rather than congratulated
+    identically — that difference is the whole point of the pool.
+    """
+    if fight.down:
+        print(f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}  "
+              + UI.paint("flawless -- nothing spent", MUTED) + "\n")
+        return 0
+    print(f"\n  {UI.paint('BOSS SURVIVES', WARN, bold=True)}  "
+          + UI.paint(
+              f"on {fight.remaining} hp; every step cleared, "
+              f"{_repairs(fight.spent)} spent", MUTED)
+          + "\n")
+    return 0
 
 
 def cmd_boss(args: argparse.Namespace) -> int:
@@ -979,16 +1060,30 @@ def cmd_boss(args: argparse.Namespace) -> int:
         print()
         print(UI.rule(f"BOSS  {boss.title}  (live)", width=76))
         fix = Path(args.fix) if getattr(args, "fix", None) else None
+        fight = fight_model.Fight(
+            steps=boss.step_count,
+            repairs=max(0, getattr(args, "repairs", fight_model.DEFAULT_REPAIRS)),
+        )
+        print()
+        print(_fight_bar(fight))
         for index in range(boss.step_count):
             # The edited source carries forward: a fix made at step two is
             # what step three is judged on, because that is what the player
             # would submit.
-            cleared, code = _live_step(boss, index, code, seed, args.speed, fix)
+            cleared, code = _live_step(
+                boss, index, code, seed, args.speed, fight, fix
+            )
             if not cleared:
                 print(f"\n  {UI.paint('the fight stops here', WARN)}\n")
                 return 1
-        print(f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}\n")
-        return 0
+            dealt = fight.clear(index)
+            spent = fight.spent_on(index)
+            how = "first try" if not spent else f"after {_repairs(spent)}"
+            print(f"    {UI.paint(UI.glyph('tick'), GOOD, bold=True)} "
+                  + UI.paint(f"cleared {how}", MUTED)
+                  + UI.paint(f"   -{dealt}", GOOD, bold=True))
+            print(_fight_bar(fight))
+        return _finish(fight)
 
     if args.solution:
         code = Path(args.solution).read_text(encoding="utf-8")
@@ -1001,6 +1096,7 @@ def cmd_boss(args: argparse.Namespace) -> int:
     print(UI.rule(f"BOSS  {boss.title}", width=76))
     print(f"\n  {UI.paint(boss.brief, INK)}\n")
 
+    fight = fight_model.Fight(steps=boss.step_count)
     cleared = 0
     for index, step in enumerate(boss.steps):
         tests = step.tests_for(seed)
@@ -1028,13 +1124,11 @@ def cmd_boss(args: argparse.Namespace) -> int:
             )
             return 1
         cleared += 1
+        fight.clear(index)
 
-    print(
-        f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}  "
-        + UI.paint(f"{cleared}/{boss.step_count} steps cleared", MUTED)
-        + "\n"
-    )
-    return 0
+    print()
+    print(_fight_bar(fight))
+    return _finish(fight)
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
@@ -1326,6 +1420,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument("boss_id")
     p_boss.add_argument("--seed", type=int, help="pick a variant")
     p_boss.add_argument("--solution", help="run a file instead of the starter")
+    p_boss.add_argument(
+        "--repairs", type=int, default=fight_model.DEFAULT_REPAIRS,
+        help="how many repairs the fight allows (0 makes the first failure final)",
+    )
     p_boss.add_argument(
         "--fix",
         help="with --live: take the fix from this file instead of asking "

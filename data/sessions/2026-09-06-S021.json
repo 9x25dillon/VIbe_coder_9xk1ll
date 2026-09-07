@@ -1,0 +1,130 @@
+{
+  "id": "S021",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S021-boss-hp.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A boss has hit points, and only a flawless fight takes them to zero", "result": "met", "note": "per-step damages sum to exactly the starting HP; exit criterion 5"},
+    {"id": 2, "statement": "A repair is bounded, and running out ends the fight", "result": "met", "note": "five by default; --repairs sets the pool, 0 makes the first failure final"},
+    {"id": 3, "statement": "A repair costs more the more wrong the code was", "result": "met", "note": "heal scales with 1 - accuracy, up to 10% of starting HP"},
+    {"id": 4, "statement": "A live step is judged on all its cases, not the one that was watched", "result": "met", "note": "closes Q72; accuracy measured by a separate full run"},
+    {"id": 5, "statement": "The rules are testable without a sandbox or a terminal", "result": "met", "note": "40 tests in 0.004s"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/fight.py", "kind": "module", "note": "New. Boss HP and the repair pool; arithmetic only, no execution or drawing"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "the health bar and repair pips, _accuracy, _finish, --repairs; running out aborts rather than breaks"},
+    {"path": "tests/test_fight.py", "kind": "test", "note": "New. 40 tests, no sandbox or terminal"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheFightCostsSomething, 9 tests; the S019 BOSS DOWN assertion updated to BOSS SURVIVES"},
+    {"path": "docs/SCORING.md", "kind": "doc", "note": "the fight numbers and why each was chosen, including the heal curve"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "what a fight costs; why accuracy needs its own run; why running out aborts"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "classes, attributes and abilities folded in as W8-W11 with criteria 6-8; two new hazards"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T3 W6 LANDED; exit criteria 1-5 verified; W7 is the last one before the criteria are met"},
+    {"path": "README.md", "kind": "doc", "note": "status and the boss command describe a fight that costs something; test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "journal/2026-09-06-S021-boss-hp.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Per-step damages sum to exactly the starting HP", "method": "tests/test_fight.py::test_it_sums_to_the_total_however_it_divides", "result": "exact for 1 to 32 steps", "verdict": "verified"},
+    {"claim": "The sum holds for awkward totals too", "method": "::test_it_sums_for_awkward_totals_too", "result": "exact across 30 total/part combinations", "verdict": "verified"},
+    {"claim": "Clearing every step reaches exactly zero", "method": "::test_clearing_every_step_reaches_exactly_zero", "result": "zero for 1 to 12 steps", "verdict": "verified"},
+    {"claim": "Zero is reached only by clearing everything", "method": "::test_zero_is_reached_only_by_clearing_everything", "result": "HP stays above zero until the last step", "verdict": "verified"},
+    {"claim": "A repaired fight cannot reach zero", "method": "::test_a_repaired_fight_cannot_reach_zero", "result": "finished true, down false", "verdict": "verified"},
+    {"claim": "A repair halves that step's damage, compounding", "method": "::test_it_reduces_what_that_step_deals, ::test_repairs_compound_on_one_step", "result": "half, then a quarter", "verdict": "verified"},
+    {"claim": "A repair on one step does not touch another", "method": "::test_a_repair_on_one_step_does_not_touch_another", "result": "the other step's damage is unchanged", "verdict": "verified"},
+    {"claim": "Being closer always costs less", "method": "::test_being_closer_always_costs_less", "result": "monotonic over 11 accuracy points", "verdict": "verified"},
+    {"claim": "Perfect accuracy heals nothing and nothing passing heals the most", "method": "two tests in TestTheHealScalesWithAccuracy", "result": "0 and 10 on a 100 HP boss", "verdict": "verified"},
+    {"claim": "A near miss still costs 1 rather than displaying 0", "method": "::test_a_near_miss_still_costs_something_rather_than_nothing", "result": "1 at 99% accuracy", "verdict": "verified"},
+    {"claim": "Healing never exceeds starting health", "method": "::test_healing_never_exceeds_the_starting_health", "result": "capped at 100 after 20 repairs", "verdict": "verified"},
+    {"claim": "The pool is bounded and a refused repair changes nothing", "method": "tests/test_fight.py::TestRunningOut", "result": "5 tests; state identical after a refused repair", "verdict": "verified"},
+    {"claim": "Clearing a step twice deals nothing the second time", "method": "TestClearingIsIdempotent", "result": "3 tests; health and step count unchanged", "verdict": "verified"},
+    {"claim": "A flawless fight ends BOSS DOWN at zero", "method": "tests/test_cli_output.py::test_a_flawless_fight_takes_the_boss_to_zero", "result": "exit 0, 'BOSS DOWN', 'flawless'", "verdict": "verified"},
+    {"claim": "A repaired fight completes and the boss survives", "method": "::test_with_a_fix_the_fight_is_completed", "result": "exit 0, 'BOSS SURVIVES', 'every step cleared'", "verdict": "verified"},
+    {"claim": "The heal and the accuracy it was scaled by are both shown", "method": "::test_the_heal_names_the_accuracy_it_was_scaled_by", "result": "'the boss recovers 8 (accuracy 17%)'", "verdict": "verified"},
+    {"claim": "A repaired step deals half", "method": "::test_a_repaired_step_deals_less_damage", "result": "-17 against a base of -34", "verdict": "verified"},
+    {"claim": "Health is shown before the fight and after every step", "method": "::test_health_is_shown_before_the_fight_and_after_every_step", "result": "4 bars, first 100, last 0", "verdict": "verified"},
+    {"claim": "Running out of repairs ends the fight", "method": "::test_running_out_of_repairs_ends_the_fight", "result": "exit 1, 'no repairs left'", "verdict": "verified"},
+    {"claim": "Running out does not hang on the paused child", "method": "::test_running_out_does_not_hang_on_the_paused_child", "result": "aborts and returns rather than draining a blocked child", "verdict": "verified"},
+    {"claim": "A live step is judged on all its cases", "method": "_accuracy against step.tests_for(seed)", "result": "the broken pipeline boss reports 17%, not 0 or 1", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "973 tests OK", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "949 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "Whether the curve is fun", "method": "nobody has played a fight with HP on it", "result": "the numbers are reasoned, not playtested", "verdict": "unverified"},
+    {"claim": "Whether five repairs is the right pool size", "method": "chosen by argument, not by observation", "result": "see Q76", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M37",
+      "believed": "Three times across two sessions I wrote an expected number from a mental model instead of measuring it. The bar count was asserted as 1 + 3 + 1 on the theory that a closing bar exists; it does not, so it is 4. Before that, M34's step count after an edit. And this session's README test-count bump went in as 1001 when discovery finds 973.",
+      "revealed_by": "AssertionError: 4 != 5, then 'README.md says 1001 tests; discovery finds 973'.",
+      "corrected_to": "The numbers are cheap to measure and I was not measuring them. The bar test now says what it means - one bar before the fight and one after each step, with the first reading 100 and the last 0 - which is a better test than a total would have been.",
+      "cost_minutes": 6,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "It is a pattern rather than an incident, and two of the three were caught by tests that exist precisely to catch stale numbers, which means the project is already paying for a habit I could drop. An assertion on a count is a claim like any other, and the evidence rule does not stop applying because the claim is small."
+    }
+  ],
+  "decisions": [
+    {"id": "D141", "decision": "A repair spends from a bounded pool, reduces that step's damage, and heals the boss", "alternatives": ["Repairs cost player HP with a real fail state", "Repairs only reduce damage", "Repairs only count"], "rationale": "The pool is a resource an ability can act on (T4 W10); the heal is what makes it a decision rather than a counter. The bounded pool was chosen first and the damage reduction and heal added afterwards, which supersedes the 'everyone who finishes sees BOSS DOWN' property that option originally carried.", "reversible": true, "seam": "vibecoder/fight.py::Fight.repair"},
+    {"id": "D142", "decision": "The heal scales with 1 - accuracy", "alternatives": ["Scale with accuracy", "A flat heal"], "rationale": "Being close is rewarded, which is the same argument the Functional axis rests on. A flat heal makes repairing a guess and repairing a near-miss identical, which is the distinction the game exists to draw.", "reversible": true, "seam": "vibecoder/fight.py::Fight.heal_for"},
+    {"id": "D143", "decision": "Per-step damage is cumulatively rounded so the damages sum exactly", "alternatives": ["total // steps with a remainder on the last step"], "rationale": "Criterion 5 is an == 0. A rounding crumb makes a won fight look unwon, and a correction applied afterwards is a place for that crumb to hide.", "reversible": false, "seam": "vibecoder/fight.py::split_damage"},
+    {"id": "D144", "decision": "BOSS DOWN means zero HP; clearing every step is BOSS SURVIVES", "alternatives": ["Congratulate every completed fight identically"], "rationale": "Clearing and acing are different outcomes, exactly as stars already distinguish them for a level. Both cmd_boss paths share _finish so they cannot drift.", "reversible": true, "seam": "vibecoder/cli.py::_finish"},
+    {"id": "D145", "decision": "Accuracy is measured by a separate full-test run, not by the stepped one", "alternatives": ["Keep judging on the watched case", "Run every test through the stepper"], "rationale": "The heal needs a real fraction and a stepped run has one case. Running the set in its own process leaves the paused child untouched, and closes Q72 as a side effect.", "reversible": true, "seam": "vibecoder/cli.py::_accuracy"},
+    {"id": "D146", "decision": "Running out of repairs aborts the child, then returns", "alternatives": ["break out of the loop"], "rationale": "The child is blocked mid-run; draining one nobody released waits forever. A hang is invisible to a test suite, which reports it as never finishing rather than as a failure.", "reversible": false, "seam": "vibecoder/cli.py::_live_step"},
+    {"id": "D147", "decision": "Classes, attributes and abilities fold into T4 rather than opening a trajectory", "alternatives": ["A new T8", "Build them now alongside W6"], "rationale": "T4 is the only trajectory modelling a player over time, and its third hazard already forbids merging habits with mastery, which is the mistake a class system invites. A fourth in-flight trajectory would also worsen a rule the board already violates.", "reversible": true, "seam": "docs/trajectories/T4-adaptive.md"},
+    {"id": "D148", "decision": "Class from the Vibe Vector, attributes from mastery, never averaged", "alternatives": ["One 'level' number combining both"], "rationale": "The hazard is already written down and a class system is the most attractive way anyone will find to violate it. Exit criterion 8 makes it checkable.", "reversible": false, "seam": "docs/trajectories/T4-adaptive.md"}
+  ],
+  "friction": [
+    {"description": "The first version of 'no repairs left' used break, which would have hung: it leaves the loop while the child is blocked mid-run, and the drain immediately after waits forever for a child nobody released. Caught by re-reading the branch before running it, not by a test - and a test would say little, because a hang shows up as a suite that never finishes rather than as a failure.", "impact": "medium", "resolved": true},
+    {"description": "Measuring accuracy on every failure event was wasteful before it was guarded: a scripted or piped run has no repair on offer and was still paying for a sandboxed verdict nothing read.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T3 W6 is landed. fight.py holds a boss's HP and a bounded repair pool; a repair halves its step's damage and heals the boss by 1 - accuracy. T3 exit criteria 1 through 5 are verified. Q72 is closed: a live step is judged on all its cases. Classes, attributes and abilities are folded into T4 as W8-W11 with criteria 6-8. 973 tests green unpinned, 949 pinned, verify clean on 45 reference runs.",
+    "next_action": "T3 W7, boss scoring at 40/30/30. BOSS_WEIGHTS has been defined and unused since T3 was written and is now the only thing between T3 and its exit criteria. Read the boss section of SCORING.md first: the fight already produces the quantities scoring wants - HP remaining, repairs spent, first-try clears - so W7 is mostly deciding what they weigh rather than measuring anything new. Then W8, a second boss fight, which is a waypoint no exit criterion points at; decide deliberately whether T3 lands without it rather than discovering the question at landing time.",
+    "blockers": [
+      "None for T3",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D143 before touching the damage split: the exact sum is what criterion 5 rests on",
+      "D142 before tuning the heal; the direction is the design, not the magnitude",
+      "M37 before writing an expected count"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "The recording cap is 400 steps, so an edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "T3's instrument check, divergence rate over real play, is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q72", "question": "Is one case enough to call a live step passed, once HP is tied to it?", "owner": "T3", "status": "answered", "answer": "No. A live step is judged on the whole test set, measured by an ordinary run in its own process while the paused child sits untouched (D145)."},
+    {"id": "Q73", "question": "The pane shows the locals at the failure but not what the step was expected to return. Would showing the expected value help the fix, or hand over the answer?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q74", "question": "Does a repair spend something?", "owner": "T3", "status": "answered", "answer": "Yes: one of a bounded pool, halved damage on that step, and a heal to the boss scaled by 1 - accuracy (D141, D142)."},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and the pool size were chosen by argument, not by playtest. Nobody has fought a boss with HP on it. What would tell us five repairs is wrong, and is the answer a number the game should be collecting?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q77", "question": "W8, a second boss fight, is a waypoint no exit criterion points at. Does T3 land without it, or does the criteria list have a gap?", "owner": "T3", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 973,
+    "tests_passing": 973,
+    "tests_added": 49,
+    "fight_tests": 40,
+    "fight_test_seconds": 0.004,
+    "suite_seconds_unpinned": 95.005,
+    "suite_tests_pinned_bwrap": 949,
+    "t3_waypoints_landed": 6,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 5,
+    "t3_exit_criteria_total": 6,
+    "open_questions_answered": 2,
+    "boss_starting_hp": 100,
+    "boss_repairs": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 26,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}

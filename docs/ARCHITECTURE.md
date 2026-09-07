@@ -32,6 +32,7 @@ vibecoder/
 ├── highlight.py   Syntax colour. A tokenise failure is the normal case.
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 ├── vision.py      The machine view. Pure frames; the trace drives them.
+├── fight.py       Boss hit points and the repair pool. Arithmetic only.
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.
@@ -259,6 +260,46 @@ opening an editor at the pause point safe at all.
 `--fix` remains as the scriptable path — the same loop driven by a file
 instead of a person, and the one the test suite can drive, since
 `repair.available()` is false without a real terminal on both streams.
+
+### What a fight costs (T3 W6)
+
+[`fight.py`](../vibecoder/fight.py) is the boss's resources and nothing else:
+no execution, no drawing, no clock. Arithmetic over a small amount of state,
+so the rules are testable without a sandbox — and so that when
+[T4](trajectories/T4-adaptive.md) W10 picks the pool up as something an
+ability can refill, there is a plain object to refill.
+
+```
+  boss ████████████████████ 100   repairs ●●●●●
+    ✔ cleared first try   -33
+  boss █████████████░░░░░░░  67   repairs ●●●●●
+    repaired — the boss recovers 8  (accuracy 17%)
+    ✔ cleared after 1 repair   -17
+  boss ████████████░░░░░░░░  58   repairs ●●●●·
+```
+
+Per-step damages are cumulatively rounded so they sum to **exactly** the
+starting HP. Criterion 5 is an `== 0`, and a rounding crumb left anywhere in
+here would make a won fight look unwon.
+
+Spending a repair does two things — it halves what that step will deal, and it
+heals the boss by up to 10% of starting HP scaled by `1 - accuracy`. The
+numbers and the reasoning behind them are in
+[`SCORING.md`](SCORING.md#boss-fights-hit-points-and-repairs-t3-w6); the shape
+that matters architecturally is that **accuracy has to be real for the heal to
+mean anything**, and a stepped run watches only one case. So the CLI measures
+it with an ordinary `run_code` against the step's whole test set, in a process
+of its own, while the paused child sits untouched. That is also what decides
+whether the step cleared, which closes Q72: a live step is now judged on the
+same cases it faces when scored normally.
+
+`BOSS DOWN` is reserved for HP reaching zero, which only a fight with nothing
+spent can do. Everyone else clears the boss and leaves it standing. Both paths
+through `cmd_boss` — live and plain — share `_finish`, so the two cannot drift
+into disagreeing about what winning means.
+
+**Running out of repairs aborts rather than breaks.** The child is blocked
+mid-run at that point, and draining one nobody has released waits forever.
 
 ## The execution boundary
 

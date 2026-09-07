@@ -139,11 +139,11 @@ class TestFixingABossMidFight(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def fight(self, fix=None) -> tuple[int, str]:
+    def fight(self, fix=None, repairs=5, reference=False) -> tuple[int, str]:
         args = argparse.Namespace(
-            boss_id=self.BOSS, seed=1, live=True, reference=False,
-            solution=str(self.broken), speed=0.0,
-            fix=str(fix) if fix else None,
+            boss_id=self.BOSS, seed=1, live=True, reference=reference,
+            solution=None if reference else str(self.broken), speed=0.0,
+            repairs=repairs, fix=str(fix) if fix else None,
         )
         buffer = io.StringIO()
         with redirect_stdout(buffer):
@@ -158,11 +158,13 @@ class TestFixingABossMidFight(unittest.TestCase):
 
     def test_with_a_fix_the_fight_is_completed(self):
         """Exit criterion 3: editing the paused line and resuming completes
-        the fight."""
+        the fight. Since W6 that no longer means BOSS DOWN -- a repaired
+        fight is cleared and the boss is left standing."""
         code, out = self.fight(self.fixed)
         self.assertEqual(code, 0)
         self.assertIn("edit applied", out)
-        self.assertIn("BOSS DOWN", out)
+        self.assertIn("BOSS SURVIVES", out)
+        self.assertIn("every step cleared", out)
 
     def test_the_resume_point_is_named_rather_than_implied(self):
         _, out = self.fight(self.fixed)
@@ -178,6 +180,98 @@ class TestFixingABossMidFight(unittest.TestCase):
         _, out = self.fight(self.divergent)
         self.assertIn("replay diverged", out)
         self.assertIn("not a continuation of what you watched", out)
+
+
+class TestTheFightCostsSomething(unittest.TestCase):
+    """T3 W6. A repair is bounded, reduces the damage that step deals, and
+    hands the boss back an amount scaled by how wrong the code was."""
+
+    BOSS = "w1-boss-pipeline"
+
+    def setUp(self):
+        reference = get_boss(self.BOSS).reference_source()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.fixed = root / "fixed.py"
+        self.fixed.write_text(reference, encoding="utf-8")
+        self.broken = root / "broken.py"
+        self.broken.write_text(
+            reference.replace('row["price"] >= floor', 'row["prise"] >= floor'),
+            encoding="utf-8",
+        )
+
+    def fight(self, fix=None, repairs=5, reference=False) -> tuple[int, str]:
+        args = argparse.Namespace(
+            boss_id=self.BOSS, seed=1, live=True, reference=reference,
+            solution=None if reference else str(self.broken), speed=0.0,
+            repairs=repairs, fix=str(fix) if fix else None,
+        )
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = cli.cmd_boss(args)
+        return code, plain(buffer.getvalue())
+
+    def test_a_flawless_fight_takes_the_boss_to_zero(self):
+        """Exit criterion 5, in the only direction it constrains: nothing but
+        clearing every step reaches zero."""
+        code, out = self.fight(reference=True)
+        self.assertEqual(code, 0)
+        self.assertIn("BOSS DOWN", out)
+        self.assertIn("flawless", out)
+
+    def test_the_boss_starts_at_full_health_with_a_full_pool(self):
+        _, out = self.fight(reference=True)
+        self.assertIn("100", out.splitlines()[3])
+        self.assertIn("repairs", out)
+
+    def test_health_is_shown_before_the_fight_and_after_every_step(self):
+        """Otherwise the damage numbers are arithmetic the player has to do."""
+        _, out = self.fight(reference=True)
+        bars = [l for l in out.splitlines() if l.strip().startswith("boss ")]
+        self.assertEqual(len(bars), 4)  # opening, then one per step
+        self.assertIn("100", bars[0])
+        self.assertRegex(bars[-1], r"\s0\s")  # the boss is at zero
+
+    def test_a_repair_hands_the_boss_something_back(self):
+        _, out = self.fight(self.fixed)
+        self.assertIn("the boss recovers", out)
+
+    def test_the_heal_names_the_accuracy_it_was_scaled_by(self):
+        """The number is the mechanic: repairing nearly-right code is cheap
+        and repairing a guess is not, so the player has to be shown which
+        this was."""
+        _, out = self.fight(self.fixed)
+        self.assertRegex(out, r"accuracy \d+%")
+
+    def test_a_repaired_step_deals_less_damage(self):
+        """33 or 34 first try; halved after one repair."""
+        _, out = self.fight(self.fixed)
+        self.assertIn("cleared after 1 repair", out)
+        self.assertIn("-17", out)
+
+    def test_a_repair_is_spent_from_the_pool(self):
+        _, repaired = self.fight(self.fixed)
+        _, clean = self.fight(reference=True)
+        self.assertNotEqual(
+            [l for l in repaired.splitlines() if "repairs" in l][-1],
+            [l for l in clean.splitlines() if "repairs" in l][-1],
+        )
+
+    def test_running_out_of_repairs_ends_the_fight(self):
+        """The pool is the constraint. A sixth repair being quietly offered
+        would make it a counter."""
+        code, out = self.fight(self.fixed, repairs=0)
+        self.assertEqual(code, 1)
+        self.assertIn("no repairs left", out)
+        self.assertIn("the fight stops here", out)
+
+    def test_running_out_does_not_hang_on_the_paused_child(self):
+        """It aborts rather than breaking: draining a child nobody released
+        waits forever."""
+        code, out = self.fight(self.fixed, repairs=0)
+        self.assertEqual(code, 1)
+        self.assertNotIn("BOSS", out.split("the fight stops here")[-1])
 
 
 class TestLongValuesAreShortened(unittest.TestCase):
