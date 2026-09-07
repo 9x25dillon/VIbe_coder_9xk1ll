@@ -86,6 +86,28 @@ Each one has an owner trajectory.
 | --- | --- | --- | --- | --- |
 | [S001](2026-08-08-S001-core-loop.md) | 2026-08-08 | Phase 0 core loop, end to end | T1 | `Create` |
 | [S002](2026-08-08-S002-presentation.md) | 2026-08-08 | Capability-aware terminal rendering | T6 | `Create` |
+| [S003](2026-09-03-S003-sandbox-seam.md) | 2026-09-03 | The transport seam under `run_code` | T2 | `Create` |
+| [S004](2026-09-03-S004-interactive.md) | 2026-09-03 | Into the alternate screen: the full-screen editor | T7 | `Create` |
+| [S005](2026-09-03-S005-hardening.md) | 2026-09-03 | The second layer: seccomp, rlimits, escape suite | T2 | `Create` |
+| [S006](2026-09-03-S006-provenance.md) | 2026-09-03 | Where the code came from: the provenance flag | T2 | `Create` |
+| [S007](2026-09-03-S007-streaming.md) | 2026-09-03 | Streaming: accuracy assembles as tests report | T7 | `Create` |
+| [S008](2026-09-03-S008-latency.md) | 2026-09-03 | The flaky test was right: keystroke latency | T7 | `Analyse` |
+| [S009](2026-09-03-S009-beginner-world.md) | 2026-09-03 | An on-ramp, and the world that moved to make room | T1 | `Create` |
+| [S010](2026-09-03-S010-scaffolding.md) | 2026-09-03 | Telling a beginner what actually happened | T4 | `Evaluate` |
+| [S011](2026-09-04-S011-style-engine.md) | 2026-09-04 | The profiler reads its own code, and dislikes it | T4 | `Create` |
+| [S012](2026-09-06-S012-archive-ingestion.md) | 2026-09-06 | The archive we refuse to open | T2 | `Create` |
+| [S013](2026-09-06-S013-machine-view.md) | 2026-09-06 | Your function, drawn as a machine, running | T6 | `Create` |
+| [S014](2026-09-06-S014-ingestion-budgets.md) | 2026-09-06 | Stopping is not refusing: ingestion budgets | T2 | `Create` |
+| [S015](2026-09-06-S015-vector-versioning.md) | 2026-09-06 | The direction that actually loses data | T2 | `Create` |
+| [S016](2026-09-06-S016-boss-format.md) | 2026-09-06 | A boss is n linked functions | T3 | `Create` |
+| [S017](2026-09-06-S017-live-stepping.md) | 2026-09-06 | Pause is the parent not answering | T3 | `Create` |
+| [S018](2026-09-06-S018-step-back.md) | 2026-09-06 | Stepping back is not running backwards | T3 | `Create` |
+| [S019](2026-09-06-S019-edit-and-resume.md) | 2026-09-06 | The memo was already in the payload | T3 | `Create` |
+
+Nineteen sessions, and the band column is worth reading as a column rather
+than a set of cells: one `Analyse`, one `Evaluate`, and the rest `Create`. That
+is a project still building mechanisms rather than tuning them, which is the
+right place to be in Phase 2 and will stop being so.
 
 ## Writing a new entry
 

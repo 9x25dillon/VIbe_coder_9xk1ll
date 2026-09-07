@@ -53,6 +53,30 @@ and defer W4 to W07. A slip degrades the feature rather than deleting it, and
 the boss fight stays playable either way. **Decide by Wed 9 Sep** — not at the
 end of the week, when the decision costs a week instead of two days.
 
+**Resolved, Sun 6 Sep — the risk did not materialise, and the rows above stand
+as written rather than being re-dated to match.** W04 was scoped to T3 W1–W2
+and delivered **W1 through W5**: the whole of W05's scope and the first
+waypoint of W06's, a week early. The contingency's first half was taken
+deliberately — W1–W3 shipped as a playable "watch it run" boss
+([S018](journal/2026-09-06-S018-step-back.md)) — and W4 then landed against
+that safety net rather than instead of it
+([S019](journal/2026-09-06-S019-edit-and-resume.md)). The Wed 9 Sep decision
+point is moot; no deferral to W07 is needed.
+
+Why it was cheap is the part worth carrying forward, because it is a property
+of this codebase rather than of strategy A: the *memo* the strategy needs — a
+record of the original inputs — was already the test payload the parent holds
+to cross the process boundary. There was nothing to capture and nothing that
+could drift. W5, the divergence detector, was pulled forward from W06 and
+landed with W4 rather than after it, because strategy A is a claim about the
+part the player did not watch twice and shipping the claim without the check
+is shipping the thing T3's exit criterion 4 forbids.
+
+**W06 now carries W6–W8** — boss HP, 40/30/30 boss scoring, and the second
+boss fight. T3's exit criterion 6, "fully playable from the CLI", is being
+held open on a smaller thing than expected: an edit currently arrives as a
+file path (`boss --fix`), not as something a player types into a paused fight.
+
 **T3 lands: Sun 20 Sep.**
 
 ### Phase 3 — Adaptive difficulty · [T4](docs/trajectories/T4-adaptive.md)

@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 804 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 887 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -82,6 +82,12 @@ python3 -m vibecoder.cli play w2-l3-join --solution /tmp/attempt.py --seed 1
 python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
 python3 -m vibecoder.cli sandbox                  # which backends this host offers
 python3 -m vibecoder.cli edit w2-l1-revenue       # the full-screen editor (T7)
+
+# The boss engine (T3). `--live` steps a real child one line at a time; `--fix`
+# swaps in edited source at a failed step and resumes from there (W4), saying so
+# if the replay stopped matching what was already watched (W5).
+python3 -m vibecoder.cli boss w1-boss-pipeline --live --speed 0.4
+python3 -m vibecoder.cli boss w1-boss-pipeline --live --solution broken.py --fix fixed.py
 
 # Exit criterion 7: the suite must pass on every transport, not just the fast one.
 VIBECODER_SANDBOX=bwrap  python3 -m unittest discover -s tests

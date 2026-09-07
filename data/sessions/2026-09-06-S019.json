@@ -1,0 +1,132 @@
+{
+  "id": "S019",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S019-edit-and-resume.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player can fix the line a fight paused on and the fight carries on from there", "result": "met", "note": "LiveRun.edit, strategy A; the memo is the test payload the parent already holds"},
+    {"id": 2, "statement": "A resume that is not really a continuation is said out loud", "result": "met", "note": "timeline.compare; the fast-forward stops at the first mismatch"},
+    {"id": 3, "statement": "The edit is what the rest of the fight is judged on", "result": "met", "note": "LiveRun.code, carried forward between boss steps by the CLI"},
+    {"id": 4, "statement": "A step is judged on its answer, not on having failed to crash", "result": "met", "note": "step mode reports one outcome; see M35"},
+    {"id": 5, "statement": "The whole loop - watch, fail, edit, resume - is playable from the CLI", "result": "met", "note": "boss --live --fix; the edit is a file path rather than a keystroke, which is Q67"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/timeline.py", "kind": "module", "note": "Divergence, signature and compare: pure comparison of two histories (W5)"},
+    {"path": "vibecoder/runner.py", "kind": "module", "note": "LiveRun.edit, _restart and _teardown; code, origin and divergence accessors (W4)"},
+    {"path": "vibecoder/_harness.py", "kind": "module", "note": "_run_stepped returns the value; step mode reports one outcome"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "boss --fix; _apply_edit; a step is cleared only if it answered"},
+    {"path": "tests/test_timeline.py", "kind": "test", "note": "20 divergence tests, no sandbox or child process"},
+    {"path": "tests/test_stepping.py", "kind": "test", "note": "TestEditAndResume, TestDivergenceIsReported, TestAStepIsJudgedOnItsAnswer, 22 tests"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestFixingABossMidFight, 5 tests driving real children through a real backend"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "edit-and-resume and divergence; the one outcome a stepped run reports"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T3 W4 and W5 LANDED; exit criteria 1-4 verified"},
+    {"path": "README.md", "kind": "doc", "note": "edit-and-resume is shipped rather than scheduled; test count; trajectory table matched to the flight board"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count; the boss commands"},
+    {"path": "journal/2026-09-06-S019-edit-and-resume.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "The edit becomes the source the child runs", "method": "tests/test_stepping.py::test_the_edit_becomes_the_source", "result": "LiveRun.code is the edited text", "verdict": "verified"},
+    {"claim": "It resumes at the edit point rather than from the top", "method": "::test_it_resumes_at_the_edit_point_rather_than_the_top", "result": "2 steps replayed for a cursor at index 2", "verdict": "verified"},
+    {"claim": "The edited step is not replayed away", "method": "::test_the_edited_step_is_not_replayed_away", "result": "last step is line 3 and not failed", "verdict": "verified"},
+    {"claim": "The fast-forward leaves the child blocked rather than finished", "method": "::test_the_fast_forward_leaves_the_child_blocked", "result": "not finished after the edit", "verdict": "verified"},
+    {"claim": "A fixed run finishes and answers correctly", "method": "::test_the_fixed_run_finishes_and_answers", "result": "no error, every outcome passed", "verdict": "verified"},
+    {"claim": "The replaced history is kept for comparison", "method": "::test_the_history_it_replaced_is_kept", "result": "origin ends on the failing step", "verdict": "verified"},
+    {"claim": "Editing from a stepped-back cursor resumes there", "method": "::test_editing_from_a_step_the_reader_stepped_back_to", "result": "0 steps replayed after two backs", "verdict": "verified"},
+    {"claim": "Editing twice works and the last edit wins", "method": "::test_it_can_be_edited_more_than_once", "result": "code is the second edit; the run completes clean", "verdict": "verified"},
+    {"claim": "A fix confined to the paused line does not diverge", "method": "::test_a_fix_confined_to_the_paused_line_does_not_diverge", "result": "None", "verdict": "verified"},
+    {"claim": "Changing an already-watched line diverges at the right index", "method": "::test_changing_a_line_already_watched_diverges", "result": "index 1", "verdict": "verified"},
+    {"claim": "The fast-forward stops at the divergence", "method": "::test_the_fast_forward_stops_at_the_divergence", "result": "step count equals the divergence index plus one", "verdict": "verified"},
+    {"claim": "A re-run that ends before the edit point is reported", "method": "::test_a_run_that_ends_before_the_edit_point_diverges", "result": "reason contains 'before reaching'", "verdict": "verified"},
+    {"claim": "Moved text is not divergence", "method": "tests/test_timeline.py::TestMovedTextIsNotDivergence", "result": "the same step at lines 7 and 9 matches", "verdict": "verified"},
+    {"claim": "Divergence works on Step objects and recorded dicts alike", "method": "tests/test_timeline.py::test_objects_and_dicts_compare_the_same", "result": "None in both directions", "verdict": "verified"},
+    {"claim": "Not crashing is not passing", "method": "tests/test_stepping.py::test_not_crashing_is_not_passing", "result": "return None: no error, outcome passed False", "verdict": "verified"},
+    {"claim": "The answer given is reported against the expected one", "method": "::test_the_answer_it_gave_is_reported", "result": "got 'None', expected '3'", "verdict": "verified"},
+    {"claim": "The fight completes from the CLI with an edit", "method": "tests/test_cli_output.py::test_with_a_fix_the_fight_is_completed", "result": "exit 0, 'edit applied' and 'BOSS DOWN' in the output", "verdict": "verified"},
+    {"claim": "The CLI says so when the replay diverged", "method": "::test_a_divergent_fix_is_said_out_loud", "result": "'replay diverged' and 'not a continuation of what you watched'", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "887 tests OK", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "863 tests OK", "verdict": "verified"},
+    {"claim": "Every reference still solves every seed", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "Divergence rate over real play, T3's instrument check", "method": "nothing collects it; no fight has been played to a divergence", "result": "measurable now, unmeasured", "verdict": "unverified"},
+    {"claim": "A player can type an edit into a paused fight", "method": "--fix takes a file path, not a keystroke", "result": "the engine is exercised, the experience is not; Q67 open", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M34",
+      "believed": "There is always a step after the edit point, so stepping once after an edit takes the count from 2 to 3.",
+      "revealed_by": "AssertionError: 2 != 3. The fixed source ends on the line the fast-forward stops at, so the next step ends the run and appends nothing.",
+      "corrected_to": "How many events exist after a point is a property of the code being run, not of the engine. The test now uses a source with a line after the edit point, plus a separate assertion that the fast-forward leaves the child blocked rather than finished, which is the property actually meant.",
+      "cost_minutes": 3,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "M33's family again: the code was right and the test was wrong, and the reflex on a failing assertion is to suspect the code."
+    },
+    {
+      "id": "M35",
+      "believed": "A live boss step returning True had passed. _live_step returns a bool and the CLI prints BOSS DOWN on three of them, so a live fight was being checked.",
+      "revealed_by": "Reading _run_stepped while wiring --fix. It calls fn(*args) and discards the value; step mode filled no outcomes, and _live_step's only test was 'if result.error'. A live fight was cleared by not raising.",
+      "corrected_to": "Step mode reports one outcome for the test it runs, and the CLI checks it. A step cleared by 'return None' is now caught. Scoring the fight is still W6/W7; this is only the difference between not crashing and answering.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "M1's shape: a thing that looked measured and was not. Without it, exit criterion 3 - editing the paused line and resuming completes the fight - would have been satisfiable by an edit that answers nothing, and the evidence written for it would have been false. Both were only visible from asking what a lazy solution would do."
+    }
+  ],
+  "decisions": [
+    {"id": "D125", "decision": "Edit-and-resume is strategy A: re-run from the top and fast-forward to the edit point", "alternatives": ["B, frame surgery", "C, step-boundary checkpointing"], "rationale": "The memo A needs is the test payload the parent already holds, so replay costs nothing and cannot drift. T3 recommended A and asked that we measure how often it is wrong.", "reversible": true, "seam": "vibecoder/runner.py::LiveRun.edit"},
+    {"id": "D126", "decision": "W5 lands with W4 rather than after it", "alternatives": ["Ship the resume now, add the detector next session"], "rationale": "Strategy A is a claim about the part the player did not watch again. Shipping the claim without the check is shipping the thing exit criterion 4 forbids.", "reversible": false, "seam": "vibecoder/timeline.py::compare"},
+    {"id": "D127", "decision": "The fast-forward stops at the edit point, never through it", "alternatives": ["Replay through it and compare the whole prefix"], "rationale": "The edited step is the one that is supposed to differ. Replaying it undoes the edit and makes divergence fire on every successful fix.", "reversible": false, "seam": "vibecoder/runner.py::LiveRun.edit"},
+    {"id": "D128", "decision": "The edit point is the cursor, not the end of history", "alternatives": ["Always resume from where the child is blocked"], "rationale": "The player edits the line they are looking at, and W3 already tracks that.", "reversible": true, "seam": "vibecoder/runner.py::LiveRun.edit"},
+    {"id": "D129", "decision": "A step's signature excludes the line number", "alternatives": ["Compare (line, func, locals)"], "rationale": "The player just moved the text, and moved text is not different behaviour. A detector that fires on every edit gets ignored. Accepts a false negative on adjacent statements with identical locals.", "reversible": true, "seam": "vibecoder/timeline.py::signature"},
+    {"id": "D130", "decision": "edit returns the divergence; the caller decides how loudly to report it", "alternatives": ["Raise", "Print from the runner"], "rationale": "Only the caller knows who is watching, and runner.py must not grow display opinions.", "reversible": true, "seam": "vibecoder/runner.py::LiveRun.edit"},
+    {"id": "D131", "decision": "A divergent resume continues the fight with a warning", "alternatives": ["Abort the fight on divergence"], "rationale": "It is still playable, it is just not continuous. Criterion 4 asks that the player be told, not that the run be stopped.", "reversible": true, "seam": "vibecoder/cli.py::_apply_edit"},
+    {"id": "D132", "decision": "Step mode reports one outcome for the test it runs", "alternatives": ["Leave correctness to W6 and W7"], "rationale": "Without it, 'the fight completes' means 'nothing raised', and this session's evidence for criterion 3 would be false. Not scoring; the signal scoring will be built on.", "reversible": false, "seam": "vibecoder/_harness.py::main"}
+  ],
+  "friction": [
+    {"description": "close() was not re-entrant across a restart: it sets _closed and returns early, which an edit needs to undo. Split into close (and never again) and _teardown (shut the child down).", "impact": "low", "resolved": true},
+    {"description": "An f-string with implicit string concatenation inside the expression is a syntax error before 3.12, and this machine is pinned to 3.11 (M5). Caught by the import.", "impact": "low", "resolved": true},
+    {"description": "Choosing what counts as divergence took longer than implementing it. The right ratio for this waypoint, and it produced no wasted artefact.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T3 W4 and W5 are landed together. LiveRun.edit re-runs edited source and fast-forwards to the edit point; timeline.compare says when the fast-forward stopped matching, and the fast-forward stops there. Step mode now reports whether the step answered. T3 exit criteria 1, 2, 3 and 4 are verified; 5 and 6 remain. 887 tests green unpinned, verify clean on 45 reference runs.",
+    "next_action": "T3 W6, the boss HP model tied to first-try step completions. D132 put the signal in place, so HP has something honest to consume. Read M35 first: that signal exists because its absence would have made a criterion claimable by a fix that answers nothing, and HP is the next thing that could be gamed the same way. Before W6, decide Q67: --fix proves the engine but is a file path rather than a keystroke, and criterion 6 is held open on it. Scoring an experience nobody can drive by hand is the wrong order.",
+    "blockers": [
+      "None for T3",
+      "T2 W4 remains blocked on a registered OAuth application, with T2 otherwise one waypoint from landing"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D127 before touching the fast-forward: stopping at the edit point rather than through it is what keeps the detector meaningful",
+      "D129 before improving divergence to compare line numbers; the false positive it avoids is the whole reason anyone would trust the warning",
+      "M35 before building anything that decides whether a step was cleared"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q67", "question": "Nothing lets a player type an edit into a paused fight: --fix is a file path. Does the edit belong in boss --live as a keystroke, in the T7 editor, or somewhere else? Criterion 6 is held open on it.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them into one entry carrying both the values and the failure?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one. compare now handles both by inspection, which works and is a second place that knows about two shapes.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "The recording cap is 400 steps, so an edit made past step 400 of a longer run fast-forwards against a truncated original. Divergence would be reported against history the engine does not have.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "T3's instrument check - divergence rate over real play, with ~5% justifying strategy C - is measurable and uncollected. Where would the counter live, given that runs are not persisted?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q72", "question": "A stepped run executes tests[0] only, so a live boss step is cleared on one case while the same step scored normally faces all of them. Is one case enough to call a step passed, once W6 ties HP to it?", "owner": "T3", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 887,
+    "tests_passing": 887,
+    "tests_added": 47,
+    "timeline_tests": 42,
+    "timeline_test_seconds": 0.001,
+    "stepping_tests": 61,
+    "suite_seconds_unpinned": 59.655,
+    "suite_tests_pinned_bwrap": 863,
+    "t3_waypoints_landed": 5,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 4,
+    "t3_exit_criteria_total": 6,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 25,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}

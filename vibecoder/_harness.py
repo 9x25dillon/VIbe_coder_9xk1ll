@@ -40,6 +40,10 @@ USER_FILENAME = "<vibecoder-submission>"
 MAX_TRACE_STEPS = 400
 MAX_REPR = 120
 
+#: Distinguishes "this test expects None" from "no test was supplied", which
+#: ``expected`` alone cannot: both look like ``None``.
+_MISSING = object()
+
 
 # --------------------------------------------------------------------------
 # Result comparison
@@ -229,7 +233,7 @@ def _control(default: str = "step") -> str:
 
 
 def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
-                 budget: float) -> tuple[list, str, str]:
+                 budget: float) -> tuple[list, str, str, Any]:
     """Execute under ``settrace``, reporting each line and awaiting orders.
 
     Emits the same ``{line, func, locals}`` shape `_record_trace` produces, so
@@ -248,14 +252,27 @@ def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
     **The budget counts executing time, never time blocked on the parent.** A
     fight paused while somebody reads it must not time out for being watched
     carefully, and a loop that runs away after ``run`` still must not.
+
+    The return value comes back too. Watching a function not crash says
+    nothing about whether it answered correctly, and a step that counts as
+    cleared because nothing raised would hand a fight to ``return None``.
     """
     steps: list[dict[str, Any]] = []
     state = {"free": False, "blocked": 0.0, "reason": ""}
     started = time.perf_counter()
 
     def local_trace(frame, event, arg):
-        if event != "line":
+        if event not in ("line", "exception"):
             return local_trace
+
+        # `settrace` reports an exception while `f_lineno` is still the line
+        # that raised it, which is the only moment at which "pause on the
+        # offending line, not after it" is possible at all. Once the frame
+        # unwinds the line is gone.
+        failure = ""
+        if event == "exception":
+            kind, value, _ = arg
+            failure = f"{getattr(kind, '__name__', kind)}: {value}"
 
         record = {
             "line": frame.f_lineno,
@@ -263,13 +280,20 @@ def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
             "locals": {
                 k: _short(v)
                 for k, v in list(frame.f_locals.items())[:12]
-                if not k.startswith("__")
+                # ``.0`` and friends are the interpreter's own comprehension
+                # iterators. They are real locals and they are not variables
+                # anybody wrote, so showing them teaches nothing.
+                if not k.startswith("__") and not k.startswith(".")
             },
         }
         if len(steps) < MAX_TRACE_STEPS:
+            # The recorded shape stays exactly {line, func, locals} (D113).
+            # ``error`` rides on the live event only, because `replay` and
+            # `vision` read the recording and a fourth key would be a second
+            # shape for them to know about.
             steps.append(record)
         _emit(
-            {"event": "step", "index": len(steps), "recorded": len(steps) < MAX_TRACE_STEPS + 1, **record},
+            {"event": "step", "index": len(steps), "error": failure, **record},
             own_pid,
         )
 
@@ -296,9 +320,10 @@ def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
 
     error = ""
     error_type = ""
+    got = None
     sys.settrace(global_trace)
     try:
-        fn(*args, **kwargs)
+        got = fn(*args, **kwargs)
     except _Aborted:
         error_type = "Aborted"
         error = state["reason"] or "stopped"
@@ -307,7 +332,7 @@ def _run_stepped(fn, args, kwargs, filename: str, own_pid: int,
         error_type = type(exc).__name__
     finally:
         sys.settrace(None)
-    return steps, error, error_type
+    return steps, error, error_type, got
 
 
 def main() -> int:
@@ -368,13 +393,25 @@ def main() -> int:
         tests = payload["tests"]
         first = tests[0] if tests else {"args": [], "kwargs": {}}
         with redirect_stdout(captured):
-            steps, error, error_type = _run_stepped(
+            steps, error, error_type, got = _run_stepped(
                 fn, first.get("args", []), first.get("kwargs", {}),
                 filename, _own_pid, float(payload.get("timeout", 10.0)),
             )
         result["trace"] = steps
         result["error"] = error
         result["error_type"] = error_type
+        # One outcome, for the one test a stepped run executes. Scoring a boss
+        # is T3 W6/W7; this is only the difference between "it did not crash"
+        # and "it answered", which a watcher already believes they are being
+        # told and which edit-and-resume needs in order to mean anything.
+        if first.get("expected", _MISSING) is not _MISSING:
+            result["outcomes"] = [{
+                "name": first.get("name", "step"),
+                "passed": not error and _equal(got, first.get("expected")),
+                "got": "" if error else _short(got),
+                "expected": _short(first.get("expected")),
+                "error": error,
+            }]
         result["stdout"] = captured.getvalue()[:4000]
         _emit({"event": "result", **result}, _own_pid)
         return 0

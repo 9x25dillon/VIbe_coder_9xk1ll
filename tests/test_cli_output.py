@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 from vibecoder import cli
-from vibecoder.levels import get_level
+from vibecoder.levels import get_boss, get_level
 from vibecoder.models import RunResult, TestCase, TestOutcome
 
 ESCAPES = re.compile(r"\033\[[0-9;]*m")
@@ -103,6 +103,81 @@ class TestTheFailureBlock(unittest.TestCase):
         ])
         text = captured(cli._print_first_failure, orphan, self.TESTS)
         self.assertIn("WHAT WENT WRONG", text)
+
+
+class TestFixingABossMidFight(unittest.TestCase):
+    """T3 W4/W5 from the outside: the fight is playable, the edit carries
+    forward, and a replay that stopped matching is said out loud.
+
+    Runs real children through a real backend, because what is under test is
+    the whole loop -- watch, fail, edit, resume -- and a mocked runner would
+    only prove that the printing works.
+    """
+
+    BOSS = "w1-boss-pipeline"
+
+    def setUp(self):
+        reference = get_boss(self.BOSS).reference_source()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        self.fixed = root / "fixed.py"
+        self.fixed.write_text(reference, encoding="utf-8")
+        self.broken = root / "broken.py"
+        self.broken.write_text(
+            reference.replace('row["price"] >= floor', 'row["prise"] >= floor'),
+            encoding="utf-8",
+        )
+        # A "fix" that also changes a line the player already watched run.
+        self.divergent = root / "divergent.py"
+        self.divergent.write_text(
+            reference.replace(
+                "    return [row for row in rows if row[\"price\"] >= floor]",
+                "    floor = floor - 5\n"
+                "    return [row for row in rows if row[\"price\"] >= floor]",
+            ),
+            encoding="utf-8",
+        )
+
+    def fight(self, fix=None) -> tuple[int, str]:
+        args = argparse.Namespace(
+            boss_id=self.BOSS, seed=1, live=True, reference=False,
+            solution=str(self.broken), speed=0.0,
+            fix=str(fix) if fix else None,
+        )
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = cli.cmd_boss(args)
+        return code, plain(buffer.getvalue())
+
+    def test_without_a_fix_the_fight_stops_at_the_broken_step(self):
+        code, out = self.fight()
+        self.assertEqual(code, 1)
+        self.assertIn("KeyError", out)
+        self.assertIn("the fight stops here", out)
+
+    def test_with_a_fix_the_fight_is_completed(self):
+        """Exit criterion 3: editing the paused line and resuming completes
+        the fight."""
+        code, out = self.fight(self.fixed)
+        self.assertEqual(code, 0)
+        self.assertIn("edit applied", out)
+        self.assertIn("BOSS DOWN", out)
+
+    def test_the_resume_point_is_named_rather_than_implied(self):
+        _, out = self.fight(self.fixed)
+        self.assertRegex(out, r"resumed at step \d+")
+
+    def test_a_clean_fix_does_not_cry_divergence(self):
+        _, out = self.fight(self.fixed)
+        self.assertNotIn("diverged", out)
+
+    def test_a_divergent_fix_is_said_out_loud(self):
+        """Exit criterion 4: the engine never presents a divergent state as
+        continuous."""
+        _, out = self.fight(self.divergent)
+        self.assertIn("replay diverged", out)
+        self.assertIn("not a continuation of what you watched", out)
 
 
 class TestLongValuesAreShortened(unittest.TestCase):

@@ -100,10 +100,28 @@ rather than absorbed.
 
 **T3 waypoint state:** W1 `LANDED`
 ([S016](../../journal/2026-09-06-S016-boss-format.md)),
-W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)).
-W3–W8 outstanding. Exit criterion 1 — a boss runs step by step with a visible
-current line and live locals — is verified; criterion 2 needs W3's pause-on-error
-and criterion 6 needs the fight to be scored, not merely watched. T3
+W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)),
+W3 `LANDED` ([S018](../../journal/2026-09-06-S018-step-back.md)),
+W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)).
+W6–W8 outstanding. Exit criteria 1, 2, 3 and 4 are verified — a boss runs step
+by step with a visible current line and live locals, a deliberate error pauses
+*on* the offending line, editing that line and resuming completes the fight
+with the edit in the submitted source, and a replay that stops matching is
+reported rather than presented as continuous. Criterion 5 (boss HP) is W6.
+Criterion 6 needs the fight to be scored rather than merely watched (W6, W7).
+
+W4 was the one waypoint in the project whose difficulty the trajectory itself
+called genuinely uncertain, and the hazard list said to ship W1–W3 as a
+playable "watch it run" boss first so a slip would degrade the feature rather
+than delete it. That is what happened, and W4 then came in cheaply: the memo
+strategy A needs turned out to be the test payload, which the parent already
+holds. **W5 landed with it rather than after it**, because strategy A is only
+honest if divergence is detected — the safety net is not optional equipment.
+
+The instrument check T3 asks for — *divergence rate on edit-and-resume,
+measured over real play sessions; if it exceeds ~5%, strategy C is justified* —
+is now measurable and unmeasured. Nobody has played a fight and been diverged
+on. T3
 was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.

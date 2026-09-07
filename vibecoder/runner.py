@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from . import sandbox
+from .timeline import Divergence, Timeline, compare
 from .models import Level, RunResult, Source, TestCase, TestOutcome
 
 HARNESS = Path(__file__).with_name("_harness.py")
@@ -339,6 +340,15 @@ class Step:
     line: int
     func: str
     locals: dict[str, str]
+    #: Set on the step where an exception was *raised*, while the frame was
+    #: still on that line. Deliberately absent from `to_trace`: the recorded
+    #: shape stays the three fields `replay` and `vision` already read, and a
+    #: fourth key would be a second shape for them to know about.
+    error: str = ""
+
+    @property
+    def failed(self) -> bool:
+        return bool(self.error)
 
     def to_trace(self) -> dict:
         return {"line": self.line, "func": self.func, "locals": dict(self.locals)}
@@ -386,6 +396,11 @@ class LiveRun:
         self._pending = ""
         self._result: dict | None = None
         self._steps: list[Step] = []
+        self._history = Timeline()
+        # History from before the last edit, and whether re-running the edited
+        # source reproduced it (T3 W4/W5). Empty until somebody edits.
+        self._origin: list[Step] = []
+        self._divergence: Divergence | None = None
         self._free = False
         self._told_free = False
         # The child emits a step and then blocks, whether or not we have read
@@ -426,6 +441,14 @@ class LiveRun:
         if self._closed:
             return
         self._closed = True
+        self._teardown()
+
+    def _teardown(self) -> None:
+        """Shut the child down without deciding whether we are done with it.
+
+        Split out of `close` because an edit needs exactly this and then a
+        fresh child, while `close` also means "and never again".
+        """
         if self._process is not None:
             for pipe in (self._process.stdin, self._process.stdout,
                          self._process.stderr):
@@ -439,6 +462,8 @@ class LiveRun:
             self._process.wait()
         if self._context is not None:
             self._context.__exit__(None, None, None)
+        self._process = None
+        self._context = None
 
     # -- driving -----------------------------------------------------------
 
@@ -455,6 +480,104 @@ class LiveRun:
             self._write('{"cmd": "step"}')
             self._awaiting = False
         return self._read_step()
+
+    def back(self) -> Step | None:
+        """The previous step, from history. Nothing is re-executed.
+
+        The child is not told and does not care: it is still blocked exactly
+        where it was, and the reader is simply looking at an earlier page of
+        what already happened.
+        """
+        return self._history.back()
+
+    def forward(self) -> Step | None:
+        """The next step, from history if there is one, otherwise from the child.
+
+        This is the one place the two ideas meet. Inside history it is a
+        cursor move; at the edge it drives the run. Callers get one verb
+        because they should not have to know which they are doing.
+        """
+        replayed = self._history.forward()
+        if replayed is not None:
+            return replayed
+        return self.step()
+
+    @property
+    def browsing(self) -> bool:
+        """Whether the reader has stepped back into history."""
+        return not self._history.at_edge
+
+    @property
+    def cursor(self) -> int:
+        return self._history.cursor
+
+    # -- editing -----------------------------------------------------------
+
+    def edit(self, code: str) -> Divergence | None:
+        """Replace the source and carry on from where the reader is looking.
+
+        CPython will not swap the code object of a running frame, so "edit
+        line 7 and continue" is not something the interpreter offers at all.
+        This is T3's **strategy A**: run the edited source again from the top
+        against the same recorded inputs, and fast-forward silently to the
+        edit point.
+
+        The memo strategy A needs is already here. The inputs are the test
+        payload -- data the parent holds -- so replaying them costs nothing
+        and cannot drift, which is why A is a better bet for the shapes this
+        game poses than its general reputation suggests.
+
+        Fast-forward stops **at** the step the reader is on, never through it.
+        That step is the one whose behaviour the player just changed, so
+        replaying it would replay the edit away. The run is left blocked just
+        before it, ready to execute the edited line as the next step.
+
+        Every fast-forwarded step is checked against the original (W5) and the
+        first that does not match ends the fast-forward there and is returned.
+        Going on past it would present a different execution as a continuation
+        of the one the player watched, which is the lie exit criterion 4
+        exists to forbid. Returning the finding rather than raising or
+        printing keeps the decision about how loudly to say so with the
+        caller, which is the only party that knows who is watching.
+        """
+        target = max(self._history.cursor, 0)
+        original = self._steps
+        self._teardown()
+        self._payload = dict(self._payload, code=code)
+        self._restart()
+
+        divergence = None
+        while len(self._steps) < target:
+            if self.step() is None:
+                break
+            divergence = compare(original, self._steps, upto=len(self._steps))
+            if divergence is not None:
+                break
+        if divergence is None:
+            # The loop also exits when the edited run ends early. That prefix
+            # is short rather than different, and `compare` is what knows the
+            # difference between the two.
+            divergence = compare(original, self._steps, upto=target)
+
+        self._origin = original
+        self._divergence = divergence
+        return divergence
+
+    def _restart(self) -> None:
+        """A fresh child on the same payload, with history emptied.
+
+        Stepping is restored even if the player had let the old run go free:
+        after an edit they are driving again, from the edit point.
+        """
+        self._pending = ""
+        self._result = None
+        self._steps = []
+        self._history = Timeline()
+        self._free = False
+        self._told_free = False
+        self._awaiting = False
+        self._closed = False
+        self.start()
 
     def resume(self) -> None:
         """Let it run to completion without waiting for us again."""
@@ -490,6 +613,26 @@ class LiveRun:
     @property
     def steps(self) -> list[Step]:
         return list(self._steps)
+
+    @property
+    def code(self) -> str:
+        """The source the child is running.
+
+        After an edit this is the edited text, which is what makes T3's exit
+        criterion 3 -- the edit reflected in the final submitted source --
+        something a caller can read rather than assume.
+        """
+        return str(self._payload["code"])
+
+    @property
+    def origin(self) -> list[Step]:
+        """The history the last edit replaced. Empty until one happens."""
+        return list(self._origin)
+
+    @property
+    def divergence(self) -> "Divergence | None":
+        """Whether the last edit's fast-forward reproduced what it replaced."""
+        return self._divergence
 
     @property
     def finished(self) -> bool:
@@ -530,7 +673,9 @@ class LiveRun:
                     func=str(event.get("func", "")),
                     locals={str(k): str(v)
                             for k, v in (event.get("locals") or {}).items()},
+                    error=str(event.get("error", "")),
                 )
+                self._history.append(step)
                 self._steps.append(step)
                 self._awaiting = True
                 self._release()

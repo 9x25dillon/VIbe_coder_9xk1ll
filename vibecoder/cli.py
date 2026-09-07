@@ -840,8 +840,15 @@ LIVE_DELAY = 0.35
 LOOP_PATIENCE = 3
 
 
-def _live_step(boss, index: int, code: str, seed: int, delay: float) -> bool:
-    """Watch one boss step execute, line by line. True if it passed.
+def _live_step(boss, index: int, code: str, seed: int, delay: float,
+               fix: "Path | None" = None) -> tuple[bool, str]:
+    """Watch one boss step execute, line by line.
+
+    Returns whether it cleared and the source it cleared with -- which is not
+    necessarily the source it started with, because `fix` may have replaced it
+    mid-fight. Handing the edited text back is what makes T3's exit criterion
+    3 true of the *fight* rather than of one step: later steps are run against
+    what the player actually ended up writing.
 
     The pacing is here rather than in the child on purpose: the child runs a
     line, reports it, and blocks, so it never sleeps and the whole feel of the
@@ -854,6 +861,7 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float) -> bool:
 
     seen: dict[int, int] = {}
     previous: dict[str, str] = {}
+    last_failure: tuple[int, str] | None = None
     with LiveRun(code, step.func_name, tests[0], source=Source.PLAYER) as live:
         while True:
             event = live.step()
@@ -868,11 +876,35 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float) -> bool:
                 if previous.get(name) != value:
                     changed = f"{name} = {value}"
             previous = dict(event.locals)
-            print(
-                f"    {UI.paint(f'{event.line:>3}', FAINT)} "
-                f"{UI.paint(UI.glyph('arrow'), ACCENT)} "
-                + UI.paint(changed[:60], MUTED)
-            )
+            if event.failed and (event.line, event.error) == last_failure:
+                # The same exception propagating through another frame of the
+                # same file. One report per raise is what happened; repeating
+                # it per frame reads as two different problems.
+                continue
+            if event.failed:
+                last_failure = (event.line, event.error)
+                # Criterion 2: the run is paused *on* the line that raised,
+                # not after it. `settrace` reports the exception while the
+                # frame is still there; once it unwinds the line is gone.
+                print(
+                    f"    {UI.paint(f'{event.line:>3}', BAD, bold=True)} "
+                    f"{UI.paint(UI.glyph('cross'), BAD, bold=True)} "
+                    + UI.paint(event.error[:60], BAD)
+                )
+                if fix is not None:
+                    code = fix.read_text(encoding="utf-8")
+                    fix = None  # one edit per step: a fix that still fails is
+                                # a failure, not a loop
+                    _apply_edit(live, code)
+                    previous = dict(live.steps[-1].locals) if live.steps else {}
+                    last_failure = None
+                    continue
+            else:
+                print(
+                    f"    {UI.paint(f'{event.line:>3}', FAINT)} "
+                    f"{UI.paint(UI.glyph('arrow'), ACCENT)} "
+                    + UI.paint(changed[:60], MUTED)
+                )
             # A loop seen four times has taught what it is going to teach.
             if seen[event.line] <= LOOP_PATIENCE:
                 time.sleep(delay)
@@ -880,8 +912,35 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float) -> bool:
 
     if result.error:
         print(f"    {UI.paint(result.error, BAD)}")
-        return False
-    return True
+        return False, code
+    # Not crashing is not the same as answering. A stepped run now reports one
+    # outcome for the one test it executes, so a step cleared by ``return
+    # None`` is caught here rather than celebrated.
+    for outcome in result.outcomes:
+        if not outcome.passed:
+            print(f"    {UI.paint(f'expected {outcome.expected}, got {outcome.got}', BAD)}")
+            return False, code
+    return True, code
+
+
+def _apply_edit(live, code: str) -> None:
+    """Swap in edited source mid-fight and say whether it really continued.
+
+    Strategy A re-runs from the top and fast-forwards, so "resumed" is a claim
+    about the part the player did not watch a second time. When `LiveRun.edit`
+    reports that the replay stopped matching, exit criterion 4 says to tell
+    them rather than let the fight look continuous.
+    """
+    divergence = live.edit(code)
+    resumed = len(live.steps)
+    if divergence is None:
+        print(f"    {UI.paint(UI.glyph('arrow'), ACCENT)} "
+              + UI.paint(f"edit applied, resumed at step {resumed + 1}", MUTED))
+        return
+    print(f"    {UI.paint(UI.glyph('cross'), WARN, bold=True)} "
+          + UI.paint(f"replay diverged: {divergence}", WARN))
+    note = "the re-run is not a continuation of what you watched"
+    print(f"      {UI.paint(note, FAINT)}")
 
 
 def cmd_boss(args: argparse.Namespace) -> int:
@@ -906,8 +965,13 @@ def cmd_boss(args: argparse.Namespace) -> int:
         )
         print()
         print(UI.rule(f"BOSS  {boss.title}  (live)", width=76))
+        fix = Path(args.fix) if getattr(args, "fix", None) else None
         for index in range(boss.step_count):
-            if not _live_step(boss, index, code, seed, args.speed):
+            # The edited source carries forward: a fix made at step two is
+            # what step three is judged on, because that is what the player
+            # would submit.
+            cleared, code = _live_step(boss, index, code, seed, args.speed, fix)
+            if not cleared:
                 print(f"\n  {UI.paint('the fight stops here', WARN)}\n")
                 return 1
         print(f"\n  {UI.paint('BOSS DOWN', GOOD, bold=True)}\n")
@@ -1249,6 +1313,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument("boss_id")
     p_boss.add_argument("--seed", type=int, help="pick a variant")
     p_boss.add_argument("--solution", help="run a file instead of the starter")
+    p_boss.add_argument(
+        "--fix",
+        help="with --live: on a failed step, resume from edited source in this file",
+    )
     p_boss.add_argument(
         "--reference", action="store_true",
         help="run the reference solution, to see the fight completed",

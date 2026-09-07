@@ -32,9 +32,12 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 804 tests, **zero third-party
-dependencies**. Boss fights are designed and scheduled, not yet built — see
-[Trajectories](#trajectories).
+**Status:** Phase 0 complete. Playable, scored, 887 tests, **zero third-party
+dependencies**. Phase 2's boss engine is five waypoints in and playable: a
+fight runs one line at a time under a real interpreter, pauses *on* the line
+that raised, and lets you fix that line and carry on — telling you if the
+resumed run stopped matching the one you watched. Scoring the fight is still
+ahead. See [Trajectories](#trajectories).
 
 **New to Python?** Start at `w1-l1-greet`. World 1 is six levels that assume
 nothing beyond having installed Python: return a value, make a decision, write
@@ -185,10 +188,12 @@ python3 -m vibecoder.cli replay w2-l3-join-1786155331 --step
     e = {'user_id': 2, 'action': 'click'}
 ```
 
-This is playback only — pause, step-back, **edit-and-resume** are the boss-fight
-engine, scheduled in [T3](docs/trajectories/T3-boss-engine.md). Shipping the
-replay first was deliberate: it validates the trace format the live engine will
-consume.
+This is playback only. Pause, step-back and **edit-and-resume** are the
+boss-fight engine in [T3](docs/trajectories/T3-boss-engine.md), and they run
+against a live interpreter rather than a recording — `boss <id> --live` steps a
+real child process one line at a time, pauses *on* the line that raised, and
+`--fix` swaps in edited source and carries on from there. Shipping the replay
+first was deliberate: it validated the trace format the live engine now emits.
 
 ## Commands
 
@@ -200,7 +205,7 @@ consume.
 | `status` | Progression, stars, streak, global score |
 | `replay [run-id]` | Slow-motion playback (`--step` to advance manually) |
 | `vision [run-id]` | Your function drawn as a machine, animated by its own run |
-| `boss <id>` | Run a multi-step boss fight, checked step by step |
+| `boss <id>` | Run a multi-step boss fight (`--live` to watch it execute line by line, `--fix` to edit a failed step and resume) |
 | `verify` | Run every level's reference against its own tests |
 | `showcase` | Render every visual element and the detected terminal capabilities |
 | `reset` | Delete the local profile |
@@ -210,7 +215,7 @@ State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
 ## Repository layout
 
 ```
-vibecoder/            The game. 24 modules, no dependencies.
+vibecoder/            The game. 25 modules, no dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — builds payloads, parses replies
 ├── sandbox.py        Backend selection: subprocess / bubblewrap / docker
@@ -228,9 +233,10 @@ vibecoder/            The game. 24 modules, no dependencies.
 ├── highlight.py      Syntax colour that survives incomplete input
 ├── pulse.py          Keystroke rhythm; stays on this machine
 ├── vision.py         Your function drawn as a machine, run by its own trace
+├── timeline.py       A cursor over execution history; nothing is re-run
 └── levels/           One file per level, auto-discovered
 
-tests/                804 tests, stdlib unittest
+tests/                887 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs
@@ -254,11 +260,12 @@ destination is committed, the path is expected to bend.
 | ID | Trajectory | Status | Target |
 | --- | --- | --- | --- |
 | [T1](docs/trajectories/T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | `LANDED` | 2026-08-08 |
-| [T2](docs/trajectories/T2-sandbox.md) | Trusted execution & codebase ingestion | `CLEARED` | 2026-08-30 |
-| [T3](docs/trajectories/T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | `PLOTTED` | 2026-09-20 |
+| [T2](docs/trajectories/T2-sandbox.md) | Trusted execution & codebase ingestion | `IN FLIGHT` | 2026-08-30 |
+| [T3](docs/trajectories/T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | `IN FLIGHT` | 2026-09-20 |
 | [T4](docs/trajectories/T4-adaptive.md) | Adaptive difficulty | `PLOTTED` | 2026-10-04 |
 | [T5](docs/trajectories/T5-community.md) | Daily challenges, leaderboards, level editor | `PLOTTED` | 2026-10-18 |
 | [T6](docs/trajectories/T6-presentation.md) | Presentation layer: capability-aware terminal rendering | `LANDED` | 2026-08-08 |
+| [T7](docs/trajectories/T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | `IN FLIGHT` | — |
 
 Week-by-week dates: [`SCHEDULE.md`](SCHEDULE.md).
 
