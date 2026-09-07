@@ -104,7 +104,14 @@ W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)),
 W3 `LANDED` ([S018](../../journal/2026-09-06-S018-step-back.md)),
 W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)),
 W6 `LANDED` ([S021](../../journal/2026-09-06-S021-boss-hp.md)).
-W7 and W8 outstanding. **Exit criteria 1 through 5 are verified.** A boss runs
+W7 and W8 outstanding. **Exit criteria 1 through 5 are verified.**
+[S022](../../journal/2026-09-06-S022-actually-playable.md) then played the
+fight from the starter for the first time and found it unplayable — a wrong
+answer offered no repair, and the buffer never grew to hold the next step.
+Both fixed; the fight has now been completed by typing. It also surfaced Q79:
+every starter answers wrongly, so every step costs a repair and `BOSS DOWN`
+cannot be reached on a first play, while W6's waypoint text ties HP to
+*first-try* completions. A boss runs
 step by step with a visible current line and live locals; a deliberate error
 pauses *on* the offending line; editing that line and resuming completes the
 fight with the edit in the submitted source; a replay that stops matching is

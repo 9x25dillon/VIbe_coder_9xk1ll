@@ -274,6 +274,108 @@ class TestTheFightCostsSomething(unittest.TestCase):
         self.assertNotIn("BOSS", out.split("the fight stops here")[-1])
 
 
+class TestAWrongAnswerIsRepairableToo(unittest.TestCase):
+    """The way a starter fails is by *answering wrongly*, not by crashing:
+    `parse_rows` returns `[]`. A fight that only offered a repair on an
+    exception would refuse to let anyone play it from the beginning."""
+
+    BOSS = "w1-boss-pipeline"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.solved = Path(self.tmp.name) / "solved.py"
+        self.solved.write_text(
+            get_boss(self.BOSS).reference_source(), encoding="utf-8"
+        )
+
+    def fight(self, fix=None, repairs=5) -> tuple[int, str]:
+        args = argparse.Namespace(
+            boss_id=self.BOSS, seed=1, live=True, reference=False,
+            solution=None, speed=0.0, repairs=repairs,
+            fix=str(fix) if fix else None,
+        )
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = cli.cmd_boss(args)
+        return code, plain(buffer.getvalue())
+
+    def test_the_starter_answers_wrongly_rather_than_crashing(self):
+        """The premise of everything below."""
+        starter = get_boss(self.BOSS).starter_source(0)
+        self.assertIn("return []", starter)
+
+    def test_a_wrong_answer_says_what_was_expected(self):
+        """A percentage on its own cannot be acted on."""
+        _, out = self.fight()
+        self.assertIn("of cases pass", out)
+        self.assertIn("WHAT WENT WRONG", out)
+        self.assertIn("you gave", out)
+
+    def test_a_wrong_answer_offers_a_repair(self):
+        _, out = self.fight(self.solved)
+        self.assertIn("the boss recovers", out)
+
+    def test_the_step_is_run_again_after_such_a_repair(self):
+        """There is nothing to resume when the run already finished, so the
+        step restarts rather than continuing."""
+        _, out = self.fight(self.solved)
+        self.assertIn("running the step again with your fix", out)
+
+    def test_the_fight_can_be_won_from_the_starter(self):
+        code, out = self.fight(self.solved)
+        self.assertEqual(code, 0)
+        self.assertIn("every step cleared", out)
+
+    def test_running_out_still_ends_it_on_a_wrong_answer(self):
+        code, out = self.fight(self.solved, repairs=0)
+        self.assertEqual(code, 1)
+        self.assertIn("the fight stops here", out)
+
+
+class TestTheBufferGrowsWithTheFight(unittest.TestCase):
+    """A boss is one shared file and each step brings a new function. Reaching
+    step two holding code that never mentions `above_floor` would ask the
+    player to write a signature the game never showed them."""
+
+    def setUp(self):
+        self.boss = get_boss("w1-boss-pipeline")
+
+    def test_the_next_steps_stub_is_added(self):
+        code = self.boss.starter_source(0)
+        self.assertNotIn("def above_floor", code)
+        grown = cli._with_starter(code, self.boss.step(1))
+        self.assertIn("def above_floor", grown)
+
+    def test_the_stub_carries_its_signature_and_docstring(self):
+        grown = cli._with_starter(self.boss.starter_source(0), self.boss.step(1))
+        self.assertIn("def above_floor(rows, floor):", grown)
+        self.assertIn("Keep rows priced at or above", grown)
+
+    def test_what_the_player_wrote_is_kept_exactly(self):
+        mine = "def parse_rows(lines):\n    return [1, 2, 3]\n"
+        grown = cli._with_starter(mine, self.boss.step(1))
+        self.assertIn("return [1, 2, 3]", grown)
+
+    def test_solving_ahead_adds_nothing(self):
+        """Already defining it means they got there first."""
+        ahead = self.boss.reference_source()
+        self.assertEqual(cli._with_starter(ahead, self.boss.step(1)), ahead)
+
+    def test_it_stays_valid_python(self):
+        code = self.boss.starter_source(0)
+        for index in range(1, self.boss.step_count):
+            code = cli._with_starter(code, self.boss.step(index))
+        compile(code, "<grown>", "exec")
+
+    def test_every_step_ends_up_defined(self):
+        code = self.boss.starter_source(0)
+        for index in range(1, self.boss.step_count):
+            code = cli._with_starter(code, self.boss.step(index))
+        for step in self.boss.steps:
+            self.assertIn(f"def {step.func_name}", code)
+
+
 class TestLongValuesAreShortened(unittest.TestCase):
     def test_a_short_value_is_untouched(self):
         self.assertEqual(cli._echo([1, 2, 3]), "[1, 2, 3]")

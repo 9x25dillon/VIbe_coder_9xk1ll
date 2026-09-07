@@ -105,11 +105,14 @@ Each one has an owner trajectory.
 | [S019](2026-09-06-S019-edit-and-resume.md) | 2026-09-06 | The memo was already in the payload | T3 | `Create` |
 | [S020](2026-09-06-S020-typing-the-fix.md) | 2026-09-06 | A fix nobody can type is not playable | T3 | `Create` |
 | [S021](2026-09-06-S021-boss-hp.md) | 2026-09-06 | The repair that heals the boss | T3 | `Create` |
+| [S022](2026-09-06-S022-actually-playable.md) | 2026-09-06 | I never started a fight the way a player does | T3 | `Evaluate` |
 
-Twenty-one sessions, and the band column is worth reading as a column rather
-than a set of cells: one `Analyse`, one `Evaluate`, and the rest `Create`. That
+Twenty-two sessions, and the band column is worth reading as a column rather
+than a set of cells: one `Analyse`, two `Evaluate`, and the rest `Create`. That
 is a project still building mechanisms rather than tuning them, which is the
-right place to be in Phase 2 and will stop being so.
+right place to be in Phase 2 and will stop being so — S022 is the first session
+that spent its time judging something already built rather than adding to it,
+and it found two blocking bugs by doing so.
 
 ## Writing a new entry
 

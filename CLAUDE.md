@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 973 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 985 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -83,7 +83,9 @@ python3 -m vibecoder.cli profile vibecoder        # self-profile as a smoke test
 python3 -m vibecoder.cli sandbox                  # which backends this host offers
 python3 -m vibecoder.cli edit w2-l1-revenue       # the full-screen editor (T7)
 
-# The boss engine (T3). `--live` steps a real child one line at a time. When a
+# The boss engine (T3). A player's walkthrough is docs/PLAYING.md -- read it
+# before changing the fight's feel, because it is the only place the whole
+# loop is described from outside. `--live` steps a real child one line at a time. When a
 # step breaks, a real terminal opens the repair pane and the fix is typed into
 # the paused fight (Q67); `--fix` scripts the same edit from a file, which is
 # the path the test suite drives. Either way the resume says so if the replay

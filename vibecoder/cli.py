@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -844,23 +845,51 @@ LOOP_PATIENCE = 3
 
 def _live_step(boss, index: int, code: str, seed: int, delay: float,
                fight, fix: "Path | None" = None) -> tuple[bool, str]:
-    """Watch one boss step execute, line by line.
+    """Play one boss step until it clears or the player stops.
 
-    Returns whether it cleared and the source it cleared with -- which is not
-    necessarily the source it started with, because the player (or `fix`) may
-    have replaced it mid-fight. Handing the edited text back is what makes T3's exit criterion
-    3 true of the *fight* rather than of one step: later steps are run against
-    what the player actually ended up writing.
+    An *attempt* is one run of the step. A step can fail two ways and both
+    have to be repairable, because the common one is not the dramatic one:
+
+    - **It crashes.** The run pauses on the line that raised and a repair
+      resumes it in place (strategy A, T3 W4).
+    - **It finishes with the wrong answer.** There is nothing to resume, so a
+      repair re-runs the step from the top.
+
+    The second is what a starter does — `return []` answers wrongly and never
+    raises — so a fight that only offered a repair on a crash would refuse to
+    let anyone play it from the beginning.
+
+    Returns whether the step cleared and the source it cleared with, which is
+    not necessarily the source it started with. Handing the edited text back
+    is what makes T3's exit criterion 3 true of the *fight* rather than of one
+    step: later steps run against what the player actually ended up writing.
+    """
+    step = boss.step(index)
+    tests = step.tests_for(seed)
+    code = _with_starter(code, step)
+    print(f"\n  {UI.paint(step.title, INK, bold=True)}  "
+          + UI.paint(f"{step.func_name}()", MUTED))
+    while True:
+        cleared, code, again = _attempt(step, tests, code, delay, fight, fix)
+        if cleared:
+            return True, code
+        if not again:
+            return False, code
+        # A scripted fix is spent on the attempt that used it; a typed one is
+        # not, because the player is sitting there and may want another go.
+        fix = None
+        print(f"    {UI.paint(UI.glyph('run'), ACCENT)} "
+              + UI.paint("running the step again with your fix", MUTED))
+
+
+def _attempt(step, tests, code: str, delay: float,
+             fight, fix: "Path | None") -> tuple[bool, str, bool]:
+    """One run of one step. Returns (cleared, source, worth trying again).
 
     The pacing is here rather than in the child on purpose: the child runs a
     line, reports it, and blocks, so it never sleeps and the whole feel of the
     thing is the parent's business -- which is where the player is.
     """
-    step = boss.step(index)
-    tests = step.tests_for(seed)
-    print(f"\n  {UI.paint(step.title, INK, bold=True)}  "
-          + UI.paint(f"{step.func_name}()", MUTED))
-
     seen: dict[int, int] = {}
     previous: dict[str, str] = {}
     last_failure: tuple[int, str] | None = None
@@ -893,44 +922,19 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
                     f"{UI.paint(UI.glyph('cross'), BAD, bold=True)} "
                     + UI.paint(event.error[:60], BAD)
                 )
-                offered = fix is not None or repair.available()
-                if offered and not fight.can_repair:
-                    # The pool is the constraint, so running out has to end
-                    # the fight rather than quietly offering a sixth repair.
-                    # Aborting rather than breaking: the child is blocked
-                    # mid-run, and draining one that nobody has released
-                    # waits forever.
+                if _repair_is_on_offer(fix) and not fight.can_repair:
+                    # Aborting rather than falling through: the child is
+                    # blocked mid-run, and draining one that nobody has
+                    # released waits forever.
                     print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
                     live.abort()
-                    return False, code
-                edited = None
-                if offered:
-                    # Measured against the code *as it failed*, before any
-                    # edit: the heal is scaled by how wrong this was, not by
-                    # how good the fix is. Skipped entirely when no repair is
-                    # on offer, so a scripted run does not pay for a verdict
-                    # nothing reads.
-                    accuracy = _accuracy(code, step, tests)
-                if fix is not None:
-                    edited = fix.read_text(encoding="utf-8")
-                    fix = None  # one scripted edit per step: a fix that still
-                                # fails is a failure, not a loop
-                elif repair.available():
-                    # Q67: the player types the fix into the paused fight.
-                    # The child stays blocked while they do, and its budget
-                    # counts executing time only, so thinking is free.
-                    edited = repair.offer(
-                        code, line=event.line, error=event.error,
-                        func=step.func_name, values=event.locals,
-                        title=step.title,
-                    )
+                    return False, code, False
+                edited = _offer_repair(
+                    code, step, tests, fight, fix,
+                    line=event.line, error=event.error, values=event.locals,
+                )
+                fix = None
                 if edited is not None:
-                    # Spent only when an edit is actually applied: a player
-                    # who opens the pane and gives up has not used one.
-                    cost = fight.repair(accuracy)
-                    tone = GOOD if cost.healed <= 2 else WARN
-                    print(f"    {UI.paint(str(cost), tone)}  "
-                          + UI.paint(f"(accuracy {accuracy:.0%})", FAINT))
                     code = edited
                     _apply_edit(live, code)
                     previous = dict(live.steps[-1].locals) if live.steps else {}
@@ -947,34 +951,139 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
                 time.sleep(delay)
         result = live.drain()
 
-    if result.error:
-        print(f"    {UI.paint(result.error, BAD)}")
-        return False, code
     # Not crashing is not the same as answering, and the one case we watched
     # is not the same as the set. The step is judged on all of them (Q72).
-    accuracy = _accuracy(code, step, tests)
-    if accuracy < 1.0:
+    verdict = _check(code, step, tests)
+    accuracy = _accuracy_of(verdict, tests)
+    if not result.error and accuracy == 1.0:
+        return True, code, False
+
+    if result.error:
+        print(f"    {UI.paint(result.error, BAD)}")
+    else:
+        # A percentage on its own cannot be acted on. Showing the case is
+        # what makes the repair a decision rather than a guess -- the same
+        # reason `_print_first_failure` exists for an ordinary level.
         print(f"    {UI.paint(f'{accuracy:.0%} of cases pass', BAD)}")
-        return False, code
-    return True, code
+        _print_first_failure(verdict, tests)
+
+    if _repair_is_on_offer(fix) and not fight.can_repair:
+        print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
+        return False, code, False
+    edited = _offer_repair(
+        code, step, tests, fight, fix,
+        line=_def_line(code, step.func_name),
+        error=result.error or _wrong_answer(verdict),
+        values={},
+    )
+    if edited is None:
+        return False, code, False
+    return False, edited, True
 
 
-def _accuracy(code: str, step, tests) -> float:
-    """Fraction of the step's own tests this code passes.
+def _with_starter(code: str, step) -> str:
+    """Add this step's stub to what the player has written so far.
+
+    A boss is one shared file and each step brings a new function, so the
+    buffer has to grow as the fight does. Without this a player reaches step
+    two holding code that never mentions `above_floor`, and the fight asks
+    them to write a signature it never showed them — which is the difference
+    between a puzzle and a guessing game.
+
+    Their earlier work is kept exactly as they wrote it; only the missing stub
+    is appended. Already defining the function means they solved ahead, and
+    nothing is added.
+    """
+    pattern = re.compile(rf"^\s*def {re.escape(step.func_name)}\b", re.MULTILINE)
+    if pattern.search(code):
+        return code
+    return code.rstrip("\n") + "\n\n\n" + step.starter.strip("\n") + "\n"
+
+
+def _repair_is_on_offer(fix: "Path | None") -> bool:
+    """Whether anything could supply a fix: a file, or a person at a terminal."""
+    return fix is not None or repair.available()
+
+
+def _offer_repair(code: str, step, tests, fight, fix: "Path | None", *,
+                  line: int, error: str, values: dict) -> "str | None":
+    """Ask for a fix and spend a repair if one is given, else ``None``.
+
+    One function, because a step can fail two ways and a repair has to cost
+    the same either way -- the pool is only a resource if every way of using
+    it draws on it.
+
+    Accuracy is measured against the code *as it failed*, before any edit: the
+    heal is scaled by how wrong this was, not by how good the fix is. It is
+    skipped entirely when no repair is on offer, so a piped or scripted run
+    does not pay for a verdict nothing reads.
+    """
+    if not _repair_is_on_offer(fix) or not fight.can_repair:
+        return None
+    accuracy = _accuracy_of(_check(code, step, tests), tests)
+    if fix is not None:
+        edited = fix.read_text(encoding="utf-8")
+    else:
+        # Q67: the player types the fix into the paused fight. The child stays
+        # blocked while they do, and its budget counts executing time only, so
+        # thinking is free.
+        edited = repair.offer(code, line=line, error=error,
+                              func=step.func_name, values=values,
+                              title=step.title)
+    if edited is None:
+        return None
+    # Spent only when an edit is actually applied: a player who opens the pane
+    # and gives up has not used one.
+    cost = fight.repair(accuracy)
+    tone = GOOD if cost.healed <= 2 else WARN
+    print(f"    {UI.paint(str(cost), tone)}  "
+          + UI.paint(f"(accuracy {accuracy:.0%})", FAINT))
+    return edited
+
+
+def _check(code: str, step, tests) -> RunResult:
+    """Run the step's whole test set. The verdict a live step is judged on."""
+    return run_code(code, step.func_name, tests, source=Source.PLAYER)
+
+
+def _accuracy_of(result: RunResult, tests) -> float:
+    """Fraction of the step's own cases that passed.
 
     A stepped run watches *one* case, which cannot say how wrong the code was
-    — and how wrong it was is exactly what a repair's heal is scaled by. So
-    accuracy is measured by an ordinary run against the whole set, in a
-    process of its own, while the paused child sits untouched.
+    -- and how wrong it was is exactly what a repair's heal is scaled by. So
+    this is measured by an ordinary run against the whole set, in a process of
+    its own, while the paused child sits untouched.
 
-    This is also what decides whether a step cleared, which answers Q72: a
-    live step is now judged on the same cases the same step faces when it is
-    scored normally.
+    It is also what decides whether a step cleared, which answers Q72: a live
+    step is judged on the same cases it faces when it is scored normally.
     """
     if not tests:
         return 0.0
-    result = run_code(code, step.func_name, tests, source=Source.PLAYER)
     return sum(1 for o in result.outcomes if o.passed) / len(tests)
+
+
+def _def_line(code: str, func_name: str) -> int:
+    """Where to put the cursor when nothing raised.
+
+    A wrong answer has no offending line, so the pane opens on the function
+    the step is about rather than at the top of a file the player has to
+    scroll.
+    """
+    for number, line in enumerate(code.splitlines(), start=1):
+        if line.strip().startswith(f"def {func_name}"):
+            return number
+    return 1
+
+
+def _wrong_answer(verdict: RunResult) -> str:
+    """The first failing case, in one line, for the pane's header."""
+    failed = [o for o in verdict.outcomes if not o.passed]
+    if not failed:
+        return "the answer was wrong"
+    first = failed[0]
+    if first.error:
+        return first.error
+    return f"expected {first.expected}, got {first.got}"
 
 
 def _repairs(count: int) -> str:
