@@ -41,6 +41,9 @@ second play-through.
   Parse the feed  parse_rows()
       3 ▸ lines = ['widget,25.0,2', 'sprocket,3.5,10', ...
       4 ▸ rows = []
+      5 ▸ line = 'widget,25.0,2'
+      6 ▸ quantity = '2'
+     11 ▸ rows = [{'name': 'widget', 'price': 25.0, 'quantity': 2}]
 ```
 
 | What | Meaning |
@@ -78,28 +81,40 @@ you wrote it.
 
 ## 4. Your first failure
 
-The starter is:
+**The starter runs.** It is not an empty stub — it is code that does real work
+and gets it wrong, which is the only kind of code worth watching:
 
 ```python
 def parse_rows(lines):
     """Turn 'name,price,quantity' lines into dicts."""
-    return []
+    rows = []
+    for line in lines:
+        name, price, quantity = line.split(",")
+        rows.append({
+            "name": name,
+            "price": float(price),
+            "quantity": int(quantity),
+        })
+        return rows        # ← look at where this is
+    return rows
 ```
 
-That does not crash. It answers *wrongly*, which is how most code fails, and
-the game tells you so:
+Watch the trace in section 2 again. It enters the loop, builds one dict, and
+**returns on the first lap** — you can see `rows` holding exactly one row when
+it stops. That is the bug, and you found it by watching rather than by reading.
 
 ```
-    17% of cases pass
+    50% of cases pass
 
 ── WHAT WENT WRONG ─────────────────────────────────────────────────────────
 
   given       ['widget,25.0,2', 'sprocket,3.5,10', 'gasket,12.25,4', ...]
   expected    [{'name': 'widget', 'price': 25.0, 'quantity': 2}, ...]
-  you gave    []
+  you gave    [{'name': 'widget', 'price': 25.0, 'quantity': 2}]
 ```
 
-Then the editor opens.
+Half the cases pass, because the one-row and empty-list cases do not care that
+the loop stops early. Then the editor opens.
 
 ---
 
@@ -112,7 +127,13 @@ Then the editor opens.
 ──────────────────────────────────────────────────────────────────────────────
  ✘  1 def parse_rows(lines):
     2     """Turn 'name,price,quantity' lines into dicts."""
-    3     return []
+    3     rows = []
+    4     for line in lines:
+    5         name, price, quantity = line.split(",")
+    6         rows.append({
+   ...
+   11         return rows
+   12     return rows
 ──────────────────────────────────────────────────────────────────────────────
  ctrl-r resume   ctrl-z undo   ctrl-k kill line   ctrl-x give up
 ```
@@ -139,7 +160,14 @@ Two things worth knowing:
   first and tells you where the syntax error is instead of spending your
   repair.
 
-### Type this for step 1
+### The fix for step 1
+
+The whole repair is **deleting line 11** — the `return rows` that sits inside
+the loop. Move to it, `ctrl-k` twice to swallow the line, and `ctrl-r`.
+
+If you would rather rewrite the function, the cursor starts on
+`def parse_rows`, so holding `ctrl-k` clears from there to the end of the file
+and you can type or paste a replacement:
 
 ```python
 def parse_rows(lines):
@@ -151,9 +179,6 @@ def parse_rows(lines):
     return rows
 ```
 
-The quickest way in: the cursor starts on `def parse_rows`, so hold `ctrl-k`
-until the function is gone, then type or paste the replacement. Then `ctrl-r`.
-
 ---
 
 ## 6. What a repair costs you
@@ -161,10 +186,10 @@ until the function is gone, then type or paste the replacement. Then `ctrl-r`.
 This is the part to pay attention to, because it is the mechanic.
 
 ```
-    repaired — the boss recovers 8  (accuracy 17%)
+    repaired — the boss recovers 5  (accuracy 50%)
     ▶ running the step again with your fix
     ✔ cleared after 1 repair   -16
-  boss ██████████████████░░  92   repairs ●●●●·
+  boss ███████████████████░  89   repairs ●●●●·
 ```
 
 Spending a repair does **three** things:
@@ -205,14 +230,25 @@ first mistake is final.
 
 ## 7. Steps 2 and 3
 
-When step 1 clears, `above_floor`'s stub appears in your file and the fight
-carries on. The same loop applies: watch, fail, fix, resume.
+When step 1 clears, `above_floor`'s starter appears in your file and the fight
+carries on. Both are the same shape as step 1: code that runs, with one thing
+wrong.
+
+**Step 2** ships as `row["price"] > floor`. Its brief warns you — *"the floor
+itself counts as qualifying"* — and exactly one test case sits on the
+boundary, so it passes **83%** and the repair costs the boss almost nothing.
+That is the heal curve doing its job: nearly right is nearly free.
 
 ```python
 def above_floor(rows, floor):
     """Keep rows priced at or above `floor`."""
     return [row for row in rows if row["price"] >= floor]
 ```
+
+**Step 3** ships wired up correctly and counting the wrong thing — revenue as
+the sum of *prices*, ignoring how many of each you have. The pane tells you
+precisely that: `expected {'count': 3, 'revenue': 159.0}, got {'count': 3,
+'revenue': 97.25}`. The count is already right.
 
 ```python
 def summarise(lines, floor):
@@ -224,8 +260,8 @@ def summarise(lines, floor):
     }
 ```
 
-Note that `summarise` calls the two functions you just wrote. If yours are
-wrong in a way their own tests missed, you will find out here.
+`summarise` calls the two functions **you** wrote. If yours are wrong in a way
+their own tests missed, you find out here.
 
 ---
 
@@ -252,6 +288,12 @@ mechanics are tested; the *feel* is not.
 - **Nobody has played a fight with health on it before you.** Every number in
   section 6 was chosen by argument and checked by unit tests. None of them has
   been watched over a shoulder.
+- **`BOSS DOWN` is still out of reach from the starters.** Every starter fails
+  its own tests — that is the level contract, and it exists so a starter
+  cannot hand out a free step — so every step costs at least one repair and
+  the flawless ending needs a fight you did not start from scratch. Playing
+  the three starters straight through lands the boss on about **65**. Whether
+  that is right is the open half of Q79.
 - **Five repairs is a guess.** It is meant to be enough to survive a bad step
   or two and not enough to brute-force three. That band is a claim, not a
   measurement. (Open question Q76.)

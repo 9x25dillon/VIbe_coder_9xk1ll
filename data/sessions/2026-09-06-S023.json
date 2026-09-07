@@ -1,0 +1,108 @@
+{
+  "id": "S023",
+  "date": "2026-09-06",
+  "duration_minutes": null,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-06-S023-starters-that-run.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "Every boss starter runs real work instead of returning immediately", "result": "met", "note": "Q79, answered by the user: the starter should run, not fail"},
+    {"id": 2, "statement": "Each starter's bug is visible in the trace, not just in the verdict", "result": "met", "note": "a return inside a loop, a > for a >=, a sum that ignores quantity"},
+    {"id": 3, "statement": "A starter is wrong without being hopeless, so the heal is proportionate", "result": "met", "note": "50%, 83% and 33% accuracy; repairs cost 5, 2 and 7"},
+    {"id": 4, "statement": "'A starter must run' is a contract, not this boss's good luck", "result": "met", "note": "three new tests in test_bosses.py"},
+    {"id": 5, "statement": "The walkthrough describes the game that now exists", "result": "met", "note": "docs/PLAYING.md rewritten against the new starters"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/levels/w1_boss_pipeline.py", "kind": "level", "note": "all three starters rewritten to run real work and fail visibly"},
+    {"path": "tests/test_bosses.py", "kind": "test", "note": "test_no_starter_crashes, test_a_starter_does_enough_work_to_watch, test_a_starter_is_wrong_without_being_hopeless"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "the starter premise asserted as a property rather than as its text (M39)"},
+    {"path": "docs/PLAYING.md", "kind": "doc", "note": "the trace, the failure, the pane and the fixes all rewritten; the open half of Q79 named in the unverified section"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "journal/2026-09-06-S023-starters-that-run.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "No starter crashes", "method": "tests/test_bosses.py::test_no_starter_crashes", "result": "empty error for every step of every boss", "verdict": "verified"},
+    {"claim": "Every starter produces more than three traced lines", "method": "::test_a_starter_does_enough_work_to_watch", "result": "record_trace length above the floor for every step", "verdict": "verified"},
+    {"claim": "Every starter fails without failing everything", "method": "::test_a_starter_is_wrong_without_being_hopeless", "result": "passed count strictly between 0 and the case count", "verdict": "verified"},
+    {"claim": "No starter passes its own step", "method": "::test_no_starter_already_passes_its_own_step, unchanged", "result": "still green with the new starters", "verdict": "verified"},
+    {"claim": "The accuracies are 50%, 83% and 33%", "method": "cli._check against each step's own tests at seed 1", "result": "parse 3/6, filter 5/6, summary 2/6", "verdict": "verified"},
+    {"claim": "The repairs therefore cost 5, 2 and 7", "method": "heal = 100 * 0.10 * (1 - accuracy)", "result": "5, 2, 7", "verdict": "verified"},
+    {"claim": "A whole fight is still playable by typing", "method": "boss --live driven through a pty, three functions typed", "result": "three panes opened, exit 0", "verdict": "verified"},
+    {"claim": "The fight now ends on 65 rather than 73", "method": "the same pty play-through before and after the change", "result": "BOSS SURVIVES on 65 hp, 3 repairs spent", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "988 tests OK", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "964 tests OK", "verdict": "verified"},
+    {"claim": "BOSS DOWN is reachable from the starters", "method": "every starter must fail its own tests, and every failure costs a repair", "result": "falsified; the flawless ending cannot be reached from a standing start. See Q80", "verdict": "unverified"},
+    {"claim": "Whether the new starters are better to play", "method": "the user has still not played it", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M39",
+      "believed": "That test_the_starter_answers_wrongly_rather_than_crashing, written one session earlier, documented a premise. It asserted assertIn('return []', starter).",
+      "revealed_by": "It failed the moment the starter changed, which was the very next session and for a reason the user asked for.",
+      "corrected_to": "The premise the test exists to protect is that the starter runs and is wrong, because that is what makes it exercise the wrong-answer repair path rather than the crash path. It now asserts exactly that via _check, and is immune to the next redesign of the level's text.",
+      "cost_minutes": 2,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A test pinned to an implementation detail passes happily while the thing it was meant to protect rots, and only complains when something unrelated changes. This one failed loudly and immediately, which is the lucky version. Set against M37: this session the accuracy figures were measured before being written down, not guessed."
+    }
+  ],
+  "decisions": [
+    {"id": "D154", "decision": "A boss starter runs real work and gets one thing wrong", "alternatives": ["Keep the stubs", "Ship a correct starter"], "rationale": "The fight's whole pitch is watching code execute, and a stub gives one line of trace. A correct starter would break the contract that a starter must not pass its own step.", "reversible": true, "seam": "vibecoder/levels/w1_boss_pipeline.py"},
+    {"id": "D155", "decision": "Each bug is chosen to be visible in the trace", "alternatives": ["Any wrong answer would satisfy the tests"], "rationale": "A bug you can only see in the verdict is a bug the debugger did not help you find, which wastes the feature the fight exists to show off.", "reversible": true, "seam": "vibecoder/levels/w1_boss_pipeline.py"},
+    {"id": "D156", "decision": "Starters give partial credit", "alternatives": ["Any failing starter"], "rationale": "The heal scales with 1 - accuracy. A starter that passes nothing hands over the maximum heal every time and W6's curve never does its job.", "reversible": true, "seam": "vibecoder/levels/w1_boss_pipeline.py"},
+    {"id": "D157", "decision": "'Runs', 'watchable' and 'not hopeless' are enforced tests, not prose", "alternatives": ["A note in LEVEL_AUTHORING.md"], "rationale": "M36's cost was an invariant nothing tested drifting for two trajectories. Q75 asks which rules can be given a test; these three can, so they were.", "reversible": false, "seam": "tests/test_bosses.py::TestReferencesAndStarters"}
+  ],
+  "friction": [
+    {"description": "Designing a bug that fails partially is harder than designing one that fails. Two candidates for summarise were discarded: forgetting the round passed almost everything and made the starter's difficulty depend on float error and therefore on the seed, and dropping the filter failed everything. Ignoring quantity fails four of six cases for a reason a player can name.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "Q79's first half is answered and shipped. All three starters run, each fails visibly in the trace, and they pass 50%, 83% and 33% so the repairs cost 5, 2 and 7. Three new contract tests keep it that way. A full play-through lands the boss on 65 rather than 73. 988 tests green unpinned, 964 pinned, verify clean on 45 reference runs.",
+    "next_action": "The user plays it. Twice now the useful findings have come from running the game rather than the suite, and the suite has never been the thing that was wrong. Q80 is the open half of Q79 and needs deciding before W7, because scoring a fight whose best outcome is unreachable would bake the problem in. Then T3 W7, boss scoring at 40/30/30, still the only waypoint between T3 and its exit criteria.",
+    "blockers": [
+      "None",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "D156 before authoring another boss starter: partial credit is load-bearing for the heal curve, not a nicety",
+      "M39 before writing a test that quotes level content"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value, as the wrong-answer path now does?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q77", "question": "W8 is a waypoint no exit criterion points at. Does T3 land without it?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q79", "question": "Should a boss step start from something that runs?", "owner": "T3", "status": "answered", "answer": "Yes. All three starters do real work and fail visibly in the trace, with partial credit so the heal is proportionate (D154, D155, D156)."},
+    {"id": "Q80", "question": "BOSS DOWN is still unreachable from the starters, because the contract says a starter must fail its own tests and every failure costs a repair. The flawless ending exists and normal play cannot reach it. Does the boss contract differ from the level contract here, does the first repair become free, or is BOSS DOWN simply not for a first attempt?", "owner": "T3", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 988,
+    "tests_passing": 988,
+    "tests_added": 3,
+    "suite_seconds_unpinned": 76.736,
+    "suite_tests_pinned_bwrap": 964,
+    "starter_accuracy_parse": 0.5,
+    "starter_accuracy_filter": 0.833,
+    "starter_accuracy_summary": 0.333,
+    "boss_hp_after_a_starter_playthrough": 65,
+    "boss_hp_after_a_starter_playthrough_before": 73,
+    "t3_waypoints_landed": 6,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 5,
+    "t3_exit_criteria_total": 6,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 26,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}

@@ -230,6 +230,63 @@ class TestReferencesAndStarters(unittest.TestCase):
                     )
                     self.assertFalse(all(o.passed for o in result.outcomes))
 
+    def test_no_starter_crashes(self):
+        """A boss starter has to **run**.
+
+        This is the half of the contract a plain level does not need, and it
+        is the whole pitch of the boss engine: you watch your code execute.
+        A starter that raises gives the player a stack trace where the feature
+        should be, and one that returns immediately gives them a single line
+        of trace — neither is something to debug. Answered as Q79 in
+        S023; enforced here so the next boss cannot quietly reintroduce it.
+        """
+        for boss in all_bosses():
+            for index, step in enumerate(boss.steps):
+                with self.subTest(boss=boss.id, step=step.id):
+                    result = run_code(
+                        boss.starter_source(index), step.func_name,
+                        step.tests_for(1), source=Source.BUNDLED,
+                    )
+                    self.assertEqual(result.error, "", result.error)
+
+    def test_a_starter_does_enough_work_to_watch(self):
+        """More than a line or two of trace, or there is nothing to see.
+
+        `return []` is a legal starter and a terrible one for a fight: it
+        satisfies every other rule here and shows the player one line before
+        stopping. The number is deliberately low — this is a floor on
+        "something happens", not a target.
+        """
+        for boss in all_bosses():
+            for index, step in enumerate(boss.steps):
+                with self.subTest(boss=boss.id, step=step.id):
+                    result = run_code(
+                        boss.starter_source(index), step.func_name,
+                        step.tests_for(1), source=Source.BUNDLED,
+                        record_trace=True,
+                    )
+                    self.assertGreater(len(result.trace), 3)
+
+    def test_a_starter_is_wrong_without_being_hopeless(self):
+        """It fails, and it does not fail *everything*.
+
+        Partial credit is what makes the repair proportionate: the heal a
+        repair costs scales with `1 - accuracy` (T3 W6), so a starter that
+        passes nothing hands the boss the maximum every time and the curve
+        never gets to do its job.
+        """
+        for boss in all_bosses():
+            for index, step in enumerate(boss.steps):
+                with self.subTest(boss=boss.id, step=step.id):
+                    tests = step.tests_for(1)
+                    result = run_code(
+                        boss.starter_source(index), step.func_name, tests,
+                        source=Source.BUNDLED,
+                    )
+                    passed = [o for o in result.outcomes if o.passed]
+                    self.assertGreater(len(passed), 0)
+                    self.assertLess(len(passed), len(tests))
+
 
 class TestTheSharedBuffer(unittest.TestCase):
     def test_the_first_step_starts_with_only_its_own_starter(self):

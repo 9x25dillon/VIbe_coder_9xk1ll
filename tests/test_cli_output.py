@@ -301,9 +301,18 @@ class TestAWrongAnswerIsRepairableToo(unittest.TestCase):
         return code, plain(buffer.getvalue())
 
     def test_the_starter_answers_wrongly_rather_than_crashing(self):
-        """The premise of everything below."""
-        starter = get_boss(self.BOSS).starter_source(0)
-        self.assertIn("return []", starter)
+        """The premise of everything below.
+
+        Asserted as a property rather than as the starter's text, which is a
+        level-design choice and has already changed once (Q79). What must
+        hold is that it *runs* and is *wrong* — a crash would exercise the
+        other repair path and prove nothing about this one.
+        """
+        boss = get_boss(self.BOSS)
+        result = cli._check(boss.starter_source(0), boss.step(0),
+                            boss.step(0).tests_for(1))
+        self.assertEqual(result.error, "")
+        self.assertFalse(all(o.passed for o in result.outcomes))
 
     def test_a_wrong_answer_says_what_was_expected(self):
         """A percentage on its own cannot be acted on."""

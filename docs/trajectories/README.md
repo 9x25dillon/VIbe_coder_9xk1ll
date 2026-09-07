@@ -108,10 +108,16 @@ W7 and W8 outstanding. **Exit criteria 1 through 5 are verified.**
 [S022](../../journal/2026-09-06-S022-actually-playable.md) then played the
 fight from the starter for the first time and found it unplayable — a wrong
 answer offered no repair, and the buffer never grew to hold the next step.
-Both fixed; the fight has now been completed by typing. It also surfaced Q79:
-every starter answers wrongly, so every step costs a repair and `BOSS DOWN`
-cannot be reached on a first play, while W6's waypoint text ties HP to
-*first-try* completions. A boss runs
+Both fixed; the fight has now been completed by typing. It also surfaced Q79,
+which the user answered — *the starter should run, not fail* — and
+[S023](../../journal/2026-09-06-S023-starters-that-run.md) shipped it: all
+three starters now do real work and fail *visibly in the trace*, with partial
+credit (50%, 83%, 33%) so a repair's heal is proportionate. Three new contract
+tests keep it so. **Q80 is the open half:** `BOSS DOWN` is still unreachable
+from the starters, because a starter must fail its own tests and every failure
+costs a repair — so the flawless ending exists and normal play cannot get
+there. That needs deciding before W7, since scoring a fight whose best outcome
+is unreachable would bake the problem in. A boss runs
 step by step with a visible current line and live locals; a deliberate error
 pauses *on* the offending line; editing that line and resuming completes the
 fight with the edit in the submitted source; a replay that stops matching is

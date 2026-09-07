@@ -81,7 +81,16 @@ PARSE = BossStep(
     starter='''\
 def parse_rows(lines):
     """Turn 'name,price,quantity' lines into dicts."""
-    return []
+    rows = []
+    for line in lines:
+        name, price, quantity = line.split(",")
+        rows.append({
+            "name": name,
+            "price": float(price),
+            "quantity": int(quantity),
+        })
+        return rows
+    return rows
 ''',
     reference='''\
 def parse_rows(lines):
@@ -148,7 +157,7 @@ FILTER = BossStep(
     starter='''\
 def above_floor(rows, floor):
     """Keep rows priced at or above `floor`."""
-    return []
+    return [row for row in rows if row["price"] > floor]
 ''',
     reference='''\
 def above_floor(rows, floor):
@@ -212,7 +221,11 @@ SUMMARY = BossStep(
     starter='''\
 def summarise(lines, floor):
     """Parse, filter, and report count and revenue."""
-    return {"count": 0, "revenue": 0.0}
+    kept = above_floor(parse_rows(lines), floor)
+    return {
+        "count": len(kept),
+        "revenue": round(sum(r["price"] for r in kept), 2),
+    }
 ''',
     reference='''\
 def summarise(lines, floor):
