@@ -10,7 +10,7 @@ import unittest
 
 from vibecoder import style
 from vibecoder.levels import all_levels, get_level, worlds
-from vibecoder.models import Source
+from vibecoder.models import Difficulty, Source, accepts_difficulty
 from vibecoder.runner import run_code
 
 VARIANT_SEEDS = (1, 2, 3, 7)
@@ -83,6 +83,87 @@ class TestLevelMetadata(unittest.TestCase):
                     result.all_passed,
                     f"{level.id}: the starter template passes its own tests",
                 )
+
+
+class TestTheContractHoldsAtEveryDifficulty(unittest.TestCase):
+    """T4 W2. A difficulty dial that can break a level is not a dial.
+
+    Only levels that opted in are exercised across the band -- for the rest,
+    `test_a_level_that_did_not_opt_in_ignores_difficulty_entirely` already
+    proves the data cannot move, so running them again would cost sandbox
+    time to re-assert the same thing.
+    """
+
+    BANDS = (0.0, 0.5, 1.0)
+
+    def opted_in(self):
+        return [
+            level for level in all_levels()
+            if accepts_difficulty(level.make_tests)
+        ]
+
+    def test_at_least_one_level_has_opted_in(self):
+        """Otherwise every test in this class passes over an empty list, which
+        is the quiet way a suite stops testing the thing it names."""
+        self.assertTrue(self.opted_in())
+
+    def test_the_reference_still_solves_every_variant(self):
+        """The one that matters. A hard variant the level author's own
+        solution cannot pass is a level nobody can pass."""
+        for level in self.opted_in():
+            for band in self.BANDS:
+                for seed in VARIANT_SEEDS:
+                    with self.subTest(level=level.id, difficulty=band, seed=seed):
+                        result = run_code(
+                            level.reference, level.func_name,
+                            level.tests_for(seed, Difficulty(band)),
+                            source=Source.BUNDLED,
+                        )
+                        self.assertFalse(result.fatal, result.error)
+                        failed = [o.name for o in result.outcomes if not o.passed]
+                        self.assertTrue(
+                            result.all_passed,
+                            f"{level.id} at {band} seed {seed} failed: {failed}",
+                        )
+
+    def test_the_starter_still_fails_every_variant(self):
+        """A gentle variant that the starter happens to pass hands out free
+        stars to whoever the game decided was struggling."""
+        for level in self.opted_in():
+            for band in self.BANDS:
+                with self.subTest(level=level.id, difficulty=band):
+                    result = run_code(
+                        level.starter, level.func_name,
+                        level.tests_for(1, Difficulty(band)),
+                        source=Source.BUNDLED,
+                    )
+                    self.assertFalse(
+                        result.all_passed,
+                        f"{level.id} at {band}: the starter passes",
+                    )
+
+    def test_every_variant_still_has_enough_cases(self):
+        for level in self.opted_in():
+            for band in self.BANDS:
+                with self.subTest(level=level.id, difficulty=band):
+                    self.assertGreaterEqual(
+                        len(level.tests_for(1, Difficulty(band))), 4
+                    )
+
+    def test_a_harder_variant_costs_the_reference_more(self):
+        """The dial has to move the thing the Functional axis measures, or it
+        is only changing how the level looks."""
+        for level in self.opted_in():
+            with self.subTest(level=level.id):
+                gentle = run_code(
+                    level.reference, level.func_name,
+                    level.tests_for(1, Difficulty(0.0)), source=Source.BUNDLED,
+                )
+                hard = run_code(
+                    level.reference, level.func_name,
+                    level.tests_for(1, Difficulty(1.0)), source=Source.BUNDLED,
+                )
+                self.assertGreater(hard.ops, gentle.ops)
 
 
 class TestVariants(unittest.TestCase):

@@ -621,7 +621,10 @@ def cmd_play(args: argparse.Namespace) -> int:
         outcome = {"improved": False, "cleared": False, "streak": session.streak}
     else:
         multipliers = {lvl.id: lvl.multiplier for lvl in level_registry.all_levels()}
-        outcome = session.submit(level.id, score, seed=seed, multipliers=multipliers)
+        outcome = session.submit(
+            level.id, score, seed=seed, multipliers=multipliers,
+            tags=level.tags,
+        )
 
     run_id = session.save_run(
         level.id,

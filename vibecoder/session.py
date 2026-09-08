@@ -16,12 +16,20 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
+from .mastery import Mastery, observation
 from .models import ScoreBreakdown, VibeVector
 from .scoring import streak_multiplier
 
 STATE_VERSION = 1
+
+#: Top-level keys this build understands. Anything else in a profile came from
+#: a newer build and is preserved untouched -- see `Session.unknown`.
+_KNOWN_KEYS = frozenset({
+    "version", "created_at", "updated_at", "vibe_source", "vibe",
+    "levels", "streak", "tokens", "total_score", "mastery",
+})
 
 
 def home() -> Path:
@@ -72,10 +80,22 @@ class Session:
         self.updated_at = self.created_at
         self.vibe: VibeVector | None = None
         self.vibe_source: str = ""
+        #: What the player *scores*, per content tag (T4 W1). Deliberately a
+        #: separate field from `vibe`, which is what the player *writes*: T4's
+        #: exit criterion 8 forbids any screen blending the two, and two
+        #: fields are harder to average by accident than two keys in one dict.
+        self.mastery = Mastery()
         self.levels: dict[str, LevelRecord] = {}
         self.streak = 0
         self.tokens: dict[str, int] = {"hint": 3, "skip": 1}
         self.total_score = 0.0
+        #: Top-level keys written by a build newer than this one, kept
+        #: verbatim. `VibeVector` has carried these since S015; the envelope
+        #: around it did not, so an old build loading a new profile dropped
+        #: every field it had never heard of and re-saved without them --
+        #: silently, on an ordinary `vibecoder status`. Adding `mastery` is
+        #: what made that live rather than theoretical.
+        self.unknown: dict[str, Any] = {}
 
     # -- persistence -------------------------------------------------------
 
@@ -109,6 +129,10 @@ class Session:
         session.streak = data.get("streak", 0)
         session.tokens = data.get("tokens", session.tokens)
         session.total_score = data.get("total_score", 0.0)
+        session.mastery = Mastery.from_json(data.get("mastery", {}))
+        session.unknown = {
+            key: value for key, value in data.items() if key not in _KNOWN_KEYS
+        }
         return session
 
     def save(self) -> None:
@@ -124,7 +148,13 @@ class Session:
             "streak": self.streak,
             "tokens": self.tokens,
             "total_score": round(self.total_score, 2),
+            "mastery": self.mastery.to_json(),
         }
+        # Merged rather than nested, so a newer build finds its own fields
+        # exactly where it left them. A key this build knows about always
+        # wins: `unknown` is what we could not interpret, never an override.
+        for key, value in self.unknown.items():
+            payload.setdefault(key, value)
         # Write-then-rename so an interrupted save cannot truncate the profile.
         temporary = self.path.with_suffix(".tmp")
         temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -150,8 +180,17 @@ class Session:
         *,
         seed: int,
         multipliers: dict[str, float] | None = None,
+        tags: "Sequence[str]" = (),
     ) -> dict[str, Any]:
-        """Bank a completed attempt and return what changed."""
+        """Bank a completed attempt and return what changed.
+
+        Mastery is updated **here**, which is the whole of T4's exit criterion
+        5: practice mode never calls this method, so a practice run cannot
+        move mastery by construction rather than by a flag someone has to
+        remember to check. `cmd_play` skips `submit` entirely when there is no
+        honest solve time -- the same decision that drops the Speed axis (M1)
+        -- so the two rules are enforced at one place instead of two.
+        """
         record = self.record(level_id)
         record.attempts += 1
         record.last_seed = seed
@@ -185,12 +224,28 @@ class Session:
         else:
             self.streak = 0
 
+        # The three axes a run scored, reduced to one competence signal, then
+        # applied to every tag the level carries. Unpacked here rather than
+        # inside `mastery` so that module keeps importing nothing.
+        moved = self.mastery.observe(
+            list(tags),
+            observation(
+                accuracy=score.accuracy,
+                functional=score.functional,
+                first_try="first_try" in score.bonuses,
+            ),
+            at=_now(),
+        )
+
         self.total_score = self.recompute_total(multipliers)
         return {
             "improved": improved,
             "cleared": cleared,
             "streak": self.streak,
             "streak_multiplier": streak_multiplier(self.streak),
+            # What each tag moved by, so a caller can explain the update
+            # without recomputing it (T4 W7 forbids hidden state).
+            "mastery_moved": moved,
         }
 
     def recompute_total(self, multipliers: dict[str, float] | None = None) -> float:

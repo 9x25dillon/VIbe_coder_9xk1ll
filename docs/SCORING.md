@@ -132,6 +132,25 @@ gets a fully ranked run.
 The general principle, worth keeping: **an axis that cannot be measured
 honestly must not be scored.** Faking a value is worse than dropping one.
 
+## Mastery weights are not the scoring axes (T4 W3)
+
+An easy thing to misread. Per-tag mastery reduces a run to one competence
+signal with its own weights:
+
+```
+observed = 0.5·(accuracy/100) + 0.3·(functional/100) + 0.2·first_try
+```
+
+Those numbers look like axis weights and are not. **Speed is deliberately
+absent**: solve time measures a session, not a competence, and a player
+interrupted by a phone call is not worse at recursion afterwards. `first_try`
+appears here as a small term although it is a *bonus* rather than an axis in
+scoring, because "got it right without a second look" is evidence about the
+player even though it is not a dimension of the submission.
+
+They live in [`mastery.py`](../vibecoder/mastery.py), not here, and changing
+one set must not drag the other along.
+
 ## Global score
 
 ```

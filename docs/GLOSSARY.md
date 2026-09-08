@@ -38,6 +38,13 @@ visible as executing rather than designing.
 +5% for satisfying every style goal a level declares. One of three bonuses; the
 others are `first_try` (+10%) and `clean_first_run` (+5%).
 
+### Difficulty
+A single normalised dial, 0 (gentlest) to 1 (hardest), handed to a level's
+generator so it can scale input size and edge-case density. It selects variant
+*parameters*, never a different problem. `0.5` is the default and means
+exactly what the level did before difficulty existed. See
+[LEVEL_AUTHORING.md](LEVEL_AUTHORING.md).
+
 ### Exit criteria
 Observable facts that make a trajectory done. Written **before** work starts and
 never edited to match what was built — if they turn out wrong, that is a finding
@@ -47,6 +54,13 @@ for the journal, not a document to quietly amend.
 Scoring axis measuring how much work the submitted code does, relative to the
 level's reference solution: 70% op count, 30% peak memory, each capped at
 parity. Weighted 25% on levels, 30% on boss fights.
+
+### Mastery
+Per-tag competency, 0..1, measured from runs the player actually played and
+updated after every banked run. **Not the [Vibe Vector](#vibe-vector)**: that
+measures how you write, this measures what you score, and no screen may blend
+them into one number. An estimate carries its observation count, because 0.5
+after four runs is a measurement and 0.5 after none is the absence of one.
 
 ### Handoff
 The four-field block ending every journal entry — state, next action, blockers,

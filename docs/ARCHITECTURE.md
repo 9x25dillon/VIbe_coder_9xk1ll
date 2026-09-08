@@ -34,6 +34,7 @@ vibecoder/
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 ├── vision.py      The machine view. Pure frames; the trace drives them.
 ├── fight.py       Boss hit points and the repair pool. Arithmetic only.
+├── mastery.py     Per-tag competency and its update rule. Imports nothing.
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.
@@ -278,6 +279,45 @@ ability can refill, there is a plain object to refill.
     ✔ cleared after 1 repair   -17
   boss ████████████░░░░░░░░  58   repairs ●●●●·
 ```
+
+### What the player is good at (T4 W1, W3)
+
+[`mastery.py`](../vibecoder/mastery.py) holds a per-tag competency estimate
+and the rule that moves it. Like [`fight.py`](../vibecoder/fight.py) it
+**imports nothing** — the update rule takes plain numbers rather than a
+`ScoreBreakdown`, so staying dependency-free costs the caller one line instead
+of costing the module its independence.
+
+It is a separate module from `models.py` rather than another dataclass in it,
+for the reason `fight.py` is: this is a model *with rules* — a confidence
+threshold, an update step, a decay to come in W6 — and those rules have
+constants that need explaining. `models.py` holds shapes.
+
+**It is not the Vibe Vector and the two must never be averaged.** The vector
+measures how you write, read statically from your code; mastery measures what
+you score, from runs you played. T4's exit criterion 8 forbids any screen
+showing a single number blending them, and keeping them in two modules with no
+import between them is the cheapest enforcement available.
+
+The update happens inside `Session.submit`, which is the *only* writer, and
+which practice mode never calls. That makes "practice does not move mastery"
+(criterion 5) a consequence of one branch rather than a second rule to
+remember — the same branch that drops the Speed axis for an unmeasurable
+clock.
+
+### Difficulty is a parameter, not a fork (T4 W2)
+
+`Level.tests_for(seed, difficulty)` passes a `Difficulty` to `make_tests` only
+if the generator's signature accepts one. Authors opt in one level at a time
+and the old one-argument form keeps working, so this is inspected rather than
+declared: a flag on the `Level` would be a second place to keep in sync with
+the function it describes, and the function is what is actually true.
+
+**The default difficulty reproduces pre-difficulty data byte for byte.** Every
+op count in `data/baselines/` was measured before the parameter existed, so a
+level that shifted under the default would quietly turn those files from
+evidence into decoration. `tests/test_difficulty.py` asserts it for every
+level and every boss step.
 
 ### What a fight scores (T3 W7)
 

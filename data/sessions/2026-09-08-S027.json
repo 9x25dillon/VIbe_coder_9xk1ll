@@ -1,0 +1,153 @@
+{
+  "id": "S027",
+  "date": "2026-09-08",
+  "duration_minutes": 90,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S027-mastery.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "The game persists what the player is good at, per tag, without merging it into the Vibe Vector", "result": "met", "note": "separate modules with no import between them, which is the cheapest enforcement of exit criterion 8"},
+    {"id": 2, "statement": "A level can be told how hard to make its variant, and authors opt in one at a time", "result": "met", "note": "detection by signature; w2-l2-groupby is the first to opt in"},
+    {"id": 3, "statement": "Opting in changes nothing for a level that did not, and nothing at the default for one that did", "result": "met", "note": "asserted for every level and every boss step, not trusted"},
+    {"id": 4, "statement": "Mastery moves after a banked run and provably cannot move after a practice one", "result": "met", "note": "structurally: submit is the only writer and practice never calls it"},
+    {"id": 5, "statement": "A profile written by a newer build survives being opened by this one", "result": "met", "note": "it did not before this session (M47)"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/mastery.py", "kind": "module", "note": "new. Per-tag competency, the confidence threshold and the update rule. Imports nothing"},
+    {"path": "vibecoder/models.py", "kind": "module", "note": "Difficulty, accepts_difficulty, generate_tests; tests_for on Level and BossStep take a difficulty"},
+    {"path": "vibecoder/session.py", "kind": "module", "note": "mastery persisted and updated in submit; unknown top-level keys preserved (M47)"},
+    {"path": "vibecoder/levels/w2_l2_groupby.py", "kind": "level", "note": "first level to opt in to difficulty; midpoint reproduces the old data exactly"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "cmd_play passes the level's tags to submit"},
+    {"path": "vibecoder/__init__.py", "kind": "module", "note": "Difficulty, Mastery and TagMastery exported"},
+    {"path": "tests/test_mastery.py", "kind": "test", "note": "new. The estimate, the observation, and the update rule including both monotonic convergence directions"},
+    {"path": "tests/test_difficulty.py", "kind": "test", "note": "new. The dial, opt-in detection, and the default-did-not-move guarantee"},
+    {"path": "tests/test_session.py", "kind": "test", "note": "mastery persistence, submit moving it, practice provably not, and the newer-build round trip"},
+    {"path": "tests/test_levels.py", "kind": "test", "note": "TestTheContractHoldsAtEveryDifficulty: reference passes, starter fails, harder costs more ops"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "IN FLIGHT; W1-W3 LANDED"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T4 in flight; the two-in-flight fact recorded rather than absorbed"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "mastery.py in the map; why it is a module rather than a dataclass; difficulty as a parameter"},
+    {"path": "docs/SCORING.md", "kind": "doc", "note": "mastery weights are not the scoring axes, and speed is deliberately absent"},
+    {"path": "docs/LEVEL_AUTHORING.md", "kind": "doc", "note": "how to opt in to difficulty, and the three rules that come with it"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Difficulty and Mastery entries"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S027-mastery.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "The default difficulty reproduces pre-difficulty data exactly", "method": "w2-l2-groupby serialised at seeds 1-3 before and after opting in, plus TestTheDefaultDidNotMove over every level and boss step", "result": "byte-identical", "verdict": "verified"},
+    {"claim": "A level that did not opt in cannot be affected by difficulty", "method": "test_a_level_that_did_not_opt_in_ignores_difficulty_entirely", "result": "identical data at 0.0 and 1.0 for every such level", "verdict": "verified"},
+    {"claim": "The reference still solves every variant at every difficulty", "method": "TestTheContractHoldsAtEveryDifficulty, 3 bands x 3 seeds through the sandbox", "result": "green", "verdict": "verified"},
+    {"claim": "The starter still fails at every difficulty", "method": "same class", "result": "green", "verdict": "verified"},
+    {"claim": "A harder variant genuinely costs the reference more work", "method": "test_a_harder_variant_costs_the_reference_more", "result": "ops strictly greater at 1.0 than at 0.0", "verdict": "verified"},
+    {"claim": "Hand-written edge cases survive every difficulty", "method": "test_the_hand_written_edge_cases_are_present_at_every_difficulty", "result": "green", "verdict": "verified"},
+    {"claim": "Exit criterion 2: mastery rises after clears and falls after failures, monotonically", "method": "test_repeated_good_runs_converge_upward_monotonically and its downward twin, 20 runs each", "result": "monotone in both directions, converging past 0.99 and below 0.01", "verdict": "verified"},
+    {"claim": "A single run cannot reach either extreme", "method": "test_a_single_run_cannot_reach_either_extreme", "result": "bounded by alpha; the death-spiral hazard is unreachable in one level", "verdict": "verified"},
+    {"claim": "Exit criterion 5: practice cannot move mastery", "method": "TestPracticeCannotMoveMastery: submit is the only writer, and the writer is inside submit", "result": "green", "verdict": "verified"},
+    {"claim": "Mastery and the Vibe Vector are never blended", "method": "test_mastery_and_the_vibe_vector_are_separate_keys; also separate modules with no import between them", "result": "green", "verdict": "verified"},
+    {"claim": "A profile from a newer build survives a round trip", "method": "TestAProfileFromANewerBuild, 4 cases including repeated round trips", "result": "green; it failed before this session", "verdict": "verified"},
+    {"claim": "The dial moves the variant", "method": "w2-l2-groupby at seed 1 across the band", "result": "228 rows / 14% holes at gentle, 380 / 33% at default, 532 / 45% at hard", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1133 tests OK in 82.371s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1109 tests OK in 65.877s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "The dial produces a good game at either end", "method": "nobody has played a gentle or a hard variant", "result": "unknown", "verdict": "unverified"},
+    {"claim": "alpha = 0.3 and 3 observations are the right numbers", "method": "taken from the trajectory's spec and an argument", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M47",
+      "believed": "That profiles were safe against being opened by an older build. S015 established exactly this problem for the VibeVector -- an old build dropped unknown fields on load and destroyed them on save, silently, on an ordinary `vibecoder status` -- and fixed it with an unknown dict that round-trips verbatim. I assumed the lesson had been applied.",
+      "revealed_by": "Checking before adding a new top-level key, because W1 adds `mastery` to the profile and I wanted to know what an older build would do with it. Session.load reads a fixed list of keys and Session.save writes a fixed payload.",
+      "corrected_to": "The envelope around the vector had the bug the vector had been fixed for. A player alternating between two builds would lose their entire mastery vector on an ordinary command. Session now carries the same unknown dict, merged on save with known keys winning, and four tests cover it including repeated round trips -- once is luck; the failure being guarded is a player using two builds for weeks.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A fix applied to a type does not protect the container it travels in. The vector's unknown dict was written, tested and documented, and the reason it looked complete is that the vector was the only thing that had ever changed shape. The next thing to change shape is where the same bug reappears -- worth asking, whenever a fix is scoped to one class, what else sits on the same path."
+    },
+    {
+      "id": "M48",
+      "believed": "That scaling the missing-data rate as scale(0.15, 0.45) was fine, because at the midpoint it is 0.30000000000000004 and the chance of an rng.random() draw landing in that 4e-17 window is about 1e-14 across every row of every seed.",
+      "revealed_by": "Writing down what 'the default reproduces the old data' is actually for.",
+      "corrected_to": "The baseline exists so that a change to the instrumentation or a generator is visible. A guarantee that holds with probability 1 - 1e-14 is one that fails silently and rarely, which is the worst available failure mode for a regression detector -- a test that flakes once a decade is worse than one that never passed. Scaling a whole-number percentage and dividing, scale(15, 45) / 100, is exactly 0.3, and reads better in the explanation W7 will have to generate.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "'Effectively never' is not the standard a regression detector holds to. When the point of a guarantee is to make change visible, an approximate version of it makes rare change invisible instead."
+    }
+  ],
+  "decisions": [
+    {"id": "D174", "decision": "Mastery lives in its own module that imports nothing", "alternatives": ["A dataclass in models.py", "A section of scoring.py"], "rationale": "fight.py's precedent: a model with rules and constants that need explaining is not a shape, and models.py holds shapes. Importing nothing is what makes the rules testable without a sandbox or a profile on disk.", "reversible": true, "seam": "vibecoder/mastery.py"},
+    {"id": "D175", "decision": "The update rule takes plain numbers, not a ScoreBreakdown", "alternatives": ["Pass the breakdown and read it inside the module"], "rationale": "Keeps the module importless for one line at the call site, the same trade score_fight made in S024. It also stops a boss breakdown being passed by accident and silently meaning the same thing, which is a live question (Q84) rather than a hypothetical.", "reversible": true, "seam": "vibecoder/mastery.py::observation"},
+    {"id": "D176", "decision": "An estimate carries its observation count, and confident gates acting on it", "alternatives": ["A bare float per tag"], "rationale": "0.5 after four runs and 0.5 after none are different facts. Three tags have exactly one level each, so acting on a single run is a real path rather than a hypothetical.", "reversible": true, "seam": "vibecoder/mastery.py::TagMastery"},
+    {"id": "D177", "decision": "Difficulty opt-in is detected by signature, not declared on the Level", "alternatives": ["A difficulty_aware boolean field on Level"], "rationale": "A flag is a second place to keep in sync with the function it describes, and the function's signature is what is actually true.", "reversible": true, "seam": "vibecoder/models.py::accepts_difficulty"},
+    {"id": "D178", "decision": "The default difficulty must reproduce pre-difficulty data byte for byte", "alternatives": ["Let levels shift under the default and re-measure the baseline"], "rationale": "A baseline that gets re-measured whenever it disagrees is not evidence. Re-measuring would also have hidden M48 rather than surfacing it.", "reversible": false, "seam": "tests/test_difficulty.py::TestTheDefaultDidNotMove"},
+    {"id": "D179", "decision": "Mastery updates inside Session.submit and nowhere else", "alternatives": ["Update in cmd_play next to the practice check"], "rationale": "Practice mode already skips submit, so exit criterion 5 becomes a consequence of an existing branch rather than a second rule someone has to remember. Two tests pin submit as the only writer.", "reversible": true, "seam": "vibecoder/session.py::Session.submit"},
+    {"id": "D180", "decision": "Session preserves unknown top-level keys", "alternatives": ["Leave it as it was; add mastery and accept the loss"], "rationale": "M47. Adding a top-level key is what turned a latent bug into a player losing progress by opening the game on an older build.", "reversible": true, "seam": "vibecoder/session.py"}
+  ],
+  "friction": [
+    {"description": "Moving Mastery out of models.py after having written it there, mid-session, including its tests. It was the right place for a shape and the wrong place for a model with rules, and fight.py's precedent had already settled the question -- I just did not consult it until the update rule needed somewhere to live. Cheap now, and it would not have been after three more waypoints landed on it: T4 has eight left and W6, W9 and W11 all touch this module.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 is IN FLIGHT; W1, W2 and W3 are LANDED. Mastery is persisted per tag in mastery.py (which imports nothing), difficulty is a parameter level authors opt in to with the default provably unchanged, and the update rule runs on every banked run and cannot run on a practice one. Exit criteria 2 and 5 are verified; 1 is half-done -- variants differ by difficulty, but nothing yet chooses a difficulty from a profile. 1133 tests green unpinned, 1109 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W4, the selection policy targeting a 70-80% success band. It is the first waypoint here whose design is genuinely open, and it is what turns W1-W3 from plumbing into adaptation. Exit criterion 3 wants a simulated 50-level run inside 60-90%, so the simulated players from the instrument checks are probably the first thing to build.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "Q84 becomes live at W4: a boss carries tags and banks nothing, so whether a fight feeds mastery is a decision rather than a detail, and it is the user's",
+      "D178 before touching any level generator: the default difficulty must not move",
+      "M47 before adding a field to any persisted structure"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value, as the wrong-answer path now does?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction? A boss carries tags and banks nothing, so whether a fight feeds mastery is now a decision that has to be made.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q87", "question": "A level's tags all receive the same observation. A level tagged ('data', 'algorithms') cannot say which of the two the player actually got right, so mastery is about content met rather than an isolated skill. W7's explanation must not imply a precision the model lacks. Should tags be weighted, or the claim narrowed?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q88", "question": "Three tags have exactly one level each (recursion, regex, numeric), so they can never reach the confidence threshold from ordinary play. W5's drill injection is the intended answer, but until then those tags are permanently unusable for selection. Is that acceptable, or does the content need rebalancing?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1133,
+    "tests_passing": 1133,
+    "tests_added": 81,
+    "suite_seconds_unpinned": 82.371,
+    "suite_tests_pinned_bwrap": 1109,
+    "suite_seconds_pinned_bwrap": 65.877,
+    "reference_runs_clean": 54,
+    "mastery_alpha": 0.3,
+    "mastery_min_observations": 3,
+    "mastery_accuracy_weight": 0.5,
+    "mastery_functional_weight": 0.3,
+    "mastery_first_try_weight": 0.2,
+    "distinct_tags": 14,
+    "tags_with_only_one_level": 3,
+    "groupby_rows_gentle": 228,
+    "groupby_rows_default": 380,
+    "groupby_rows_hard": 532,
+    "groupby_missing_share_gentle": 0.14,
+    "groupby_missing_share_hard": 0.45,
+    "t4_waypoints_landed": 3,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 2,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 27,
+    "dependencies": 0
+  }
+}

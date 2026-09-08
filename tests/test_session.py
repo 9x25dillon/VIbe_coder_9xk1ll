@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from vibecoder.mastery import TagMastery
 from vibecoder.models import ScoreBreakdown, VibeVector
 from vibecoder.session import Session
 
@@ -146,6 +147,188 @@ class TestRunArtifacts(SessionTestBase):
     def test_a_missing_run_raises(self):
         with self.assertRaises(FileNotFoundError):
             self.session().load_run("nope")
+
+
+class TestMasteryIsPersisted(SessionTestBase):
+    """T4 W1. Mastery lives beside the Vibe Vector, never merged into it."""
+
+    def test_a_fresh_profile_has_an_empty_mastery_model(self):
+        self.assertEqual(len(self.session().mastery), 0)
+
+    def test_mastery_survives_a_save_and_load(self):
+        session = self.session()
+        session.mastery.tags["recursion"] = TagMastery(
+            value=0.2, observations=4, updated_at="2026-09-08T00:00:00+00:00"
+        )
+        session.save()
+
+        again = Session.load(self.path)
+        self.assertEqual(again.mastery.value("recursion"), 0.2)
+        self.assertEqual(again.mastery["recursion"].observations, 4)
+        self.assertTrue(again.mastery.confident("recursion"))
+
+    def test_mastery_and_the_vibe_vector_are_separate_keys(self):
+        """T4 exit criterion 8 forbids blending habits with mastery. Two keys
+        are harder to average by accident than two entries in one dict."""
+        session = self.session()
+        session.vibe = VibeVector(files=3)
+        session.mastery.tags["loops"] = TagMastery(value=0.8, observations=3)
+        session.save()
+
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self.assertIn("mastery", raw)
+        self.assertIn("vibe", raw)
+        self.assertNotIn("mastery", raw["vibe"])
+
+    def test_a_profile_written_before_mastery_existed_still_loads(self):
+        self.path.write_text(json.dumps({"version": 1, "levels": {}}), encoding="utf-8")
+        self.assertEqual(len(Session.load(self.path).mastery), 0)
+
+
+class TestAProfileFromANewerBuild(SessionTestBase):
+    """The envelope's forward compatibility, which `VibeVector` has had since
+    S015 and `Session` did not (M47).
+
+    An old build loading a new profile dropped every top-level key it had
+    never heard of, then re-saved without them -- silently, on an ordinary
+    `vibecoder status`. Adding `mastery` is what turned that from theoretical
+    into a player losing their progress by opening the game.
+    """
+
+    def test_an_unknown_top_level_key_survives_a_round_trip(self):
+        self.path.write_text(json.dumps({
+            "version": 1, "levels": {}, "abilities": {"refill": 2},
+        }), encoding="utf-8")
+
+        Session.load(self.path).save()
+
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["abilities"], {"refill": 2})
+
+    def test_an_unknown_key_survives_repeated_round_trips(self):
+        """Once is luck; the failure being guarded is a player using two
+        builds alternately for weeks."""
+        self.path.write_text(json.dumps({
+            "version": 1, "levels": {}, "abilities": {"refill": 2},
+        }), encoding="utf-8")
+        for _ in range(4):
+            Session.load(self.path).save()
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["abilities"], {"refill": 2})
+
+    def test_a_known_key_is_never_overridden_by_a_preserved_one(self):
+        """`unknown` is what could not be interpreted, not an override. If a
+        future key ever collides with one this build owns, this build wins."""
+        session = self.session()
+        session.unknown = {"total_score": 999.0, "genuinely_new": 1}
+        session.total_score = 12.0
+        session.save()
+
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["total_score"], 12.0)
+        self.assertEqual(raw["genuinely_new"], 1)
+
+    def test_preserved_keys_do_not_leak_into_mastery_or_levels(self):
+        self.path.write_text(json.dumps({
+            "version": 1, "levels": {}, "abilities": {"refill": 2},
+        }), encoding="utf-8")
+        session = Session.load(self.path)
+        self.assertEqual(len(session.mastery), 0)
+        self.assertEqual(session.levels, {})
+        self.assertEqual(session.unknown, {"abilities": {"refill": 2}})
+
+
+class TestSubmitMovesMastery(SessionTestBase):
+    """T4 W3. Mastery is updated where a run is banked, and nowhere else."""
+
+    def good(self):
+        return ScoreBreakdown(
+            accuracy=100.0, speed=100.0, functional=100.0,
+            subtotal=100.0, total=100.0, stars=3, bonuses={"first_try": 0.1},
+        )
+
+    def bad(self):
+        return ScoreBreakdown(
+            accuracy=20.0, speed=0.0, functional=10.0,
+            subtotal=15.0, total=15.0, stars=0, bonuses={},
+        )
+
+    def test_a_banked_clear_raises_every_tag_the_level_carries(self):
+        session = self.session()
+        session.submit("w2-l2-groupby", self.good(), seed=1,
+                       tags=("data", "tabular"))
+        self.assertGreater(session.mastery.value("data"), 0.5)
+        self.assertGreater(session.mastery.value("tabular"), 0.5)
+
+    def test_a_banked_failure_lowers_it(self):
+        session = self.session()
+        session.submit("x", self.bad(), seed=1, tags=("data",))
+        self.assertLess(session.mastery.value("data"), 0.5)
+
+    def test_submitting_without_tags_moves_nothing(self):
+        session = self.session()
+        session.submit("x", self.good(), seed=1)
+        self.assertEqual(len(session.mastery), 0)
+
+    def test_the_outcome_reports_what_moved(self):
+        session = self.session()
+        outcome = session.submit("x", self.good(), seed=1, tags=("data",))
+        self.assertIn("mastery_moved", outcome)
+        self.assertIn("data", outcome["mastery_moved"])
+
+    def test_the_update_is_stamped_with_a_time(self):
+        session = self.session()
+        session.submit("x", self.good(), seed=1, tags=("data",))
+        self.assertTrue(session.mastery["data"].updated_at)
+
+    def test_mastery_survives_being_saved_after_a_submit(self):
+        session = self.session()
+        session.submit("x", self.good(), seed=1, tags=("data",))
+        session.save()
+        self.assertGreater(Session.load(self.path).mastery.value("data"), 0.5)
+
+
+class TestPracticeCannotMoveMastery(SessionTestBase):
+    """T4 exit criterion 5, enforced structurally rather than by a flag.
+
+    `cmd_play` skips `submit` entirely when there is no honest solve time --
+    the same decision that drops the Speed axis (M1 in S001). Mastery is
+    updated inside `submit`, so "practice does not move mastery" is a
+    consequence of that one branch rather than a second rule somebody has to
+    remember. These tests pin the property the branch relies on.
+    """
+
+    def test_nothing_but_submit_writes_mastery(self):
+        """If another method learns to move mastery, criterion 5 stops being
+        structural and this test is where that gets noticed."""
+        import inspect
+
+        from vibecoder import session as session_module
+
+        source = inspect.getsource(session_module.Session)
+        writers = [
+            line.strip() for line in source.splitlines()
+            if "self.mastery.observe" in line
+        ]
+        self.assertEqual(len(writers), 1, writers)
+
+    def test_the_only_writer_is_inside_submit(self):
+        import inspect
+
+        from vibecoder import session as session_module
+
+        self.assertIn(
+            "self.mastery.observe",
+            inspect.getsource(session_module.Session.submit),
+        )
+
+    def test_a_session_that_never_submits_has_untouched_mastery(self):
+        session = self.session()
+        session.record("x")
+        session.next_seed("x")
+        session.recompute_total()
+        session.save()
+        self.assertEqual(len(Session.load(self.path).mastery), 0)
 
 
 if __name__ == "__main__":

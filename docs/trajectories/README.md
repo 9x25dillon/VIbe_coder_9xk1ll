@@ -32,7 +32,7 @@ Each trajectory document has the same five sections.
 | [T1](T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | Phase 0 | `LANDED` | 2026-08-08 |
 | [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
 | [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `LANDED` | 2026-09-20 |
-| [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
+| [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `IN FLIGHT` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
 | [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `LANDED` | — |
@@ -192,10 +192,23 @@ was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.
 
-**One** trajectory now holds `IN FLIGHT`, which is what the status vocabulary
-above says should be true. It was three on the morning of 2026-09-08; T3 landed
-that day and T7 followed. The remaining one is **T2**, and it is late and
+**Two** trajectories hold `IN FLIGHT`. It was three on the morning of
+2026-09-08, then one by that evening — T3 landed and T7 followed — and then
+two again when **T4 started the same day**. The other is **T2**, late and
 blocked on W4's registered OAuth application rather than being worked.
+
+Recorded rather than absorbed, per the rule: a second trajectory starting
+means the first slipped, and T2 has. The honest reading is that T2 is not
+in flight in any sense that involves flying — it is one externally blocked
+waypoint from landing, and has been since 2026-09-03. **T4 is the one being
+worked.**
+
+**T4 waypoint state:** W1, W2 and W3 `LANDED`
+([S027](../../journal/2026-09-08-S027-mastery.md)). Mastery is persisted per
+tag, difficulty is a parameter level authors opt in to, and the update rule
+runs on every banked run. W4 — the selection policy targeting a 70–80%
+success band — is next and is the first waypoint whose design is genuinely
+open.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

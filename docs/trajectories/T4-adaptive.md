@@ -1,6 +1,7 @@
 # T4 — Adaptive difficulty
 
-**Design phase:** 3 · **Status:** `PLOTTED` · **Target:** 2026-10-04 ·
+**Design phase:** 3 · **Status:** `IN FLIGHT` · **Target:** 2026-10-04 ·
+**Started:** 2026-09-08 ·
 **Depends on:** T1 (score history), T3 (boss telemetry)
 
 ## Heading
@@ -83,9 +84,9 @@ this waited for W6 rather than being started when it was first raised.
 
 | ID | Waypoint | Notes |
 | --- | --- | --- |
-| W1 | Persist a per-tag mastery vector in the session profile | Alongside the Vibe Vector, not merged with it — one is measured, one is declared. |
-| W2 | Difficulty parameters on `make_tests(rng, difficulty)` | Level authors opt in; the signature stays backwards-compatible. |
-| W3 | Update rule above, applied after every ranked run | Practice runs must not move mastery. |
+| W1 | Persist a per-tag mastery vector in the session profile | `LANDED` (S027). Alongside the Vibe Vector, not merged with it — one is measured, one is declared. Lives in [`mastery.py`](../../vibecoder/mastery.py), which imports nothing. |
+| W2 | Difficulty parameters on `make_tests(rng, difficulty)` | `LANDED` (S027). Authors opt in one at a time; detection is by signature. **The default reproduces pre-difficulty data byte for byte**, which is what keeps `data/baselines/` evidence. `w2-l2-groupby` is the first to opt in. |
+| W3 | Update rule above, applied after every ranked run | `LANDED` (S027). Applied inside `Session.submit`, which practice mode never calls — so criterion 5 holds structurally rather than by a flag. |
 | W4 | Selection policy targeting the ~70–80% success band | Too easy is boring, too hard drives quits. |
 | W5 | Drill injection: repeated short exercises on the weakest tag | The design's "struggle with recursion → extra recursive drills". |
 | W6 | Time decay on mastery | Re-assess returning players. |

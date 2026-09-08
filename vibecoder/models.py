@@ -7,8 +7,10 @@ statically, which is what makes replaying a level with a new variant cheap.
 
 from __future__ import annotations
 
+import inspect
 import random
 from dataclasses import dataclass, field, asdict
+from functools import lru_cache
 from enum import Enum
 from typing import Any, Callable, Sequence
 
@@ -127,8 +129,10 @@ class Level:
     #: list in docs/trajectories/T5-community.md.
     source: "Source" = Source.BUNDLED
 
-    def tests_for(self, seed: int) -> list[TestCase]:
-        return list(self.make_tests(random.Random(seed)))
+    def tests_for(self, seed: int,
+                  difficulty: "Difficulty | None" = None) -> list[TestCase]:
+        """The variant for ``seed``, at ``difficulty`` if the level opted in."""
+        return generate_tests(self.make_tests, seed, difficulty)
 
     def hints_after(self, failed_attempts: int) -> list[str]:
         """Hints earned by ``failed_attempts`` unsuccessful runs.
@@ -247,8 +251,10 @@ class BossStep:
     #: passes.
     uses: tuple[str, ...] = ()
 
-    def tests_for(self, seed: int) -> list[TestCase]:
-        return list(self.make_tests(random.Random(seed)))
+    def tests_for(self, seed: int,
+                  difficulty: "Difficulty | None" = None) -> list[TestCase]:
+        """The variant for ``seed``, at ``difficulty`` if the step opted in."""
+        return generate_tests(self.make_tests, seed, difficulty)
 
 
 @dataclass
@@ -333,6 +339,108 @@ class BossLevel:
         return "\n\n\n".join(
             step.reference.strip("\n") for step in self.steps[: last + 1]
         ) + "\n"
+
+
+# --------------------------------------------------------------------------
+# Variant difficulty (T4 W2)
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Difficulty:
+    """How hard a variant should be, on one normalised dial.
+
+    Difficulty selects **variant parameters, never a different problem**. The
+    level a player is given is the level they asked for; what moves is the
+    input size, the edge-case density, and how much an inefficient solution
+    costs. That is the whole reason T1 built variants as seeded generators
+    rather than as fixed fixtures.
+
+    ``level`` runs 0 (gentlest the author is willing to generate) to 1
+    (hardest). **0.5 is the default and it means "what this level did before
+    difficulty existed"** -- an author who opts in must arrange that, because
+    every recorded op-count baseline was measured there and a level that
+    quietly shifted under the default would make the baseline stop being
+    evidence.
+    """
+
+    level: float = 0.5
+
+    def __post_init__(self) -> None:
+        # Clamped rather than validated: this is derived from a mastery
+        # estimate that a player can hand-edit, and a level generator asked
+        # for a negative row count is a crash rather than an easy variant.
+        object.__setattr__(self, "level", max(0.0, min(1.0, float(self.level))))
+
+    def scale(self, gentlest: float, hardest: float) -> float:
+        """Interpolate between the author's two ends.
+
+        Here rather than in each level so that "0.3 difficulty" means the same
+        thing everywhere. Authors pick the ends, which is the part only they
+        know; the curve between them is not a per-level decision.
+
+        Integer ends give an integer back, because the overwhelmingly common
+        use is a row count and ``rng.random`` calls per row must not depend on
+        a float that rounds differently on another machine.
+        """
+        value = gentlest + (hardest - gentlest) * self.level
+        if isinstance(gentlest, int) and isinstance(hardest, int):
+            return int(round(value))
+        return value
+
+    @property
+    def band(self) -> str:
+        """A word for the dial, for explanations (T4 W7).
+
+        Three bands rather than a number, because "you are on 0.62" explains
+        nothing and "harder than usual" explains the decision.
+        """
+        if self.level < 0.34:
+            return "gentle"
+        if self.level < 0.67:
+            return "standard"
+        return "hard"
+
+
+DEFAULT_DIFFICULTY = Difficulty()
+
+
+@lru_cache(maxsize=None)
+def accepts_difficulty(generator: Callable) -> bool:
+    """Whether a level's ``make_tests`` opted in to a difficulty parameter.
+
+    Level authors opt in one at a time and the old one-argument signature
+    keeps working, so this is inspected rather than declared -- a flag on the
+    `Level` would be a second place to keep in sync with the function it
+    describes, and the function is the thing that is actually true.
+    """
+    try:
+        parameters = inspect.signature(generator).parameters
+    except (TypeError, ValueError):  # builtins, C callables
+        return False
+    positional = [
+        parameter for parameter in parameters.values()
+        if parameter.kind in (parameter.POSITIONAL_ONLY,
+                              parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    if any(p.kind is p.VAR_POSITIONAL for p in parameters.values()):
+        return True
+    return len(positional) >= 2
+
+
+def generate_tests(
+    generator: Callable,
+    seed: int,
+    difficulty: "Difficulty | None" = None,
+) -> list["TestCase"]:
+    """Run a level's generator at ``seed``, passing difficulty if it wants it.
+
+    A generator that never opted in is called exactly as it always was, so its
+    output is bit-identical and every recorded baseline still reproduces.
+    """
+    rng = random.Random(seed)
+    if not accepts_difficulty(generator):
+        return list(generator(rng))
+    return list(generator(rng, difficulty or DEFAULT_DIFFICULTY))
 
 
 # --------------------------------------------------------------------------

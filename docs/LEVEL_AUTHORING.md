@@ -154,6 +154,43 @@ only playing it tells you whether it is any good.
 
 ---
 
+## Opting in to difficulty (T4 W2)
+
+A level's generator may take a second parameter and get told how hard the
+variant should be:
+
+```python
+def make_tests(rng: random.Random, difficulty: Difficulty) -> list[TestCase]:
+    rows = _rows(rng, difficulty.scale(12, 28))
+    ...
+```
+
+`difficulty.scale(gentlest, hardest)` interpolates between the two ends you
+choose. Integer ends give an integer back, which is what you want for a row
+count — a float would round differently elsewhere and desynchronise the
+variant.
+
+Three rules, and the first is not negotiable:
+
+- **The midpoint must reproduce what the level did before you opted in.**
+  `Difficulty()` is 0.5, every op-count baseline was measured there, and a
+  level that shifted under the default would make `data/baselines/` stop being
+  evidence. Pick ends that straddle your old constants — `scale(12, 28)` is 20
+  at the midpoint. Scale a *percentage* as an integer if you need an exact
+  fraction: `scale(15, 45) / 100` is exactly `0.3`, while `scale(0.15, 0.45)`
+  is `0.30000000000000004`.
+- **The hand-written edge cases stay at every difficulty.** Difficulty tunes
+  the generated variants; it must not be able to remove the empty list, the
+  boundary value or the `None`, because those are the level's actual contract.
+- **The reference must still pass and the starter must still fail at every
+  difficulty.** `tests/test_levels.py::TestTheContractHoldsAtEveryDifficulty`
+  checks both, plus that a harder variant genuinely costs the reference more
+  ops — a dial that does not move what the Functional axis measures is only
+  changing how the level looks.
+
+Not opting in is fine and is what most levels do. A one-argument generator is
+called exactly as it always was.
+
 ## Boss fights (T3 W1)
 
 A boss is **n linked functions**, not one big one. A module exposing a

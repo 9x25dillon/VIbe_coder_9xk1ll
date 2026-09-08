@@ -1,19 +1,40 @@
-"""World 2, Level 2 - grouping, and the missing-data edge case that trips people."""
+"""World 2, Level 2 - grouping, and the missing-data edge case that trips people.
+
+The first level to opt in to T4 W2's difficulty parameter, and the one the
+trajectory names as the example: gentler variants generate fewer rows with
+fewer holes in them, harder ones generate more of both.
+
+**At the default difficulty this level generates exactly what it generated
+before the parameter existed.** That is a requirement rather than a nicety --
+every recorded op-count baseline was measured there, and a level that shifted
+under the default would quietly turn `data/baselines/` from evidence into
+decoration. The ends are chosen so the midpoint lands on the old constants,
+and the density is scaled as an integer percentage so the midpoint is exact
+rather than 0.30000000000000004.
+"""
 
 from __future__ import annotations
 
 import random
 
-from ..models import Level, TestCase
+from ..models import Difficulty, Level, TestCase
 
 REGIONS = ["north", "south", "east", "west"]
 
 
-def _rows(rng: random.Random, count: int, *, missing: bool = False) -> list[dict]:
+def _rows(rng: random.Random, count: int, *, missing: bool = False,
+          rate: float = 0.3) -> list[dict]:
+    """``count`` rows, ``rate`` of them missing an amount when ``missing``.
+
+    One ``rng.random()`` per row whether or not it is used, so the draw
+    sequence depends on the row count alone. Making the call conditional would
+    make two variants with the same size but different densities diverge in
+    every row after the first hole, for no reason a player could see.
+    """
     rows = []
     for _ in range(count):
         row = {"region": rng.choice(REGIONS), "amount": rng.randint(1, 500)}
-        if missing and rng.random() < 0.3:
+        if missing and rng.random() < rate:
             row["amount"] = None
         rows.append(row)
     return rows
@@ -28,7 +49,7 @@ def _expected(rows: list[dict]) -> dict:
     return dict(sorted(totals.items()))
 
 
-def make_tests(rng: random.Random) -> list[TestCase]:
+def make_tests(rng: random.Random, difficulty: Difficulty) -> list[TestCase]:
     cases = [
         TestCase("empty", [[]], expected={}),
         TestCase(
@@ -43,8 +64,19 @@ def make_tests(rng: random.Random) -> list[TestCase]:
             expected={},
         ),
     ]
-    for size, missing in ((20, False), (60, True), (300, True)):
-        rows = _rows(rng, size, missing=missing)
+    # Scaled as whole percent so the midpoint is exactly 0.3, which is what
+    # this level used before it opted in.
+    rate = difficulty.scale(15, 45) / 100
+    sizes = (
+        (difficulty.scale(12, 28), False),
+        (difficulty.scale(36, 84), True),
+        # The big one is what separates a dict accumulation from a repeated
+        # scan, so it grows fastest: an easy variant should still be solvable
+        # badly, a hard one should not.
+        (difficulty.scale(180, 420), True),
+    )
+    for size, missing in sizes:
+        rows = _rows(rng, size, missing=missing, rate=rate)
         label = f"random_{size}{'_sparse' if missing else ''}"
         cases.append(TestCase(label, [rows], expected=_expected(rows)))
     return cases

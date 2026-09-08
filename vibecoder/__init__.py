@@ -9,7 +9,16 @@ deliberately dependency-free so the game runs anywhere a Python 3.10+
 interpreter does.
 """
 
-from .models import Level, RunResult, ScoreBreakdown, TestCase, TestOutcome, VibeVector
+from .mastery import Mastery, TagMastery
+from .models import (
+    Difficulty,
+    Level,
+    RunResult,
+    ScoreBreakdown,
+    TestCase,
+    TestOutcome,
+    VibeVector,
+)
 from .profiler import profile_path, recommend
 from .runner import (
     boss_step_benchmark,
@@ -35,10 +44,13 @@ from .levels import all_levels, get_level, worlds
 __version__ = "0.1.0"
 
 __all__ = [
+    "Difficulty",
     "Level",
+    "Mastery",
     "RunResult",
     "ScoreBreakdown",
     "StepScore",
+    "TagMastery",
     "TestCase",
     "TestOutcome",
     "VibeVector",
