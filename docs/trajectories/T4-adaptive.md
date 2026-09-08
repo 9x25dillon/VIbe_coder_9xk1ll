@@ -87,7 +87,7 @@ this waited for W6 rather than being started when it was first raised.
 | W1 | Persist a per-tag mastery vector in the session profile | `LANDED` (S027). Alongside the Vibe Vector, not merged with it — one is measured, one is declared. Lives in [`mastery.py`](../../vibecoder/mastery.py), which imports nothing. |
 | W2 | Difficulty parameters on `make_tests(rng, difficulty)` | `LANDED` (S027). Authors opt in one at a time; detection is by signature. **The default reproduces pre-difficulty data byte for byte**, which is what keeps `data/baselines/` evidence. `w2-l2-groupby` is the first to opt in. |
 | W3 | Update rule above, applied after every ranked run | `LANDED` (S027). Applied inside `Session.submit`, which practice mode never calls — so criterion 5 holds structurally rather than by a flag. |
-| W4 | Selection policy targeting the ~70–80% success band | Too easy is boring, too hard drives quits. |
+| W4 | Selection policy targeting the ~70–80% success band | `LANDED` (S028). Measured at **72%** for an improving player and **71%** for a plateaued one, pooled over 20 simulated 50-level runs. Two of the four simulated players **cannot** be held in the band by any policy built on W2's dial — see below. |
 | W5 | Drill injection: repeated short exercises on the weakest tag | The design's "struggle with recursion → extra recursive drills". |
 | W6 | Time decay on mastery | Re-assess returning players. |
 | W7 | Explanation surface: `vibecoder status --why` | The player can see why they were given a level. Non-negotiable. |
@@ -95,6 +95,44 @@ this waited for W6 rather than being started when it was first raised.
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
 | W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
 | W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
+
+## What W4 measured, and what it could not
+
+Exit criterion 3 asks that a simulated 50-level run stay inside 60–90%, and
+the instrument check asks for that band to hold for all four named players.
+Measured over 20 seeds × 50 runs each:
+
+| Simulated player | Success | In band |
+| --- | --- | --- |
+| Improving | 72% | ✅ 40/40 seeds |
+| Plateaued | 71% | ✅ 38/40 seeds |
+| Always-correct | **100%** | ❌ 0/40 |
+| Always-naive | **100%** | ❌ 0/40 |
+
+**The last two cannot be fixed by any selection policy**, and the reason is
+structural rather than a tuning failure. W2's difficulty scales *how much work
+an input demands*, not whether the answer is right — that is the design, and
+it is why a level's hand-written edge cases survive every difficulty. A player
+who always writes a correct solution therefore always clears, at every
+difficulty, and no dial reaches them. "Always-naive" in this codebase means
+O(n²) and **right** (M1 in [S001](../../journal/2026-08-08-S001-core-loop.md),
+where a naive solution scored 95.8), so it lands in the same place.
+
+The policy is not idle for them. A low Functional score drags the naive
+player's mastery down and they settle at a gentler variant (0.61) than the ace
+(0.90) — but being correct first time weighs 0.7 of the observation, so
+mastery cannot fall below that floor however inefficient the code is.
+
+Criterion 3 stands as written; N7 forbids re-cutting it to match what was
+built. **Q89** carries the finding: either "success" means something other
+than "cleared" for a scored game, or the criterion needs a player who can
+actually fail.
+
+The other measured surprise: **`STRETCH`, the policy's offset, barely moves
+the band** — 70% with no offset at all, 74% at three times the shipped value.
+The loop is self-correcting, so the equilibrium is set by the *observation
+weights* in [`mastery.py`](../../vibecoder/mastery.py), not by the policy's
+dial. Anyone trying to move the band should turn those.
 
 ## Exit criteria
 

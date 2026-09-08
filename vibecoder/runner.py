@@ -24,7 +24,15 @@ from typing import Callable, Sequence
 
 from . import sandbox
 from .timeline import Divergence, Timeline, compare
-from .models import BossLevel, Level, RunResult, Source, TestCase, TestOutcome
+from .models import (
+    BossLevel,
+    Difficulty,
+    Level,
+    RunResult,
+    Source,
+    TestCase,
+    TestOutcome,
+)
 
 HARNESS = Path(__file__).with_name("_harness.py")
 
@@ -279,22 +287,28 @@ def run_submission(
     )
 
 
-_REFERENCE_BENCHMARKS: dict[tuple[str, int], tuple[int, int]] = {}
+_REFERENCE_BENCHMARKS: dict[tuple[str, int, float], tuple[int, int]] = {}
 
 
-def reference_benchmark(level: Level, seed: int) -> tuple[int, int]:
+def reference_benchmark(
+    level: Level, seed: int, difficulty: "Difficulty | None" = None
+) -> tuple[int, int]:
     """Return ``(ops, peak_bytes)`` for the level's reference solution.
 
     The reference is benchmarked against the *same* generated test data the
     player faces, because a variant with 10x the input rows would otherwise be
-    compared against a benchmark from a much smaller run. Results are cached
-    per (level, seed) since the reference never changes within a variant.
+    compared against a benchmark from a much smaller run.
+
+    Since T4 W2 that "same" includes the **difficulty**, and the cache key with
+    it. Benchmarking the reference at the default while the player runs a hard
+    variant would divide their ops by a denominator from a smaller input, and
+    the Functional axis would punish them for a size the game chose.
     """
-    key = (level.id, seed)
+    key = (level.id, seed, difficulty.level if difficulty else -1.0)
     if key in _REFERENCE_BENCHMARKS:
         return _REFERENCE_BENCHMARKS[key]
 
-    tests = level.tests_for(seed)
+    tests = level.tests_for(seed, difficulty)
     # The reference solution is the *level author's* code. For everything in
     # this repository that is BUNDLED and takes the fast path; for a community
     # level it is a stranger's Python, and this is the call site that would

@@ -203,12 +203,21 @@ in flight in any sense that involves flying — it is one externally blocked
 waypoint from landing, and has been since 2026-09-03. **T4 is the one being
 worked.**
 
-**T4 waypoint state:** W1, W2 and W3 `LANDED`
-([S027](../../journal/2026-09-08-S027-mastery.md)). Mastery is persisted per
-tag, difficulty is a parameter level authors opt in to, and the update rule
-runs on every banked run. W4 — the selection policy targeting a 70–80%
-success band — is next and is the first waypoint whose design is genuinely
-open.
+**T4 waypoint state:** W1–W4 `LANDED`
+([S027](../../journal/2026-09-08-S027-mastery.md),
+[S028](../../journal/2026-09-08-S028-selection-policy.md)). Mastery is
+persisted per tag, difficulty is a parameter level authors opt in to, the
+update rule runs on every banked run, and the selection policy holds an
+improving player at 72% success and a plateaued one at 71% across simulated
+50-level runs. Exit criteria **1, 2, 4 and 5 are verified**.
+
+**Criterion 3 is verified for two of the four simulated players and cannot be
+met for the other two.** W2's difficulty scales how much work an input
+demands rather than whether the answer is right, so a player who always writes
+a correct solution always clears — at every difficulty, by construction. That
+is a finding against the criterion rather than a gap in the policy, it is
+recorded as Q89, and the criterion has not been re-cut to match (N7). W5 is
+next.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

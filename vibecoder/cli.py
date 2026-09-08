@@ -50,6 +50,7 @@ from .runner import (
     run_code,
     run_submission,
 )
+from .policy import choose_difficulty
 from .scoring import (
     BOSS_WEIGHTS,
     LEVEL_WEIGHTS,
@@ -533,7 +534,10 @@ def cmd_play(args: argparse.Namespace) -> int:
     level = _load_level(args.level_id)
     session = Session.load()
     seed = args.seed if args.seed is not None else session.next_seed(level.id)
-    tests = level.tests_for(seed)
+    # T4 W4: how hard this variant is, and why. The decision carries its own
+    # reason so the two cannot drift apart -- see `policy.Decision`.
+    decision = choose_difficulty(level.tags, session.mastery, session.vibe)
+    tests = level.tests_for(seed, decision.difficulty)
 
     print()
     print(UI.rule(f"WORLD {level.world}  {level.world_title}", width=76))
@@ -547,7 +551,14 @@ def cmd_play(args: argparse.Namespace) -> int:
     if level.style_goals:
         goals = "; ".join(style.DESCRIPTIONS[g] for g in level.style_goals)
         print(f"\n  {UI.badge('STYLE GOAL +5%', GOLD)} {UI.paint(goals, WARN)}")
-    print(f"\n  {UI.paint(f'par time: {level.par_seconds / 60:.0f} min', FAINT)}\n")
+    print(f"\n  {UI.paint(f'par time: {level.par_seconds / 60:.0f} min', FAINT)}")
+    # The fourth hazard: unexplainable adaptation feels broken rather than
+    # smart. The full surface is W7; this is the one line that stops a
+    # changed variant being a mystery at the moment it is handed over.
+    if decision.source != "default":
+        print(f"  {UI.badge(decision.difficulty.band.upper(), VIOLET)} "
+              + UI.paint(decision.reason, MUTED))
+    print()
 
     workspace = Path(args.solution) if args.solution else None
     if workspace is None:
@@ -559,7 +570,9 @@ def cmd_play(args: argparse.Namespace) -> int:
         workspace = Path(handle.name)
         print(f"  {UI.paint(f'editing {workspace}', FAINT)}\n")
 
-    ref_ops, ref_peak = reference_benchmark(level, seed)
+    # The same variant the player is running, or the Functional axis would
+    # divide their ops by a denominator measured on a smaller input.
+    ref_ops, ref_peak = reference_benchmark(level, seed, decision.difficulty)
 
     started = time.perf_counter()
     attempt = 0
@@ -631,6 +644,9 @@ def cmd_play(args: argparse.Namespace) -> int:
         {
             "level_id": level.id,
             "seed": seed,
+            "difficulty": decision.difficulty.level,
+            "difficulty_source": decision.source,
+            "difficulty_reason": decision.reason,
             "attempt": attempt,
             "practice": practice,
             "code": code,

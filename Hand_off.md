@@ -36,7 +36,7 @@ in no listing**, so the only way to reach one was to already know its id.
 | | |
 | --- | --- |
 | Branch | `main`, clean, pushed |
-| Gates | 1133 tests unpinned · 1109 pinned to bwrap · `verify` 54/54 · 0 escapes in a pipe |
+| Gates | 1165 tests unpinned · 1141 pinned to bwrap · `verify` 54/54 · 0 escapes in a pipe |
 | Blocked | T2 W4 only, on a registered OAuth application |
 
 **One** trajectory holds `IN FLIGHT`, which is what the rule says: T2, late

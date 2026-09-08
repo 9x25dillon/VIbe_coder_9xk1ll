@@ -1,0 +1,469 @@
+{
+  "id": "S028",
+  "date": "2026-09-08",
+  "duration_minutes": 75,
+  "trajectory": "T4",
+  "competency_band": "Evaluate",
+  "journal": "journal/2026-09-08-S028-selection-policy.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "A player's profile chooses how hard their next variant is",
+      "result": "met",
+      "note": "mastery when there is evidence, a bounded habits prior when there is not"
+    },
+    {
+      "id": 2,
+      "statement": "Every choice comes with the sentence that explains it, produced together",
+      "result": "met",
+      "note": "criterion 4's 'no hidden state' means one code path, not two that can disagree"
+    },
+    {
+      "id": 3,
+      "statement": "The 70-80% success band is measured, not asserted",
+      "result": "met",
+      "note": "72% improving, 71% plateaued, pooled over 20 seeds x 50 runs"
+    },
+    {
+      "id": 4,
+      "statement": "The band is measured for all four simulated players the instrument check names",
+      "result": "partial",
+      "note": "two of four cannot be held inside it by any policy built on W2's dial (M50, Q89)"
+    },
+    {
+      "id": 5,
+      "statement": "The loop closes at the front door, not only in the simulation",
+      "result": "met",
+      "note": "five real play runs from an empty VIBECODER_HOME"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/policy.py",
+      "kind": "module",
+      "note": "new. Turns a profile into a Decision: difficulty, source, reason and the numbers behind it"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "reference_benchmark takes a difficulty and keys the cache on it"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "cmd_play chooses a difficulty, uses it for tests and the benchmark, prints the reason, records it in the run artifact"
+    },
+    {
+      "path": "tests/test_policy.py",
+      "kind": "test",
+      "note": "new. The decision, the dial, four simulated players, the band, and what the band cannot hold"
+    },
+    {
+      "path": "docs/trajectories/T4-adaptive.md",
+      "kind": "doc",
+      "note": "W4 LANDED; what W4 measured and what it could not"
+    },
+    {
+      "path": "docs/trajectories/README.md",
+      "kind": "doc",
+      "note": "T4 W1-W4; criteria 1, 2, 4, 5 verified and 3 partially unmeetable"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "kind": "doc",
+      "note": "policy.py in the map; why the reason is produced with the decision"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": "test count"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "doc",
+      "note": "test count"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc",
+      "note": "gate counts"
+    },
+    {
+      "path": "journal/2026-09-08-S028-selection-policy.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Criterion 1: opposite profiles get measurably different variants on the same level id",
+      "method": "TestTwoPlayersGetDifferentVariants, counting rows out of tests_for rather than the number the policy chose",
+      "result": "a gap of more than 100 rows between a 0.15 and a 0.95 profile",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Criterion 3 for an improving player",
+      "method": "20 seeds x 50 simulated runs through the real observation, update rule and policy",
+      "result": "pooled 72%; 40/40 seeds inside 60-90%",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Criterion 3 for a plateaued player",
+      "method": "same",
+      "result": "pooled 71%; 38/40 seeds inside",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Criterion 3's band cannot hold for always-correct or always-naive players, because a correct solution passes at every difficulty",
+      "method": "same, 40 seeds each",
+      "result": "100% success at every seed; structurally unreachable by any difficulty policy",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Criterion 4: every decision is explainable in one sentence with no hidden state",
+      "method": "TestTheDecisionNamesItsSource, 7 cases",
+      "result": "the reason and the number are built together in one object",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A stronger player gets a harder variant",
+      "method": "test_a_stronger_player_gets_a_harder_variant",
+      "result": "green",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Only the level's own tags are read",
+      "method": "test_only_the_levels_own_tags_are_read",
+      "result": "being strong at data earns nothing on a recursion level",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The habits prior can never reach an extreme",
+      "method": "test_habits_can_never_reach_an_extreme",
+      "result": "bounded at +-0.15 either side of standard",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A plateaued player settles rather than oscillating",
+      "method": "spans over runs 20-30 and the last 10, across 20 seeds",
+      "result": "0.084 both, drift under 0.05: stationary noise, not a growing spread",
+      "verdict": "verified"
+    },
+    {
+      "claim": "An improving player keeps being given harder work",
+      "method": "the paired negative to the settling test",
+      "result": "mean drift +0.25",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The reference is benchmarked on the same variant the player runs",
+      "method": "test_the_reference_is_benchmarked_on_the_same_variant and test_the_benchmark_cache_is_keyed_by_difficulty",
+      "result": "green; a cache keyed only by (level, seed) would have served the first difficulty's numbers to every later one",
+      "verdict": "verified"
+    },
+    {
+      "claim": "STRETCH barely moves the band",
+      "method": "sweep from 0.0 to 0.3, pooled over 40 seeds",
+      "result": "70% to 74%; the loop is self-correcting and the observation weights set the equilibrium",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The loop closes end to end",
+      "method": "five real cmd_play runs from an empty VIBECODER_HOME",
+      "result": "mastery 0.916 after four clears, fifth variant labelled HARD with its reason, reference benchmark 1042 -> 1247 ops",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite is green unpinned",
+      "method": "python3.11 -m unittest discover -s tests",
+      "result": "1165 tests OK in 84.182s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite is green pinned to bubblewrap",
+      "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests",
+      "result": "1141 tests OK in 67.461s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The references still pass every variant",
+      "method": "python3.11 -m vibecoder.cli verify --seeds 3",
+      "result": "54/54",
+      "verdict": "verified"
+    },
+    {
+      "claim": "72% feels right to a person",
+      "method": "nobody has played an adapted variant",
+      "result": "unknown",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "The simulated players resemble real ones",
+      "method": "they are a model, named by the instrument check",
+      "result": "unknown",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M49",
+      "believed": "That STRETCH -- how far below their mastery a player's difficulty sits -- was the parameter controlling the success rate, and would need tuning to land the band. I wrote it with a comment calling it 'the dial to turn if the simulated band comes out wrong'.",
+      "revealed_by": "Sweeping it, because writing that comment obliged me to check it. Success moves from 70% at zero offset to 74% at three times the shipped value -- nearly flat across the whole plausible range.",
+      "corrected_to": "The loop is self-correcting: lowering difficulty raises the observed result, which raises mastery, which raises difficulty back, so the offset cancels itself out. The equilibrium success rate is set by the observation weights in mastery.py -- accuracy 0.5, functional 0.3, first-try 0.2 -- not by anything in the policy. STRETCH expresses an intent rather than controlling an outcome, and the module and trajectory now both say so.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "In a feedback loop, a parameter's local effect is not its effect. I reasoned about STRETCH one step at a time -- lower difficulty, higher success -- and stopped before the step where mastery follows difficulty back up. Sweeping a parameter is cheap; predicting it is where the error is."
+    },
+    {
+      "id": "M50",
+      "believed": "That the 60-90% success band could be met for all four simulated players, and that failing to would mean the policy needed work.",
+      "revealed_by": "Measuring. Always-correct and always-naive succeed 100% of the time at every one of 40 seeds.",
+      "corrected_to": "No difficulty policy can change that, because W2's dial scales how much work an input demands rather than whether the answer is right -- which is the design, and is why a level's hand-written edge cases survive every difficulty. A correct solution passes at every input size, so a player who always writes one is unreachable; 'naive' in this codebase means O(n^2) and right, so it lands in the same place. Criterion 3 is met for the two players who can fail and is structurally unmeetable for the two who cannot. N7 forbids re-cutting it, so it stands and Q89 carries the finding.",
+      "cost_minutes": 20,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The near-miss is the part worth keeping. My first simulation used a step function (cleared = reach >= 0.5) to avoid seed dependence, which made every player succeed 100% -- including the plateaued one -- and would have looked like the same structural finding while actually being my model being wrong. It also scored Functional as efficiency x (1 - 0.3*difficulty), which penalised a perfect player, when the real axis is measured against the reference running the same variant and so gives a perfect solution 100 at any size. A simulation is a model, and one that produces a striking result is the one to distrust first: keeping the player's latent skill invisible stops the policy cheating, but nothing stops the model being wrong except checking that each of its terms has the property the real thing has."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D181",
+      "decision": "The reason is produced with the decision, in the same object",
+      "alternatives": [
+        "Generate explanations in W7 from the stored numbers"
+      ],
+      "rationale": "Criterion 4 says 'no hidden state'. Two code paths that can disagree, one of which the player sees, is exactly that.",
+      "reversible": true,
+      "seam": "vibecoder/policy.py::Decision"
+    },
+    {
+      "id": "D182",
+      "decision": "Mastery and habits are used one at a time and always named, never blended",
+      "alternatives": [
+        "A weighted average of the two, with the habit term falling off as observations accumulate"
+      ],
+      "rationale": "The blend is what exit criterion 8 forbids and what T4's third hazard calls the most tempting wrong simplification. Naming the source lets the player judge the guess.",
+      "reversible": true,
+      "seam": "vibecoder/policy.py::choose_difficulty"
+    },
+    {
+      "id": "D183",
+      "decision": "The habits prior is bounded at +-0.15",
+      "alternatives": [
+        "Let familiarity drive the full difficulty range"
+      ],
+      "rationale": "Habits are a guess about performance, not a measurement of it. The worst a wrong prior may do is hand someone a slightly roomier or tighter first run.",
+      "reversible": true,
+      "seam": "vibecoder/policy.py::HABIT_NUDGE"
+    },
+    {
+      "id": "D184",
+      "decision": "reference_benchmark takes the difficulty, and it is part of the cache key",
+      "alternatives": [
+        "Benchmark at the default and compare against it"
+      ],
+      "rationale": "Otherwise the Functional axis divides a player's ops by a denominator measured on a smaller input, and punishes them for a size the game chose.",
+      "reversible": false,
+      "seam": "vibecoder/runner.py::reference_benchmark"
+    },
+    {
+      "id": "D185",
+      "decision": "The band is asserted pooled over 20 seeds rather than on one run",
+      "alternatives": [
+        "Assert a single 50-level run at a fixed seed"
+      ],
+      "rationale": "A single run has a standard error of about 6 points and sits two points from the band edge. That test passes today and fails on a Tuesday.",
+      "reversible": true,
+      "seam": "tests/test_policy.py::BAND_SEEDS"
+    },
+    {
+      "id": "D186",
+      "decision": "Criterion 3 stands as written, with the finding recorded against it",
+      "alternatives": [
+        "Re-cut it to cover only players who can fail",
+        "Drop the two players from the instrument check"
+      ],
+      "rationale": "N7. An exit criterion edited to match what was built destroys the only honest signal a trajectory has.",
+      "reversible": false,
+      "seam": "docs/trajectories/T4-adaptive.md"
+    }
+  ],
+  "friction": [
+    {
+      "description": "none - both findings came from measuring things I had written down as assumptions, which is the cheap direction.",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "T4 W1-W4 LANDED. A player's profile now chooses their variant's difficulty, with the reason attached, and the reference is benchmarked on the same variant. Exit criteria 1, 2, 4 and 5 are verified; 3 is verified for the two simulated players who can fail and is structurally unmeetable for the two who cannot (Q89). 1165 tests green unpinned, 1141 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W5, drill injection on the weakest tag. It is also the intended answer to Q88: three tags have exactly one level each and can never reach the confidence threshold from ordinary play, so drills are what would give them evidence.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M49 before tuning anything in this loop: a parameter's local effect is not its effect, and the observation weights are what actually set the band",
+      "M50 before trusting a simulation: check each term has the property the real thing has",
+      "D184 before touching the reference benchmark",
+      "Q84 is still open and still the user's call, though it did not block W4"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q68",
+      "question": "Two events land on one line when it raises. Should the display merge them?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q69",
+      "question": "Timeline holds Step objects for a live run and dicts for a recorded one.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q70",
+      "question": "An edit past step 400 fast-forwards against a truncated original.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q71",
+      "question": "Divergence rate over real play is measurable and uncollected.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q73",
+      "question": "Should the crash path show the expected value?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q75",
+      "question": "Which of the remaining non-negotiables can be given a test?",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q76",
+      "question": "The heal curve and pool size were chosen by argument, not playtest.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q78",
+      "question": "Should the pane have a 'replace this function' affordance?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q81",
+      "question": "score_submission stores a computed speed for practice runs.",
+      "owner": "T1",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q82",
+      "question": "The score cannot see how wrong the code was before it was repaired.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q83",
+      "question": "Should 'a starter fails the case the player watches' be a test?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q84",
+      "question": "Is a boss part of world progression, or a side attraction? Did not block W4; still the user's call.",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q85",
+      "question": "Nothing drives the whole editor through a pty.",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q86",
+      "question": "No frame-timing histogram is recorded per session.",
+      "owner": "T7",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q87",
+      "question": "A level's tags all receive the same observation.",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q88",
+      "question": "Three tags have exactly one level each and can never become confident. W5 is the intended answer.",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q89",
+      "question": "Exit criterion 3's band cannot hold for a player who always writes correct code. W2's difficulty scales work rather than correctness, so a correct solution passes at every size, by design. Either 'success' means something other than 'cleared' for a scored game (three stars? a score threshold?), or the criterion needs a player who can actually fail. Which?",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 1165,
+    "tests_passing": 1165,
+    "tests_added": 32,
+    "suite_seconds_unpinned": 84.182,
+    "suite_tests_pinned_bwrap": 1141,
+    "suite_seconds_pinned_bwrap": 67.461,
+    "reference_runs_clean": 54,
+    "policy_target_success": 0.75,
+    "policy_stretch": 0.1,
+    "policy_habit_nudge": 0.15,
+    "band_improving": 0.72,
+    "band_plateaued": 0.71,
+    "band_always_correct": 1.0,
+    "band_always_naive": 1.0,
+    "band_seeds_in_range_improving": 40,
+    "band_seeds_in_range_plateaued": 38,
+    "band_seeds_tried": 40,
+    "stretch_sweep_low": 0.7,
+    "stretch_sweep_high": 0.74,
+    "plateaued_difficulty_span": 0.084,
+    "naive_final_difficulty": 0.614,
+    "ace_final_difficulty": 0.9,
+    "t4_waypoints_landed": 4,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 4,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}

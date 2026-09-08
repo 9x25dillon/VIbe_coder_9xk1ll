@@ -35,6 +35,7 @@ vibecoder/
 ├── vision.py      The machine view. Pure frames; the trace drives them.
 ├── fight.py       Boss hit points and the repair pool. Arithmetic only.
 ├── mastery.py     Per-tag competency and its update rule. Imports nothing.
+├── policy.py      How hard the next variant should be, and why.
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.
@@ -304,6 +305,28 @@ which practice mode never calls. That makes "practice does not move mastery"
 (criterion 5) a consequence of one branch rather than a second rule to
 remember — the same branch that drops the Speed axis for an unmeasurable
 clock.
+
+### Choosing a difficulty, and saying why (T4 W4)
+
+[`policy.py`](../vibecoder/policy.py) turns a profile into a `Decision`: a
+`Difficulty`, the source it came from, a one-sentence reason, and the numbers
+that sentence was built from.
+
+**The reason is produced with the decision, not after it.** Exit criterion 4
+requires every choice to be explainable "with no hidden state", and a policy
+that computes a number and has an explanation bolted on later has exactly
+that — two code paths that can disagree, one of which the player sees.
+
+Two sources, used one at a time and always named: **mastery** whenever the
+level's tags have enough observations, **habits** (the Vibe Vector) only as a
+bounded prior when nothing has been measured. That resolves a tension inside
+T4 itself, where one hazard says to fall back to the vector and the next says
+never to confuse what you write with what you are good at. The player is never
+shown a blend; they are shown which source was used.
+
+`reference_benchmark` takes the difficulty too, and it is part of the cache
+key. Benchmarking the reference at the default while the player runs a hard
+variant would divide their ops by a denominator from a smaller input.
 
 ### Difficulty is a parameter, not a fork (T4 W2)
 
