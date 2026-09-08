@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 988 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 1018 tests, **zero third-party
 dependencies**. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
 that raised, and lets you **type a fix into the paused fight** and carry on —
@@ -240,7 +240,7 @@ vibecoder/            The game. 25 modules, no dependencies.
 ├── timeline.py       A cursor over execution history; nothing is re-run
 └── levels/           One file per level, auto-discovered
 
-tests/                988 tests, stdlib unittest
+tests/                1018 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

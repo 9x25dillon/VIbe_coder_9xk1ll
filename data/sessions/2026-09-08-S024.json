@@ -1,0 +1,145 @@
+{
+  "id": "S024",
+  "date": "2026-09-08",
+  "duration_minutes": 100,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S024-scoring-the-fight.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "Q80 is decided on a measurement rather than an argument, and the measurement is written down", "result": "met", "note": "the floor from the starters is exactly 65; the heal is only 14 of the missing 35"},
+    {"id": 2, "statement": "A boss fight is scored on the three axes at 40/30/30, and the scorecard is what a first run is graded by", "result": "met", "note": "score_fight and StepScore in scoring.py; BOSS_WEIGHTS is no longer defined-and-unused"},
+    {"id": 3, "statement": "The engine's own slow motion does not reach the Speed axis", "result": "met", "note": "_Pacer measures what it sleeps and the fight subtracts it"},
+    {"id": 4, "statement": "An abandoned fight is scored honestly rather than flatteringly", "result": "met", "note": "M40; the first version printed functional 100.0 for a fight that achieved almost nothing"},
+    {"id": 5, "statement": "T3's remaining waypoint state is recorded accurately, including what W7 does not close", "result": "met", "note": "all six criteria have evidence and T3 is deliberately still IN FLIGHT (D163)"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/scoring.py", "kind": "module", "note": "StepScore and score_fight; Speed zeroed when the axis carries no weight (M41)"},
+    {"path": "vibecoder/runner.py", "kind": "module", "note": "boss_step_benchmark, cached per (boss, step, seed), run with earlier references present"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_Pacer, _measure_fight, _print_fight_score, _score_the_fight; --elapsed on boss; _attempt and _live_step report a fatal opening attempt"},
+    {"path": "vibecoder/__init__.py", "kind": "module", "note": "score_fight, StepScore and boss_step_benchmark exported"},
+    {"path": "tests/test_scoring.py", "kind": "test", "note": "TestFightScoring, 13 cases including the per-step efficiency guard and the dropped-speed value"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheFightIsScored and TestTheSlowMotionIsNotThePlayersTime; everything_printed() helper unifying four fight harnesses (M42)"},
+    {"path": "tests/test_bosses.py", "kind": "test", "note": "TestTheBossBenchmark, including the demonstration that a step benchmarked alone would not run"},
+    {"path": "docs/SCORING.md", "kind": "doc", "note": "the Q80 measurement table, and the boss scorecard section explaining all four differences from a level"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "what a fight scores, and why each of the three pieces sits where it does"},
+    {"path": "docs/PLAYING.md", "kind": "doc", "note": "BOSS DOWN reframed as a mastery ending; the fight is scored now"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Boss fight entry no longer says 'not yet built'; BOSS DOWN added"},
+    {"path": "docs/trajectories/T3-boss-engine.md", "kind": "doc", "note": "W7 marked LANDED"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T3 waypoint state, Q80 resolved, Q77 answered, T3 held IN FLIGHT for W8"},
+    {"path": "README.md", "kind": "doc", "note": "test count 988 -> 1018"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count 988 -> 1018"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts refreshed"},
+    {"path": "journal/2026-09-08-S024-scoring-the-fight.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "The best outcome reachable from the starters is exactly 65 HP", "method": "the real Fight object driven with measured starter accuracies at seed 1", "result": "89 -> 74 -> 65, two repairs left, flawless false", "verdict": "verified"},
+    {"claim": "The heal accounts for 14 of the missing 35 HP; the damage halving for the other 51", "method": "same run: damages 16+17+16 = 49 dealt, heals 5+2+7 = 14", "result": "100 - 49 + 14 = 65", "verdict": "verified"},
+    {"claim": "A boss fight is scored at 40/30/30", "method": "tests/test_scoring.py::test_the_boss_weights_are_forty_thirty_thirty, plus a ranked live run", "result": "x0.40 / x0.30 / x0.30 printed on the card", "verdict": "verified"},
+    {"claim": "A fight with no honest clock drops Speed and renormalises", "method": "tests/test_cli_output.py::test_a_fight_without_a_clock_does_not_score_speed", "result": "x0.57 / x0.43 and 'not measured'", "verdict": "verified"},
+    {"claim": "A dropped Speed axis reports 0.0 rather than a value nothing measured", "method": "tests/test_scoring.py::test_a_dropped_speed_axis_reports_nothing_rather_than_a_hundred", "result": "speed 0.0 with weight 0", "verdict": "verified"},
+    {"claim": "An abandoned fight is not scored as maximally efficient", "method": "tests/test_cli_output.py::test_an_abandoned_fight_is_not_maximally_efficient and the front-door run", "result": "accuracy 16.7, functional 33.3, total 23.8", "verdict": "verified"},
+    {"claim": "The engine's slow motion is measured and excluded from Speed", "method": "tests/test_cli_output.py::TestTheSlowMotionIsNotThePlayersTime", "result": "three cases green, including a clamped negative delay", "verdict": "verified"},
+    {"claim": "A boss step benchmarked alone would not run", "method": "tests/test_bosses.py::test_a_step_benchmarked_alone_would_not_run", "result": "summarise fails on its own reference and passes with its predecessors", "verdict": "verified"},
+    {"claim": "The scorecard emits no escape sequence into a pipe", "method": "::test_the_scorecard_emits_no_escape_sequence_into_a_pipe and showcase | grep -c $'\\033'", "result": "no match; 0", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1018 tests OK in 59.235s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "994 tests OK in 43.496s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "45/45", "verdict": "verified"},
+    {"claim": "The scorecard feels right at the end of a real fight", "method": "nobody has played one with a score on it", "result": "unknown", "verdict": "unverified"},
+    {"claim": "40/30/30 produces a useful spread across real players", "method": "one boss, no players", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M40",
+      "believed": "That Functional for a fight could be computed by pooling the fight's total ops against the reference's total ops, the way a level compares one submission to one reference. Summing seemed obviously right because ops accumulate.",
+      "revealed_by": "Running the suite before writing a test for it, and reading the output rather than the exit status. A fight that stopped on step one printed functional 100.0 beside accuracy 44.4.",
+      "corrected_to": "Functional is computed per step and averaged, and a step that passed nothing scores zero rather than the ratio of the work it skipped. A fight that stops early never defines the later functions, so they execute nothing; pooled against the reference that reads as doing less work, functional_score caps the ratio at 1.0, and the card congratulates a player who achieved almost nothing. Per-step also stops one frugal step subsidising a wasteful one.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "This is M1's shape for the fifth recorded time: free points on an axis that is not measuring anything. Every instance so far was found by looking at what a bad run printed, never by the test suite -- because a test written by whoever wrote the bug asserts the same wrong thing. Test a scoring system with a bad solution, and read the output."
+    },
+    {
+      "id": "M41",
+      "believed": "That Weights.without_speed() fully drops the Speed axis. The weight becomes 0, so the axis cannot affect the total, so the axis is dropped.",
+      "revealed_by": "A test asserting score.speed == 0.0 for a practice fight, which got 100.0. The value was still computed against a clock that had started moments earlier; only its contribution was suppressed.",
+      "corrected_to": "score_fight zeroes Speed when the axis carries no weight. N5 says an axis that cannot be measured honestly must not be scored, and a ScoreBreakdown is stored and read back later -- a zero weight hides the number from the total, not from whoever quotes the record afterwards.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "score_submission has the same property today: a practice-mode level run banks a computed speed from a clock that started when the file was read, invisible only because cmd_play prints 'not measured' instead of the gauge. Fixing it would change level scoring and previously banked records, so it was left alone deliberately and raised as Q81 rather than quietly changed."
+    },
+    {
+      "id": "M42",
+      "believed": "That the existing boss tests captured everything cmd_boss printed, since they all wrapped it in redirect_stdout.",
+      "revealed_by": "Three new assertions failing against transcripts with the score cut out of the middle, while the gauges appeared on the real terminal during the run.",
+      "corrected_to": "UI binds sys.stdout when it is constructed, at import time, so redirect_stdout catches the plain print calls and misses every gauge and star burst. One everything_printed() helper now swaps both, used by all four fight harnesses. Not a product bug -- in a real pipe sys.stdout is the pipe -- but the boss tests had been asserting against partial transcripts and would have kept doing so silently.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A capture helper that misses half the output does not fail; it just narrows what the assertions can see. Assert on something you know is printed before trusting a transcript."
+    }
+  ],
+  "decisions": [
+    {"id": "D158", "decision": "BOSS DOWN is a mastery ending; the HP and repair mechanics are unchanged", "alternatives": ["First repair free of its heal (floor 51)", "First repair free entirely (floor 0, but flawless becomes the default outcome)", "Damage reduction scaled by accuracy (floor ~36)"], "rationale": "The measurement showed the heal is not the obstacle, so three of the four options were dials rather than answers. The one that reaches zero makes the rare ending common. Reached by returning with a solution that passes every step first time, which is the same shape as replaying a level for a third star.", "reversible": true, "seam": "docs/SCORING.md"},
+    {"id": "D159", "decision": "Hit points are not an input to the score", "alternatives": ["Fold remaining HP into the total", "Weight the axes by HP"], "rationale": "HP already prices how wrong the code was through W6's heal curve. Scoring it again is exactly what CLAUDE.md section 4 prohibits. The pool reaches the score once, through first_try.", "reversible": true, "seam": "vibecoder/scoring.py::score_fight"},
+    {"id": "D160", "decision": "Accuracy is pooled across cases; Functional is averaged per step", "alternatives": ["Both pooled", "Both averaged per step"], "rationale": "Accuracy keeps the single definition it has everywhere else -- the fraction of hidden tests passed. Functional is per step because each step has its own reference, and because pooling produced M40.", "reversible": true, "seam": "vibecoder/scoring.py::score_fight"},
+    {"id": "D161", "decision": "The engine subtracts its own slow motion from the Speed clock", "alternatives": ["Count wall clock as-is", "Give the boss a longer par to absorb the animation"], "rationale": "Counting it scores a display setting: the same fight played identically at --speed 0.1 and --speed 2.0 would earn different marks. A longer par shrinks the distortion without making it honest.", "reversible": true, "seam": "vibecoder/cli.py::_Pacer"},
+    {"id": "D162", "decision": "An abandoned fight is still scored", "alternatives": ["Print no card unless the fight cleared"], "rationale": "A zero printed for a reason is information; a blank reads as an omission. The starters fail by contract, so the abandoned fight is what a first-time player actually gets -- leaving it unscored would mean the only scored fight is one nobody has had.", "reversible": true, "seam": "vibecoder/cli.py::cmd_boss"},
+    {"id": "D163", "decision": "T3 holds IN FLIGHT until W8 ships", "alternatives": ["Land on the six criteria and record W8 as a gap in the criteria list", "Land and re-scope W8 to another trajectory"], "rationale": "The user's call on Q77. The waypoint list is treated as the real contract and the exit criteria as incomplete, which is a finding about the criteria rather than a licence to edit them (N7).", "reversible": true, "seam": "docs/trajectories/README.md"}
+  ],
+  "friction": [
+    {"description": "Deciding where the 'how wrong were you before repairing' signal belongs. The heal curve measures it, the score cannot see it because a cleared fight is 100% accurate by definition, and scoring it in both places violates section 4. Justifying the resolution -- HP is the outcome, the card is the grade, printed side by side -- took longer than implementing it. The alternative is recorded as Q82 rather than discarded.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T3 W7 is LANDED. A boss fight is scored at 40/30/30 on the same card a level uses; Speed excludes the engine's slow motion; HP stays the fight's outcome and is deliberately not an input to the score. Q80 is answered: BOSS DOWN is a mastery ending, and the floor from the starters is a measured 65. All six of T3's exit criteria now have evidence and T3 is deliberately still IN FLIGHT (D163). 1018 tests green unpinned, 994 pinned, verify clean on 45 reference runs, 0 escapes in a pipe.",
+    "next_action": "T3 W8, the second boss fight -- World 2's algorithm assembly. It is the only waypoint left in T3 and the trajectory now waits on it. Read D156 first: partial credit in a starter is load-bearing for the heal curve, and the new scorecard reads the same starters. Before that, ideally, someone plays a fight with a score on it: every number on the card was chosen by argument, and M40 was found by reading output rather than by running tests, which has now happened five times.",
+    "blockers": [
+      "None",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M40 before touching any axis: the free-points failure has a fifth instance and they all look like arithmetic that reads fine",
+      "Q81 before changing level scoring, and before quoting a stored practice-run speed",
+      "M42 before asserting on CLI output: redirect_stdout alone misses every gauge"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value, as the wrong-answer path now does?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest. The scorecard's numbers now join them.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q77", "question": "W8 is a waypoint no exit criterion points at. Does T3 land without it?", "owner": "T3", "status": "answered", "answer": "No. T3 holds IN FLIGHT until W8 ships; the waypoint list is the contract and the criteria list has a gap (D163)."},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q80", "question": "Is BOSS DOWN being unreachable from the starters a defect?", "owner": "T3", "status": "answered", "answer": "No. It is a mastery ending, reached by returning with a solution that passes every step first time. The floor from the starters was measured at exactly 65, and the heal is only 14 of the missing 35, so the alternatives were dials rather than answers (D158)."},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs, from a clock that started when the file was read. The UI hides it; the stored record does not. score_fight was written not to. Should the level path match, and what happens to already-banked runs?", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired. A cleared fight is 100% accurate whether it was patched from 90% or from a guess; only HP distinguishes them. Is reporting the two side by side enough, or should the card read first-attempt accuracy?", "owner": "T3", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1018,
+    "tests_passing": 1018,
+    "tests_added": 30,
+    "suite_seconds_unpinned": 59.235,
+    "suite_tests_pinned_bwrap": 994,
+    "suite_seconds_pinned_bwrap": 43.496,
+    "boss_weights_accuracy": 0.4,
+    "boss_weights_speed": 0.3,
+    "boss_weights_functional": 0.3,
+    "boss_hp_floor_from_starters": 65,
+    "boss_hp_lost_to_heals": 14,
+    "boss_hp_lost_to_damage_halving": 51,
+    "starter_fight_total_score": 23.8,
+    "flawless_ranked_fight_total_score": 102.0,
+    "t3_waypoints_landed": 7,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 6,
+    "t3_exit_criteria_total": 6,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 1,
+    "modules": 26,
+    "dependencies": 0,
+    "reference_runs_clean": 45
+  }
+}

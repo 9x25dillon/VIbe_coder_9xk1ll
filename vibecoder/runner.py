@@ -24,7 +24,7 @@ from typing import Callable, Sequence
 
 from . import sandbox
 from .timeline import Divergence, Timeline, compare
-from .models import Level, RunResult, Source, TestCase, TestOutcome
+from .models import BossLevel, Level, RunResult, Source, TestCase, TestOutcome
 
 HARNESS = Path(__file__).with_name("_harness.py")
 
@@ -319,6 +319,54 @@ def reference_benchmark(level: Level, seed: int) -> tuple[int, int]:
 
     benchmark = (result.ops, result.peak_bytes)
     _REFERENCE_BENCHMARKS[key] = benchmark
+    return benchmark
+
+
+_BOSS_BENCHMARKS: dict[tuple[str, int, int], tuple[int, int]] = {}
+
+
+def boss_step_benchmark(boss: BossLevel, index: int, seed: int) -> tuple[int, int]:
+    """Return ``(ops, peak_bytes)`` for one boss step's reference solution.
+
+    Separate from :func:`reference_benchmark` for a reason that is not
+    cosmetic: a boss step's reference is run **with every earlier step's
+    reference present in the file**, because a later step may call an earlier
+    function by name and cannot be benchmarked in isolation. That is the same
+    module `verify` builds, so a step is benchmarked against exactly the code
+    the gate already proves passes.
+
+    The measurement is still of this step alone -- earlier definitions are
+    compiled, not called, unless this step calls them, in which case the ops
+    they cost are genuinely part of what this step does.
+    """
+    key = (boss.id, index, seed)
+    if key in _BOSS_BENCHMARKS:
+        return _BOSS_BENCHMARKS[key]
+
+    step = boss.step(index)
+    tests = step.tests_for(seed)
+    # The provenance is the boss's, not the player's: this is the level
+    # author's code, exactly as `reference_benchmark` treats a level's (N9).
+    result = run_code(
+        boss.reference_source(index),
+        step.func_name,
+        tests,
+        source=boss.source,
+        filename=REFERENCE_FILENAME,
+    )
+    if result.fatal:
+        raise RuntimeError(
+            f"reference for {boss.id}/{step.id} failed: {result.error}"
+        )
+    if not result.all_passed:
+        failed = [o.name for o in result.outcomes if not o.passed]
+        raise RuntimeError(
+            f"reference for {boss.id}/{step.id} does not pass its own tests "
+            f"(seed {seed}): {', '.join(failed)}"
+        )
+
+    benchmark = (result.ops, result.peak_bytes)
+    _BOSS_BENCHMARKS[key] = benchmark
     return benchmark
 
 

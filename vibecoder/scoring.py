@@ -20,6 +20,7 @@ See docs/SCORING.md for the reasoning behind each curve.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .models import RunResult, ScoreBreakdown
@@ -157,6 +158,134 @@ def score_submission(
     if result.all_passed and style_goals_met:
         bonuses["elegance"] = BONUS_RATES["elegance"]
     if result.all_passed and first_run_clean:
+        bonuses["clean_first_run"] = BONUS_RATES["clean_first_run"]
+
+    total = subtotal * (1.0 + sum(bonuses.values()))
+    return ScoreBreakdown(
+        accuracy=round(accuracy, 2),
+        speed=round(speed, 2),
+        functional=round(functional, 2),
+        subtotal=round(subtotal, 2),
+        bonuses=bonuses,
+        total=round(total, 2),
+        stars=stars_for(total),
+    )
+
+
+# --------------------------------------------------------------------------
+# Boss fights (T3 W7)
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class StepScore:
+    """One boss step's measurements, as the fight left it.
+
+    Every field is measured against the source the player **ended up with**,
+    not against the attempt that happened to be running when the step cleared.
+    A fight carries one buffer forward, so a fix typed at step two is part of
+    what step one is judged on too -- which is the same rule an ordinary level
+    follows when it scores the submission rather than the draft.
+    """
+
+    passed: int
+    total: int
+    ops: int
+    ref_ops: int
+    peak_bytes: int
+    ref_peak_bytes: int
+    #: Every style goal this step declared, satisfied. A step declaring none is
+    #: vacuously met, which is why the default is True rather than False.
+    style_met: bool = True
+
+
+def score_fight(
+    steps: Sequence[StepScore],
+    *,
+    elapsed_seconds: float,
+    par_seconds: float,
+    repairs_spent: int,
+    crashed_first_run: bool,
+    weights: Weights = BOSS_WEIGHTS,
+) -> ScoreBreakdown:
+    """Score a whole boss fight on the same three axes as a level.
+
+    The weights differ (40/30/30 rather than 50/25/25) because a boss is a
+    sequence the player has already been shown how to pass: correctness is
+    less of the challenge and getting through it efficiently is more.
+
+    **This does not score hit points.** HP and repairs are the fight's
+    *outcome* and they already price how wrong the code was, via the heal
+    curve in `fight.py`. Feeding them into the score as well would score one
+    property twice, which is the mistake the three axes exist to avoid. The
+    repair pool reaches the score once, through the `first_try` bonus, and
+    the bar is reported beside the score rather than folded into it.
+
+    ``crashed_first_run`` is the fight-wide analogue of a level's
+    ``first_run_clean``: whether *any* step's opening attempt died with a
+    fatal error rather than merely answering wrongly. The caller tracks it,
+    because a single step's result cannot see the ones before it.
+    """
+    if not steps:
+        raise ValueError("a fight needs at least one step to score")
+
+    total_cases = sum(step.total for step in steps)
+    passed_cases = sum(step.passed for step in steps)
+    accuracy = 100.0 * passed_cases / total_cases if total_cases else 0.0
+
+    # Pooled across every case rather than averaged per step, so the axis
+    # keeps the one definition it has everywhere else: the fraction of hidden
+    # tests passed. Averaging percentages would make a step with four cases
+    # weigh as much as one with forty, which is a second definition of
+    # Accuracy wearing the same name.
+    cleared = total_cases > 0 and passed_cases == total_cases
+
+    # Functional is computed **per step and then averaged**, not by pooling ops
+    # across the fight, and the difference is not cosmetic. Pooling compares a
+    # sum against a sum, so a step the fight never reached contributes zero ops
+    # and drags the ratio *down* -- which `functional_score` caps at 1.0 and
+    # reads as maximal efficiency. A fight abandoned on step one measured 100.0
+    # on this axis that way: free points for work never done, which is M1's
+    # shape a fifth time.
+    #
+    # Per step, a step that passed nothing scores zero rather than scoring the
+    # ratio of the work it skipped. That also stops one hyper-efficient step
+    # from subsidising a wasteful one, which pooling allows and the axis is not
+    # supposed to.
+    functional = sum(
+        0.0 if step.passed == 0 else functional_score(
+            step.ops, step.ref_ops, step.peak_bytes, step.ref_peak_bytes
+        )
+        for step in steps
+    ) / len(steps)
+
+    # Zeroed when the axis carries no weight, not merely un-weighted. A
+    # dropped Speed is dropped because there is no honest solve time to
+    # measure, and N5 says an axis that cannot be measured honestly must not
+    # be scored -- so the breakdown must not report a value for it either.
+    # Leaving it computed would put a confident `speed=100.0` into a stored
+    # run whose clock started moments before it was read; the weight hides it
+    # from the total, not from anyone reading the record afterwards.
+    if not cleared or not weights.speed:
+        speed = 0.0
+    else:
+        speed = speed_score(elapsed_seconds, par_seconds)
+
+    subtotal = (
+        weights.accuracy * accuracy
+        + weights.speed * speed
+        + weights.functional * functional
+    )
+
+    bonuses: dict[str, float] = {}
+    if cleared and repairs_spent == 0:
+        # The fight's reading of "first try": every step passed without a
+        # repair being spent on it. It is the same condition `BOSS DOWN`
+        # rests on, and since a starter must fail its own tests it is
+        # reachable only by bringing your own solution (Q80).
+        bonuses["first_try"] = BONUS_RATES["first_try"]
+    if cleared and all(step.style_met for step in steps):
+        bonuses["elegance"] = BONUS_RATES["elegance"]
+    if cleared and not crashed_first_run:
         bonuses["clean_first_run"] = BONUS_RATES["clean_first_run"]
 
     total = subtotal * (1.0 + sum(bonuses.values()))

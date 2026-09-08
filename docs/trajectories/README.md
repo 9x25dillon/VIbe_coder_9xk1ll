@@ -103,8 +103,11 @@ rather than absorbed.
 W2 `LANDED` ([S017](../../journal/2026-09-06-S017-live-stepping.md)),
 W3 `LANDED` ([S018](../../journal/2026-09-06-S018-step-back.md)),
 W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)),
-W6 `LANDED` ([S021](../../journal/2026-09-06-S021-boss-hp.md)).
-W7 and W8 outstanding. **Exit criteria 1 through 5 are verified.**
+W6 `LANDED` ([S021](../../journal/2026-09-06-S021-boss-hp.md)),
+W7 `LANDED` ([S024](../../journal/2026-09-08-S024-scoring-the-fight.md)).
+**W8 is the only waypoint outstanding, and no exit criterion points at it
+(Q77 — the user's answer is that T3 holds until it ships).**
+**Exit criteria 1 through 5 are verified.**
 [S022](../../journal/2026-09-06-S022-actually-playable.md) then played the
 fight from the starter for the first time and found it unplayable — a wrong
 answer offered no repair, and the buffer never grew to hold the next step.
@@ -113,19 +116,30 @@ which the user answered — *the starter should run, not fail* — and
 [S023](../../journal/2026-09-06-S023-starters-that-run.md) shipped it: all
 three starters now do real work and fail *visibly in the trace*, with partial
 credit (50%, 83%, 33%) so a repair's heal is proportionate. Three new contract
-tests keep it so. **Q80 is the open half:** `BOSS DOWN` is still unreachable
-from the starters, because a starter must fail its own tests and every failure
-costs a repair — so the flawless ending exists and normal play cannot get
-there. That needs deciding before W7, since scoring a fight whose best outcome
-is unreachable would bake the problem in. A boss runs
+tests keep it so. **Q80 was the open half, and the user resolved it in
+[S024](../../journal/2026-09-08-S024-scoring-the-fight.md):** `BOSS DOWN` is
+unreachable from the starters — a starter must fail its own tests and every
+failure costs a repair — and that is now the design rather than a defect. The
+floor was *measured* at exactly 65, which also showed the heal is not what
+puts zero out of reach (14 HP of the missing 35; the compounding damage
+halving costs the other 51). So the ending is a mastery one, reached by
+returning with a solution that passes every step first time, and a first run
+is graded by the scorecard instead. A boss runs
 step by step with a visible current line and live locals; a deliberate error
 pauses *on* the offending line; editing that line and resuming completes the
 fight with the edit in the submitted source; a replay that stops matching is
 reported rather than presented as continuous; and the per-step damages sum to
 exactly the starting HP, so nothing but clearing every step reaches zero.
-Criterion 6 needs the fight *scored* on the three axes, which is W7 — the only
-thing now standing between T3 and its exit criteria, with W8 (a second boss
-fight) a waypoint no criterion points at.
+Criterion 6 was read as needing the fight *scored* on the three axes, which is
+W7, and W7 has now landed: a fight is graded at 40/30/30 on the same card a
+level uses, with Speed corrected for the engine's own slow motion and hit
+points deliberately kept out of the score. **All six criteria therefore have
+evidence, and T3 is deliberately not landed on them.** That is Q77, answered
+by the user in [S024](../../journal/2026-09-08-S024-scoring-the-fight.md):
+W8 — a second boss fight, World 2's algorithm assembly — ships before the
+trajectory closes. The waypoint list is treated as the real contract and the
+criteria as incomplete, which is a finding about the criteria rather than a
+licence to edit them (N7). T3 stays `IN FLIGHT` with one waypoint to go.
 
 W4 was the one waypoint in the project whose difficulty the trajectory itself
 called genuinely uncertain, and the hazard list said to ship W1–W3 as a

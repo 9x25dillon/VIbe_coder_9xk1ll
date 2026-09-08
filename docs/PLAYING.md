@@ -288,12 +288,15 @@ mechanics are tested; the *feel* is not.
 - **Nobody has played a fight with health on it before you.** Every number in
   section 6 was chosen by argument and checked by unit tests. None of them has
   been watched over a shoulder.
-- **`BOSS DOWN` is still out of reach from the starters.** Every starter fails
-  its own tests — that is the level contract, and it exists so a starter
-  cannot hand out a free step — so every step costs at least one repair and
-  the flawless ending needs a fight you did not start from scratch. Playing
-  the three starters straight through lands the boss on about **65**. Whether
-  that is right is the open half of Q79.
+- **`BOSS DOWN` is out of reach from the starters, and that is now the
+  design.** Every starter fails its own tests — that is the level contract,
+  and it exists so a starter cannot hand out a free step — so every step costs
+  at least one repair. Playing the three starters straight through lands the
+  boss on exactly **65**, measured. `BOSS DOWN` is what you come back for,
+  with a solution that passes every step first time; a first run is graded by
+  the scorecard, not by an ending it could not reach. (Q80, resolved; the
+  reasoning and the measured floor are in
+  [`SCORING.md`](SCORING.md#boss-down-is-a-mastery-ending-not-a-first-run-one-q80).)
 - **Five repairs is a guess.** It is meant to be enough to survive a bad step
   or two and not enough to brute-force three. That band is a claim, not a
   measurement. (Open question Q76.)
@@ -301,8 +304,10 @@ mechanics are tested; the *feel* is not.
   is cheaper — is the design and should not change. The magnitude is a dial.
 - **`0.35s` per line and three loop laps** were set before there was a fight to
   pace, in [S017](../journal/2026-09-06-S017-live-stepping.md).
-- **The fight is not scored** on accuracy/speed/functional yet. That is T3 W7,
-  and it is the last thing between this trajectory and its exit criteria.
+- **The scorecard's feel is unplayed.** The fight *is* scored now, on the same
+  three axes as a level at 40/30/30 (T3 W7) — but like everything else in this
+  section, the numbers were chosen by argument and checked by unit tests, and
+  nobody has watched one land at the end of a real fight.
 
 If something feels wrong, the useful report is what you *expected* to happen
 and what happened instead — that is the shape a journal entry can act on. The

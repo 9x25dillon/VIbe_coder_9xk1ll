@@ -14,8 +14,17 @@ makes a regression visible instead of arguable.
 
 ### Boss fight
 The multi-step challenge closing each world, run in slow motion with the player
-able to intervene mid-execution. Designed and scheduled ([T3](trajectories/T3-boss-engine.md));
-not yet built.
+able to intervene mid-execution. Built through [T3](trajectories/T3-boss-engine.md)
+W1–W7: it has hit points, a bounded repair pool, and a scorecard on the same
+three axes as a level at 40/30/30. World 1's is playable; a second one is W8.
+
+### `BOSS DOWN`
+The ending where a boss's hit points actually reach zero, which only a fight
+with no repair spent can reach. Because a starter must fail its own tests,
+that is **out of reach from the starters by construction** — it is what a
+player comes back for, not a first-run outcome. Distinct from `BOSS SURVIVES`,
+which is every step cleared with the boss still standing. See
+[SCORING.md](SCORING.md#boss-down-is-a-mastery-ending-not-a-first-run-one-q80).
 
 ### Competency band
 Bloom-style classification of a working session's dominant activity — `Recall`,

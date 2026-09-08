@@ -45,7 +45,7 @@ treat "how often did replay diverge?" as the metric that justifies the upgrade.
 | W4 | Edit-and-resume via strategy A | Requires deterministic input replay. |
 | W5 | Divergence detector | Compare replayed trace to the original prefix; if it differs, say so instead of lying. |
 | W6 | Boss HP model tied to first-try step completions | Per the design: correct-first-time steps damage the boss. |
-| W7 | Boss scoring at 40/30/30 weights (`BOSS_WEIGHTS`, already defined) | Elegance judged by static analysis against the reference. |
+| W7 | Boss scoring at 40/30/30 weights (`BOSS_WEIGHTS`, already defined) | `LANDED` (S024). Elegance judged by static analysis against the reference. |
 | W8 | Two boss fights: World 1 (data pipeline) and World 2 (algorithm assembly) | The design's web-scraper boss needs network, so it waits for T2 W2. |
 
 ## Exit criteria

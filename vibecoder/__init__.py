@@ -11,13 +11,20 @@ interpreter does.
 
 from .models import Level, RunResult, ScoreBreakdown, TestCase, TestOutcome, VibeVector
 from .profiler import profile_path, recommend
-from .runner import reference_benchmark, run_code, run_submission
+from .runner import (
+    boss_step_benchmark,
+    reference_benchmark,
+    run_code,
+    run_submission,
+)
 from .scoring import (
     BOSS_WEIGHTS,
     LEVEL_WEIGHTS,
+    StepScore,
     Weights,
     accuracy_score,
     functional_score,
+    score_fight,
     score_submission,
     speed_score,
     stars_for,
@@ -31,6 +38,7 @@ __all__ = [
     "Level",
     "RunResult",
     "ScoreBreakdown",
+    "StepScore",
     "TestCase",
     "TestOutcome",
     "VibeVector",
@@ -40,6 +48,7 @@ __all__ = [
     "Session",
     "accuracy_score",
     "all_levels",
+    "boss_step_benchmark",
     "functional_score",
     "get_level",
     "profile_path",
@@ -47,6 +56,7 @@ __all__ = [
     "reference_benchmark",
     "run_code",
     "run_submission",
+    "score_fight",
     "score_submission",
     "speed_score",
     "stars_for",

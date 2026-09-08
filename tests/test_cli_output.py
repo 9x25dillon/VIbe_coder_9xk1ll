@@ -14,7 +14,7 @@ import os
 import re
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -30,10 +30,27 @@ def plain(text: str) -> str:
 
 
 def captured(fn, *args, **kwargs) -> str:
-    buffer = io.StringIO()
-    with redirect_stdout(buffer):
+    with everything_printed() as buffer:
         fn(*args, **kwargs)
     return plain(buffer.getvalue())
+
+
+@contextmanager
+def everything_printed():
+    """Capture everything a command emits, including what `print` never sees.
+
+    `UI` binds its stream when it is constructed, so `redirect_stdout` alone
+    catches the plain prints and misses every gauge and star burst -- which is
+    most of a scorecard. Both have to be swapped, or a test reads a transcript
+    with the score cut out of the middle of it.
+    """
+    buffer = io.StringIO()
+    original, cli.UI.stream = cli.UI.stream, buffer
+    try:
+        with redirect_stdout(buffer):
+            yield buffer
+    finally:
+        cli.UI.stream = original
 
 
 class TestTheFailureBlock(unittest.TestCase):
@@ -145,8 +162,7 @@ class TestFixingABossMidFight(unittest.TestCase):
             solution=None if reference else str(self.broken), speed=0.0,
             repairs=repairs, fix=str(fix) if fix else None,
         )
-        buffer = io.StringIO()
-        with redirect_stdout(buffer):
+        with everything_printed() as buffer:
             code = cli.cmd_boss(args)
         return code, plain(buffer.getvalue())
 
@@ -207,8 +223,7 @@ class TestTheFightCostsSomething(unittest.TestCase):
             solution=None if reference else str(self.broken), speed=0.0,
             repairs=repairs, fix=str(fix) if fix else None,
         )
-        buffer = io.StringIO()
-        with redirect_stdout(buffer):
+        with everything_printed() as buffer:
             code = cli.cmd_boss(args)
         return code, plain(buffer.getvalue())
 
@@ -295,8 +310,7 @@ class TestAWrongAnswerIsRepairableToo(unittest.TestCase):
             solution=None, speed=0.0, repairs=repairs,
             fix=str(fix) if fix else None,
         )
-        buffer = io.StringIO()
-        with redirect_stdout(buffer):
+        with everything_printed() as buffer:
             code = cli.cmd_boss(args)
         return code, plain(buffer.getvalue())
 
@@ -340,6 +354,132 @@ class TestAWrongAnswerIsRepairableToo(unittest.TestCase):
         code, out = self.fight(self.solved, repairs=0)
         self.assertEqual(code, 1)
         self.assertIn("the fight stops here", out)
+
+
+class TestTheFightIsScored(unittest.TestCase):
+    """T3 W7. A fight is graded on the same three axes as a level, at 40/30/30.
+
+    Runs real children, because the thing under test is what a player sees at
+    the end of a real fight -- and the one bug this waypoint produced was
+    invisible to the arithmetic and obvious in the output (see
+    `test_an_abandoned_fight_is_not_maximally_efficient`).
+    """
+
+    BOSS = "w1-boss-pipeline"
+
+    def fight(self, **overrides) -> tuple[int, str]:
+        args = argparse.Namespace(
+            boss_id=self.BOSS, seed=1, live=False, reference=False,
+            solution=None, speed=0.0, repairs=5, fix=None, elapsed=None,
+        )
+        for key, value in overrides.items():
+            setattr(args, key, value)
+        with everything_printed() as buffer:
+            code = cli.cmd_boss(args)
+        return code, plain(buffer.getvalue())
+
+    def axis(self, out: str, name: str) -> float:
+        for line in out.splitlines():
+            if line.strip().startswith(name):
+                return float(line.split()[2])
+        raise AssertionError(f"no {name} axis in:\n{out}")
+
+    def test_a_finished_fight_prints_a_scorecard(self):
+        _, out = self.fight(reference=True)
+        self.assertIn("FIGHT SCORE", out)
+        self.assertIn("TOTAL", out)
+
+    def test_an_abandoned_fight_is_still_scored(self):
+        """A zero printed for a reason is information; a blank is not.
+
+        The starters fail, so this is the fight a first-time player actually
+        gets, and leaving it unscored would mean the only scored fight is one
+        nobody has yet had.
+        """
+        code, out = self.fight()
+        self.assertEqual(code, 1)
+        self.assertIn("the fight stops here", out)
+        self.assertIn("FIGHT SCORE", out)
+
+    def test_an_abandoned_fight_is_not_maximally_efficient(self):
+        """The M1 shape, found by running the front door (T3 W7).
+
+        A fight that stops on step one never defines the later functions, so
+        they execute nothing at all. Measured by pooling ops across the fight
+        that reads as *less work than the reference*, which the ratio caps at
+        1.0 -- and the first version of this scorecard printed a confident
+        100.0 on Functional for a fight that had achieved almost nothing.
+        """
+        _, out = self.fight()
+        self.assertLess(self.axis(out, "accuracy"), 25.0)
+        self.assertLess(self.axis(out, "functional"), 50.0)
+
+    def test_a_fight_without_a_clock_does_not_score_speed(self):
+        """N5, and M1's original shape: checking a file from disk has no
+        honest solve time, so the axis is dropped and the other two are
+        renormalised rather than one of them being handed a free 100."""
+        _, out = self.fight(reference=True)
+        self.assertIn("not measured", out)
+        self.assertIn("x0.57", out)  # 0.40 renormalised over 0.40 + 0.30
+
+    def test_supplying_a_clock_makes_the_fight_ranked(self):
+        _, out = self.fight(reference=True, elapsed=900.0)
+        self.assertIn("x0.40", out)
+        self.assertIn("x0.30", out)
+        self.assertEqual(self.axis(out, "speed"), 100.0)
+
+    def test_the_speed_caption_only_claims_a_correction_it_made(self):
+        """`--elapsed` replaces the clock rather than correcting one, so the
+        caption must not say the engine subtracted its own animation."""
+        _, ranked = self.fight(reference=True, elapsed=900.0)
+        self.assertNotIn("slow motion excluded", ranked)
+
+    def test_a_flawless_fight_earns_every_bonus(self):
+        _, out = self.fight(reference=True)
+        self.assertIn("first_try", out)
+        self.assertIn("elegance", out)
+        self.assertIn("clean_first_run", out)
+
+    def test_an_abandoned_fight_earns_none_of_them(self):
+        _, out = self.fight()
+        self.assertNotIn("first_try", out)
+        self.assertNotIn("elegance", out)
+
+    def test_the_scorecard_emits_no_escape_sequence_into_a_pipe(self):
+        """The T6 invariant, asserted rather than assumed (M36)."""
+        args = argparse.Namespace(
+            boss_id=self.BOSS, seed=1, live=False, reference=True,
+            solution=None, speed=0.0, repairs=5, fix=None, elapsed=None,
+        )
+        with everything_printed() as buffer:
+            cli.cmd_boss(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
+class TestTheSlowMotionIsNotThePlayersTime(unittest.TestCase):
+    """T3 W7. The engine subtracts its own animation from the Speed axis.
+
+    Without this the same fight, played identically, scores differently at
+    `--speed 0.1` and `--speed 2.0` -- marks for a display setting, on the
+    axis that is supposed to measure the human.
+    """
+
+    def test_a_pacer_records_what_it_slept(self):
+        pacer = cli._Pacer(0.02)
+        for _ in range(3):
+            pacer.pause()
+        self.assertGreaterEqual(pacer.slept, 0.05)
+
+    def test_a_pacer_at_zero_speed_sleeps_nothing(self):
+        pacer = cli._Pacer(0.0)
+        pacer.pause()
+        self.assertEqual(pacer.slept, 0.0)
+
+    def test_a_negative_delay_is_clamped_rather_than_rewarded(self):
+        """`--speed -5` would otherwise credit the player time never spent."""
+        pacer = cli._Pacer(-5.0)
+        pacer.pause()
+        self.assertEqual(pacer.slept, 0.0)
 
 
 class TestTheBufferGrowsWithTheFight(unittest.TestCase):

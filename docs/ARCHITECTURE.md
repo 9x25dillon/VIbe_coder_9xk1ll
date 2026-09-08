@@ -12,6 +12,7 @@ anywhere a Python 3.10+ interpreter does.
 vibecoder/
 ├── models.py      Dataclasses, plus Source: where code came from. Depends on nothing.
 ├── scoring.py     The three axes, bonuses, stars, streak multiplier.
+│                  `score_submission` for a level, `score_fight` for a boss.
 ├── runner.py      Parent side of the sandbox. Builds payloads, parses replies.
 ├── sandbox.py     Backend selection. THE SEAM: subprocess / bwrap / docker.
 ├── seccomp.py     Hand-assembled BPF filter. No libseccomp (N1).
@@ -277,6 +278,26 @@ ability can refill, there is a plain object to refill.
     ✔ cleared after 1 repair   -17
   boss ████████████░░░░░░░░  58   repairs ●●●●·
 ```
+
+### What a fight scores (T3 W7)
+
+The bar above is the fight's *outcome*. The **score** is a separate reading of
+the same play, on the three axes at `BOSS_WEIGHTS` (40/30/30), and the two are
+deliberately not folded together — HP already prices how wrong the code was
+through the heal curve, so feeding it into the score as well would score one
+property twice.
+
+Three pieces carry it, and they sit where the existing seams already were:
+
+| Piece | Where | Why there |
+| --- | --- | --- |
+| `StepScore` / `score_fight` | `scoring.py` | Pure arithmetic over plain numbers. It takes `repairs_spent` as an `int` rather than a `Fight`, so `scoring.py` keeps depending on nothing but `models.py`. |
+| `boss_step_benchmark` | `runner.py` | A boss step's reference must run **with its predecessors present**, because a later step calls an earlier function by name. That is the module `verify` already builds, so a step is benchmarked against code the gate proves passes. |
+| `_Pacer` | `cli.py` | The engine's slow motion is the parent's business and always has been. It now also measures itself, because that animation must not land on the Speed axis — see [SCORING.md](SCORING.md#boss-fights-the-scorecard-t3-w7). |
+
+The measurement runs against the source the fight **ended** with, not the
+attempt that cleared each step: a fight carries one buffer forward, so a fix
+typed at step three is part of what step one is judged on.
 
 Per-step damages are cumulatively rounded so they sum to **exactly** the
 starting HP. Criterion 5 is an `== 0`, and a rounding crumb left anywhere in

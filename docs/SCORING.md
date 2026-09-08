@@ -147,9 +147,8 @@ capped at 2.0×. Anything short of 3 stars resets it.
 
 ## Boss fights: hit points and repairs (T3 W6)
 
-A boss fight is not scored on the three axes yet — that is T3 W7, and
-`BOSS_WEIGHTS` (40/30/30) is defined and unused. What a fight *does* have is
-two resources, and their numbers belong here with the rest.
+A fight has two resources on top of the three axes, and their numbers belong
+here with the rest. How the fight is *scored* is the section after this one.
 
 | Number | Value | Why |
 | --- | --- | --- |
@@ -198,6 +197,79 @@ W10's abilities can meaningfully act on.
 fight with nothing spent can do. Everyone else clears the boss and leaves it
 standing, and is told the difference. Clearing and acing are separate
 outcomes, which is the same distinction stars draw for an ordinary level.
+
+### `BOSS DOWN` is a mastery ending, not a first-run one (Q80)
+
+This follows from two rules that were written independently and only collide
+in a fight. A starter [must fail its own tests](LEVEL_AUTHORING.md), so it
+cannot hand out a free step; and every failure costs a repair, which halves
+that step's damage. Both are right on their own. Together they put zero out of
+reach of anyone playing from the starters.
+
+The floor was measured rather than argued, on `w1-boss-pipeline`:
+
+| Step | Starter accuracy | Heal | Damage | HP |
+| --- | --- | --- | --- | --- |
+| `parse` | 50% (3/6) | +5 | −16 | 89 |
+| `filter` | 83% (5/6) | +2 | −17 | 74 |
+| `summary` | 33% (2/6) | +7 | −16 | **65** |
+
+The heal is *not* what puts zero out of reach — it costs 14 of the missing 35.
+The compounding damage halving costs the other 51. So making the first repair
+free of its heal would move the floor to 51 and change nothing about
+reachability; only a repair that costs literally nothing reaches zero, and
+that makes the flawless ending the *default* outcome rather than the rare one.
+
+The resolution is to leave the mechanic alone and be honest about what the
+ending is for: **`BOSS DOWN` is what you come back for.** You reach it by
+returning with a solution that passes every step first time, which is the same
+shape as replaying a level for a third star. A first run is graded by the
+scorecard below, not by whether it reached an ending it could not reach.
+
+## Boss fights: the scorecard (T3 W7)
+
+A fight is scored on the same three axes as a level, at `BOSS_WEIGHTS`
+(40/30/30), and shown in the same layout — a player should not have to learn a
+second card to read one. Four things differ, and each has a reason.
+
+**Accuracy is pooled across every step's cases**, not averaged per step. That
+keeps the axis to the one definition it has everywhere else — the fraction of
+hidden tests passed. Averaging percentages would let a step with four cases
+weigh as much as one with forty, which is a second definition wearing the same
+name.
+
+**Functional is averaged per step, and a step that passed nothing scores
+zero.** This is the opposite choice, and it is not an inconsistency: each step
+has its own reference, so the comparison is per step by construction. Pooling
+ops across the fight was tried first and was wrong in a way worth recording. A
+fight abandoned on step one never defines the later functions, so they execute
+nothing; against the reference's total that reads as *less work*, the ratio
+caps at 1.0, and the scorecard printed a confident **100.0 on Functional for a
+fight that had achieved almost nothing.** Free points on an axis measuring work
+never done — M1's shape, caught by running the front door rather than by the
+arithmetic.
+
+**Speed excludes the engine's own slow motion.** A live fight's wall clock is
+mostly the engine deliberately waiting between lines so the run can be watched.
+Counting it would score a display setting: the same fight played identically at
+`--speed 0.1` and `--speed 2.0` would earn different marks. The engine measures
+what it slept and subtracts it, leaving the time the player was actually in
+control — reading the trace, and typing in the repair pane. A fight with no
+honest clock at all (checking a file rather than playing) drops the axis and
+renormalises, exactly as practice mode does, and reports `speed = 0.0` rather
+than a value nothing measured.
+
+**Hit points are not an input to the score.** HP and repairs already price how
+wrong the code was, through the heal curve. Feeding them into the score as well
+would score one property twice, which is the mistake the three axes exist to
+avoid. The pool reaches the score once, through the `first_try` bonus — which
+for a fight means every step cleared with nothing spent. The bar is reported
+beside the score, not folded into it.
+
+Bonuses are the level's three, read for a fight: `first_try` (no repair spent),
+`elegance` (every step's declared style goals met), and `clean_first_run` (no
+step's opening attempt died with a fatal error, as opposed to merely answering
+wrongly).
 
 ## Worked example
 

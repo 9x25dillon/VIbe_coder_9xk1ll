@@ -43,8 +43,21 @@ from .profiler import (
     recommend,
     style_signature,
 )
-from .runner import LiveRun, reference_benchmark, run_code, run_submission
-from .scoring import LEVEL_WEIGHTS, score_submission, streak_multiplier
+from .runner import (
+    LiveRun,
+    boss_step_benchmark,
+    reference_benchmark,
+    run_code,
+    run_submission,
+)
+from .scoring import (
+    BOSS_WEIGHTS,
+    LEVEL_WEIGHTS,
+    StepScore,
+    score_fight,
+    score_submission,
+    streak_multiplier,
+)
 from .session import Session
 from .replay import play as play_replay
 from .vision import play as vision_play
@@ -843,8 +856,36 @@ LIVE_DELAY = 0.35
 LOOP_PATIENCE = 3
 
 
-def _live_step(boss, index: int, code: str, seed: int, delay: float,
-               fight, fix: "Path | None" = None) -> tuple[bool, str]:
+class _Pacer:
+    """Sleeps the fight's slow motion, and remembers how long it slept.
+
+    Speed is the *player's* time (CLAUDE.md S4), and a live fight's wall clock
+    is not: most of it is the engine deliberately waiting between lines so the
+    run can be watched. Counting that would score a display setting -- the
+    same fight played at `--speed 0.1` and `--speed 2.0` would earn different
+    marks for identical play, which is M1's shape a fourth time.
+
+    So the engine subtracts its own animation from the clock. What is left is
+    the time the player was actually in control: reading the trace, and typing
+    in the repair pane. Measured around the sleep rather than accumulated from
+    `delay`, because `time.sleep` overshoots and the correction has to be of
+    what really happened.
+    """
+
+    def __init__(self, delay: float) -> None:
+        self.delay = max(0.0, delay)
+        self.slept = 0.0
+
+    def pause(self) -> None:
+        if not self.delay:
+            return
+        before = time.perf_counter()
+        time.sleep(self.delay)
+        self.slept += time.perf_counter() - before
+
+
+def _live_step(boss, index: int, code: str, seed: int, pacer: "_Pacer",
+               fight, fix: "Path | None" = None) -> tuple[bool, str, bool]:
     """Play one boss step until it clears or the player stops.
 
     An *attempt* is one run of the step. A step can fail two ways and both
@@ -859,22 +900,34 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
     raises — so a fight that only offered a repair on a crash would refuse to
     let anyone play it from the beginning.
 
-    Returns whether the step cleared and the source it cleared with, which is
-    not necessarily the source it started with. Handing the edited text back
-    is what makes T3's exit criterion 3 true of the *fight* rather than of one
-    step: later steps run against what the player actually ended up writing.
+    Returns whether the step cleared, the source it cleared with, and whether
+    its **opening** attempt died with a fatal error rather than merely
+    answering wrongly. The source is not necessarily the one it started with:
+    handing the edited text back is what makes T3's exit criterion 3 true of
+    the *fight* rather than of one step, because later steps then run against
+    what the player actually ended up writing.
+
+    The crash flag is reported rather than stored because only the caller can
+    see the whole fight, and `clean_first_run` is a claim about all of it.
     """
     step = boss.step(index)
     tests = step.tests_for(seed)
     code = _with_starter(code, step)
     print(f"\n  {UI.paint(step.title, INK, bold=True)}  "
           + UI.paint(f"{step.func_name}()", MUTED))
+    opened_badly = False
+    first = True
     while True:
-        cleared, code, again = _attempt(step, tests, code, delay, fight, fix)
+        cleared, code, again, crashed = _attempt(
+            step, tests, code, pacer, fight, fix
+        )
+        if first:
+            opened_badly = crashed
+            first = False
         if cleared:
-            return True, code
+            return True, code, opened_badly
         if not again:
-            return False, code
+            return False, code, opened_badly
         # A scripted fix is spent on the attempt that used it; a typed one is
         # not, because the player is sitting there and may want another go.
         fix = None
@@ -882,9 +935,15 @@ def _live_step(boss, index: int, code: str, seed: int, delay: float,
               + UI.paint("running the step again with your fix", MUTED))
 
 
-def _attempt(step, tests, code: str, delay: float,
-             fight, fix: "Path | None") -> tuple[bool, str, bool]:
-    """One run of one step. Returns (cleared, source, worth trying again).
+def _attempt(step, tests, code: str, pacer: "_Pacer",
+             fight, fix: "Path | None") -> tuple[bool, str, bool, bool]:
+    """One run of one step.
+
+    Returns ``(cleared, source, worth trying again, crashed)``. ``crashed``
+    is whether this attempt died with a fatal error rather than finishing
+    with the wrong answer -- the distinction the `clean_first_run` bonus
+    rests on, and one the caller cannot recover afterwards because a
+    repaired run drains clean.
 
     The pacing is here rather than in the child on purpose: the child runs a
     line, reports it, and blocks, so it never sleeps and the whole feel of the
@@ -893,6 +952,7 @@ def _attempt(step, tests, code: str, delay: float,
     seen: dict[int, int] = {}
     previous: dict[str, str] = {}
     last_failure: tuple[int, str] | None = None
+    crashed = False
     with LiveRun(code, step.func_name, tests[0], source=Source.PLAYER) as live:
         while True:
             event = live.step()
@@ -914,6 +974,7 @@ def _attempt(step, tests, code: str, delay: float,
                 continue
             if event.failed:
                 last_failure = (event.line, event.error)
+                crashed = True
                 # Criterion 2: the run is paused *on* the line that raised,
                 # not after it. `settrace` reports the exception while the
                 # frame is still there; once it unwinds the line is gone.
@@ -928,7 +989,7 @@ def _attempt(step, tests, code: str, delay: float,
                     # released waits forever.
                     print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
                     live.abort()
-                    return False, code, False
+                    return False, code, False, crashed
                 edited = _offer_repair(
                     code, step, tests, fight, fix,
                     line=event.line, error=event.error, values=event.locals,
@@ -948,15 +1009,16 @@ def _attempt(step, tests, code: str, delay: float,
                 )
             # A loop seen four times has taught what it is going to teach.
             if seen[event.line] <= LOOP_PATIENCE:
-                time.sleep(delay)
+                pacer.pause()
         result = live.drain()
 
     # Not crashing is not the same as answering, and the one case we watched
     # is not the same as the set. The step is judged on all of them (Q72).
     verdict = _check(code, step, tests)
     accuracy = _accuracy_of(verdict, tests)
+    crashed = crashed or bool(result.error)
     if not result.error and accuracy == 1.0:
-        return True, code, False
+        return True, code, False, crashed
 
     if result.error:
         print(f"    {UI.paint(result.error, BAD)}")
@@ -969,7 +1031,7 @@ def _attempt(step, tests, code: str, delay: float,
 
     if _repair_is_on_offer(fix) and not fight.can_repair:
         print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
-        return False, code, False
+        return False, code, False, crashed
     edited = _offer_repair(
         code, step, tests, fight, fix,
         line=_def_line(code, step.func_name),
@@ -977,8 +1039,8 @@ def _attempt(step, tests, code: str, delay: float,
         values={},
     )
     if edited is None:
-        return False, code, False
-    return False, edited, True
+        return False, code, False, crashed
+    return False, edited, True, crashed
 
 
 def _with_starter(code: str, step) -> str:
@@ -1146,6 +1208,116 @@ def _finish(fight) -> int:
     return 0
 
 
+def _measure_fight(boss, code: str, seed: int) -> list[StepScore]:
+    """Measure every step against the source the fight ended with (T3 W7).
+
+    Not against the attempt that cleared each step: a fight carries one buffer
+    forward, so the file the player finishes holding is the submission, and a
+    fix typed at step three is part of what step one is judged on. That is the
+    same rule an ordinary level follows when it scores the final file rather
+    than the drafts.
+
+    A step whose function the buffer never grew -- because the fight stopped
+    before reaching it -- measures as zero passed rather than being skipped.
+    Skipping it would score an abandoned fight on the part that went well.
+    """
+    scores: list[StepScore] = []
+    for index, step in enumerate(boss.steps):
+        tests = step.tests_for(seed)
+        # The player's own code, on the player's machine (N9).
+        result = run_code(code, step.func_name, tests, source=Source.PLAYER)
+        ref_ops, ref_peak = boss_step_benchmark(boss, index, seed)
+        goals = style.evaluate(code, step.func_name, step.style_goals)
+        scores.append(
+            StepScore(
+                passed=sum(1 for o in result.outcomes if o.passed),
+                total=len(tests),
+                ops=result.ops,
+                ref_ops=ref_ops,
+                peak_bytes=result.peak_bytes,
+                ref_peak_bytes=ref_peak,
+                style_met=style.all_met(goals),
+            )
+        )
+    return scores
+
+
+def _print_fight_score(score, weights, steps, *, elapsed: float,
+                       par_seconds: float, ranked: bool, measured: bool) -> None:
+    """The fight's scorecard, in the same shape a level's uses.
+
+    Deliberately the same layout: a boss is scored on the same three axes and
+    a player should not have to learn a second card to read one. Only the
+    weights differ, and they are printed, so the difference is visible rather
+    than assumed.
+    """
+    print()
+    print(UI.rule("FIGHT SCORE", width=76))
+    print()
+    UI.reveal_gauge("accuracy", score.accuracy, weights.accuracy,
+                    f"({sum(s.passed for s in steps)}/"
+                    f"{sum(s.total for s in steps)} cases)")
+    if ranked:
+        # Only claim the subtraction when it actually happened. A caller that
+        # supplied `--elapsed` handed over its own clock, and saying the engine
+        # corrected one it never read would be a caption describing the wrong
+        # measurement.
+        how = ", slow motion excluded" if measured else ""
+        UI.reveal_gauge("speed", score.speed, weights.speed,
+                        f"({elapsed:.0f}s vs {par_seconds:.0f}s par{how})")
+    else:
+        print(f"    {'speed':<11} "
+              + UI.paint("not measured -- no honest solve time", FAINT))
+    UI.reveal_gauge("functional", score.functional, weights.functional,
+                    f"({sum(s.ops for s in steps)} ops vs "
+                    f"{sum(s.ref_ops for s in steps)} reference)")
+
+    print(f"\n    {UI.paint('subtotal', MUTED)}    {score.subtotal:.1f}")
+    for name, rate in score.bonuses.items():
+        print(f"    {UI.badge(f'+{rate:.0%}', GOOD)} {UI.paint(name, GOOD)}")
+    print(f"\n    {UI.paint('TOTAL', INK, bold=True)}       "
+          f"{UI.paint(f'{score.total:.1f}', heat_for(score.total), bold=True)}")
+    UI.star_burst(score.stars)
+    if not ranked:
+        print("    " + UI.paint(
+            "practice fight - not banked. Pass --elapsed <seconds> to score "
+            "a ranked attempt.", FAINT))
+    print()
+
+
+def _score_the_fight(boss, code: str, seed: int, fight, *,
+                     started: float, pacer: "_Pacer", crashed: bool,
+                     elapsed_override: "float | None",
+                     ranked: bool) -> None:
+    """Measure, score and print a finished fight (T3 W7).
+
+    Called whether or not the fight was cleared: an abandoned fight is scored
+    on what it actually achieved rather than left unscored, because a zero
+    printed for a reason is information and a blank is not.
+
+    The elapsed time handed to the scorer is wall clock **minus the engine's
+    own animation**. See `_Pacer` for why: the alternative scores a display
+    setting on an axis that is supposed to measure the player.
+    """
+    weights = BOSS_WEIGHTS if ranked else BOSS_WEIGHTS.without_speed()
+    if elapsed_override is not None:
+        elapsed = elapsed_override
+    else:
+        elapsed = max(0.0, time.perf_counter() - started - pacer.slept)
+    steps = _measure_fight(boss, code, seed)
+    score = score_fight(
+        steps,
+        elapsed_seconds=elapsed,
+        par_seconds=boss.par_seconds,
+        repairs_spent=fight.spent,
+        crashed_first_run=crashed,
+        weights=weights,
+    )
+    _print_fight_score(score, weights, steps, elapsed=elapsed,
+                       par_seconds=boss.par_seconds, ranked=ranked,
+                       measured=elapsed_override is None)
+
+
 def cmd_boss(args: argparse.Namespace) -> int:
     """Run a boss fight step by step (T3 W1).
 
@@ -1173,17 +1345,35 @@ def cmd_boss(args: argparse.Namespace) -> int:
             steps=boss.step_count,
             repairs=max(0, getattr(args, "repairs", fight_model.DEFAULT_REPAIRS)),
         )
+        # A fight is ranked only when the player brought nothing but
+        # themselves. Starting from a file, from the reference, or handing the
+        # engine a scripted fix all mean the clock is not measuring anyone
+        # solving anything -- the same judgement practice mode makes for a
+        # level, and for the same reason (M1).
+        elapsed_override = getattr(args, "elapsed", None)
+        ranked = elapsed_override is not None or not (
+            args.reference or args.solution or fix
+        )
+        pacer = _Pacer(args.speed)
+        started = time.perf_counter()
+        crashed_first_run = False
         print()
         print(_fight_bar(fight))
         for index in range(boss.step_count):
             # The edited source carries forward: a fix made at step two is
             # what step three is judged on, because that is what the player
             # would submit.
-            cleared, code = _live_step(
-                boss, index, code, seed, args.speed, fight, fix
+            cleared, code, opened_badly = _live_step(
+                boss, index, code, seed, pacer, fight, fix
             )
+            crashed_first_run = crashed_first_run or opened_badly
             if not cleared:
                 print(f"\n  {UI.paint('the fight stops here', WARN)}\n")
+                _score_the_fight(
+                    boss, code, seed, fight, started=started, pacer=pacer,
+                    crashed=crashed_first_run,
+                    elapsed_override=elapsed_override, ranked=ranked,
+                )
                 return 1
             dealt = fight.clear(index)
             spent = fight.spent_on(index)
@@ -1192,7 +1382,13 @@ def cmd_boss(args: argparse.Namespace) -> int:
                   + UI.paint(f"cleared {how}", MUTED)
                   + UI.paint(f"   -{dealt}", GOOD, bold=True))
             print(_fight_bar(fight))
-        return _finish(fight)
+        outcome = _finish(fight)
+        _score_the_fight(
+            boss, code, seed, fight, started=started, pacer=pacer,
+            crashed=crashed_first_run, elapsed_override=elapsed_override,
+            ranked=ranked,
+        )
+        return outcome
 
     if args.solution:
         code = Path(args.solution).read_text(encoding="utf-8")
@@ -1207,9 +1403,16 @@ def cmd_boss(args: argparse.Namespace) -> int:
 
     fight = fight_model.Fight(steps=boss.step_count)
     cleared = 0
+    # Nothing here is watched or paced, so there is no honest solve time to
+    # measure: this path checks a file rather than playing a fight. It is
+    # ranked only when a front-end supplies the clock, exactly as a level's
+    # practice mode is.
+    elapsed_override = getattr(args, "elapsed", None)
+    crashed_first_run = False
     for index, step in enumerate(boss.steps):
         tests = step.tests_for(seed)
         result = run_code(code, step.func_name, tests, source=Source.PLAYER)
+        crashed_first_run = crashed_first_run or bool(result.error)
         passed = [o for o in result.outcomes if o.passed]
         ok = len(passed) == len(tests) and not result.error
         mark = UI.glyph("tick") if ok else UI.glyph("cross")
@@ -1231,13 +1434,24 @@ def cmd_boss(args: argparse.Namespace) -> int:
                 + UI.paint(f"{cleared}/{boss.step_count} steps cleared", MUTED)
                 + "\n"
             )
+            _score_the_fight(
+                boss, code, seed, fight, started=0.0, pacer=_Pacer(0.0),
+                crashed=crashed_first_run, elapsed_override=elapsed_override,
+                ranked=elapsed_override is not None,
+            )
             return 1
         cleared += 1
         fight.clear(index)
 
     print()
     print(_fight_bar(fight))
-    return _finish(fight)
+    outcome = _finish(fight)
+    _score_the_fight(
+        boss, code, seed, fight, started=0.0, pacer=_Pacer(0.0),
+        crashed=crashed_first_run, elapsed_override=elapsed_override,
+        ranked=elapsed_override is not None,
+    )
+    return outcome
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
@@ -1529,6 +1743,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument("boss_id")
     p_boss.add_argument("--seed", type=int, help="pick a variant")
     p_boss.add_argument("--solution", help="run a file instead of the starter")
+    p_boss.add_argument(
+        "--elapsed", type=float,
+        help="real solve time in seconds; makes the fight a ranked attempt",
+    )
     p_boss.add_argument(
         "--repairs", type=int, default=fight_model.DEFAULT_REPAIRS,
         help="how many repairs the fight allows (0 makes the first failure final)",

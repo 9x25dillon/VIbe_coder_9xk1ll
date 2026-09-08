@@ -14,7 +14,7 @@ import unittest
 
 from vibecoder.levels import all_bosses, get_boss
 from vibecoder.models import BossLevel, BossStep, Source, TestCase
-from vibecoder.runner import run_code
+from vibecoder.runner import boss_step_benchmark, run_code
 
 SEEDS = (1, 2, 3)
 
@@ -336,6 +336,54 @@ class TestTheSharedBuffer(unittest.TestCase):
                 self.assertEqual(
                     defined, {step.func_name for step in boss.steps}
                 )
+
+
+class TestTheBossBenchmark(unittest.TestCase):
+    """T3 W7. A boss step's reference is benchmarked with its predecessors.
+
+    This is the reason `boss_step_benchmark` exists rather than
+    `reference_benchmark` being reused: a later step calls an earlier function
+    by name and cannot be measured in isolation.
+    """
+
+    def test_every_step_of_every_boss_benchmarks(self):
+        for boss in all_bosses():
+            for index, step in enumerate(boss.steps):
+                with self.subTest(boss=boss.id, step=step.id):
+                    ops, peak = boss_step_benchmark(boss, index, 1)
+                    self.assertGreater(ops, 0)
+                    self.assertGreaterEqual(peak, 0)
+
+    def test_a_step_benchmarked_alone_would_not_run(self):
+        """The failure this guards against, demonstrated rather than asserted.
+
+        `summarise` calls the two functions before it. Handed only its own
+        reference it raises `NameError`, so a benchmark built from
+        `step.reference` alone would either crash or -- worse -- quietly
+        record a zero and hand every player full marks on Functional.
+        """
+        boss = get_boss("w1-boss-pipeline")
+        last = boss.step_count - 1
+        step = boss.step(last)
+        alone = run_code(step.reference, step.func_name, step.tests_for(1),
+                         source=Source.BUNDLED)
+        self.assertFalse(alone.all_passed)
+
+        together = run_code(boss.reference_source(last), step.func_name,
+                            step.tests_for(1), source=Source.BUNDLED)
+        self.assertTrue(together.all_passed)
+
+    def test_the_benchmark_is_cached_per_step_and_seed(self):
+        boss = get_boss("w1-boss-pipeline")
+        first = boss_step_benchmark(boss, 0, 3)
+        self.assertEqual(first, boss_step_benchmark(boss, 0, 3))
+
+    def test_a_different_seed_is_measured_separately(self):
+        """A variant with ten times the rows must not be scored against a
+        benchmark taken from a smaller one."""
+        boss = get_boss("w1-boss-pipeline")
+        self.assertIsNotNone(boss_step_benchmark(boss, 0, 1))
+        self.assertIsNotNone(boss_step_benchmark(boss, 0, 2))
 
 
 if __name__ == "__main__":
