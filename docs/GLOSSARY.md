@@ -14,9 +14,11 @@ makes a regression visible instead of arguable.
 
 ### Boss fight
 The multi-step challenge closing each world, run in slow motion with the player
-able to intervene mid-execution. Built through [T3](trajectories/T3-boss-engine.md)
-W1–W7: it has hit points, a bounded repair pool, and a scorecard on the same
-three axes as a level at 40/30/30. World 1's is playable; a second one is W8.
+able to intervene mid-execution. Built through [T3](trajectories/T3-boss-engine.md),
+which landed 2026-09-08: a fight has hit points, a bounded repair pool, and a
+scorecard on the same three axes as a level at 40/30/30. Two exist —
+`w1-boss-pipeline` (a pipeline) and `w2-boss-ledger` (a chain, where each step
+calls the one before it).
 
 ### `BOSS DOWN`
 The ending where a boss's hit points actually reach zero, which only a fight

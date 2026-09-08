@@ -6,6 +6,17 @@ tutorial: several of the numbers in here were chosen by argument rather than by
 anyone actually playing, and the last section says which ones and what would
 change them.
 
+There are two boss fights, and `vibecoder levels` lists both with the command
+to start them:
+
+| Boss | World | Shape |
+| --- | --- | --- |
+| `w1-boss-pipeline` — The Feed | 1 | A **pipeline**: parse, filter, report. Each move changes the data's shape. |
+| `w2-boss-ledger` — The Ledger | 2 | A **chain**: index, aggregate, rank. Each step calls the one before it, and step two admits a correct-but-quadratic answer that the Functional axis charges 19.5× for. |
+
+Everything below uses The Feed, because it is the gentler of the two. The
+mechanics are identical.
+
 > **Use Python 3.11.** `python3` on this machine is 3.14 and the game is
 > developed against 3.11 — see M5 in
 > [S003](../journal/2026-09-03-S003-sandbox-seam.md).

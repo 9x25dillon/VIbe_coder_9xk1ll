@@ -19,7 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 from vibecoder import cli
-from vibecoder.levels import get_boss, get_level
+from vibecoder.levels import all_bosses, get_boss, get_level
 from vibecoder.models import RunResult, TestCase, TestOutcome
 
 ESCAPES = re.compile(r"\033\[[0-9;]*m")
@@ -584,6 +584,49 @@ class TestThePanelStaysSquare(unittest.TestCase):
             if line.startswith(("\u256d", "\u2502", "\u2570", "+", "|"))
         }
         self.assertEqual(len(widths), 1, f"box lines differ in width: {widths}")
+
+
+class TestABossCanBeFound(unittest.TestCase):
+    """T3 W8. A boss appeared in no listing, so it could only be reached by
+    already knowing its id -- which criterion 6 ("fully playable from the
+    CLI") does not survive if the player cannot get to it.
+    """
+
+    def listing(self, **overrides) -> str:
+        args = argparse.Namespace(map=False, campaign=False)
+        for key, value in overrides.items():
+            setattr(args, key, value)
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                return captured(cli.cmd_levels, args)
+
+    def test_the_listing_names_every_boss_and_its_id(self):
+        out = self.listing()
+        for boss in all_bosses():
+            with self.subTest(boss=boss.id):
+                self.assertIn(boss.id, out)
+                self.assertIn(boss.title, out)
+
+    def test_the_map_names_every_boss_and_its_id(self):
+        out = self.listing(map=True)
+        for boss in all_bosses():
+            with self.subTest(boss=boss.id):
+                self.assertIn(boss.id, out)
+
+    def test_the_listing_says_how_to_run_one(self):
+        """An id the player has to assemble a command around is half a way in."""
+        self.assertIn("vibecoder boss ", self.listing())
+
+    def test_neither_listing_leaks_an_escape_sequence(self):
+        """The T6 rule, on the two commands this waypoint touched."""
+        for use_map in (False, True):
+            with self.subTest(map=use_map):
+                args = argparse.Namespace(map=use_map, campaign=False)
+                with tempfile.TemporaryDirectory() as tmp:
+                    with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                        with everything_printed() as buffer:
+                            cli.cmd_levels(args)
+                self.assertNotIn("\033", buffer.getvalue())
 
 
 class TestTheHintLadder(unittest.TestCase):

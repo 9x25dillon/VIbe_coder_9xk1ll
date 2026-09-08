@@ -283,6 +283,48 @@ class TestElements(unittest.TestCase):
         self.assertIn("WORLD 2", rendered)
         self.assertIn("One", rendered)
 
+    def test_a_boss_gets_a_line_under_its_own_world(self):
+        """T3 W8. Bosses appeared in no listing at all, so the only way to
+        reach one was to already know its id."""
+        entries = [
+            {"world": 1, "world_title": "One", "id": "a", "title": "A", "stars": 0},
+            {"world": 2, "world_title": "Two", "id": "b", "title": "B", "stars": 3},
+        ]
+        bosses = [{"world": 2, "id": "w2-boss-x", "title": "The X"}]
+        lines = [strip_ansi(l) for l in renderer().level_map(entries, bosses=bosses)]
+        rendered = "\n".join(lines)
+        self.assertIn("The X", rendered)
+        # The id is the point: `boss` takes one and nothing else printed it.
+        self.assertIn("vibecoder boss w2-boss-x", rendered)
+        boss_line = next(i for i, l in enumerate(lines) if "The X" in l)
+        world_two = next(i for i, l in enumerate(lines) if "WORLD 2" in l)
+        self.assertGreater(boss_line, world_two)
+
+    def test_a_world_without_a_boss_gets_no_boss_line(self):
+        entries = [
+            {"world": 1, "world_title": "One", "id": "a", "title": "A", "stars": 0},
+        ]
+        bosses = [{"world": 9, "id": "w9-boss-x", "title": "The X"}]
+        rendered = strip_ansi("\n".join(renderer().level_map(entries, bosses=bosses)))
+        self.assertNotIn("The X", rendered)
+
+    def test_a_boss_does_not_count_toward_a_world_star_tally(self):
+        """A boss banks no stars, so counting it would make every world
+        permanently incomplete."""
+        entries = [
+            {"world": 1, "world_title": "One", "id": "a", "title": "A", "stars": 3},
+        ]
+        bosses = [{"world": 1, "id": "w1-boss-x", "title": "The X"}]
+        rendered = strip_ansi("\n".join(renderer().level_map(entries, bosses=bosses)))
+        self.assertIn("3/3", rendered)
+
+    def test_the_map_is_unchanged_when_no_bosses_are_passed(self):
+        entries = [
+            {"world": 1, "world_title": "One", "id": "a", "title": "A", "stars": 0},
+        ]
+        ui = renderer()
+        self.assertEqual(ui.level_map(entries), ui.level_map(entries, bosses=[]))
+
     def test_bar_chart_renders_one_row_per_item(self):
         rows = renderer().bar_chart([("a", 10.0), ("b", 90.0)])
         self.assertEqual(len(rows), 2)

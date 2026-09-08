@@ -31,7 +31,7 @@ Each trajectory document has the same five sections.
 | --- | --- | --- | --- | --- |
 | [T1](T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | Phase 0 | `LANDED` | 2026-08-08 |
 | [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
-| [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `IN FLIGHT` | 2026-09-20 |
+| [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `LANDED` | 2026-09-20 |
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
@@ -105,9 +105,10 @@ W3 `LANDED` ([S018](../../journal/2026-09-06-S018-step-back.md)),
 W4 and W5 `LANDED` ([S019](../../journal/2026-09-06-S019-edit-and-resume.md)),
 W6 `LANDED` ([S021](../../journal/2026-09-06-S021-boss-hp.md)),
 W7 `LANDED` ([S024](../../journal/2026-09-08-S024-scoring-the-fight.md)).
-**W8 is the only waypoint outstanding, and no exit criterion points at it
-(Q77 — the user's answer is that T3 holds until it ships).**
-**Exit criteria 1 through 5 are verified.**
+W8 `LANDED` ([S025](../../journal/2026-09-08-S025-the-ledger.md)).
+**Every waypoint has shipped and every exit criterion has evidence, so T3 is
+`LANDED` as of 2026-09-08**, twelve days inside its target.
+**Exit criteria 1 through 5 were verified before this session.**
 [S022](../../journal/2026-09-06-S022-actually-playable.md) then played the
 fight from the starter for the first time and found it unplayable — a wrong
 answer offered no repair, and the buffer never grew to hold the next step.
@@ -134,12 +135,23 @@ Criterion 6 was read as needing the fight *scored* on the three axes, which is
 W7, and W7 has now landed: a fight is graded at 40/30/30 on the same card a
 level uses, with Speed corrected for the engine's own slow motion and hit
 points deliberately kept out of the score. **All six criteria therefore have
-evidence, and T3 is deliberately not landed on them.** That is Q77, answered
-by the user in [S024](../../journal/2026-09-08-S024-scoring-the-fight.md):
-W8 — a second boss fight, World 2's algorithm assembly — ships before the
-trajectory closes. The waypoint list is treated as the real contract and the
-criteria as incomplete, which is a finding about the criteria rather than a
-licence to edit them (N7). T3 stays `IN FLIGHT` with one waypoint to go.
+evidence.** Q77 asked whether T3 could land on those six with W8 still
+outstanding, since no criterion points at W8. The user's answer was no — the
+waypoint list is the real contract and the criteria list has a gap, which is a
+finding about the criteria rather than a licence to edit them (N7). So W8 was
+built, and [S025](../../journal/2026-09-08-S025-the-ledger.md) shipped
+`w2-boss-ledger`: a three-link chain where `totals_by_customer` calls
+`index_prices` and `top_spenders` calls `totals_by_customer`, which is a
+stronger reading of "linked steps" than W1's boss, where only the last step
+called anything. **T3 is now `LANDED`.**
+
+Building it found the gap the criteria could not: **bosses appeared in no
+listing at all**, so the only way to reach one was to already know its id.
+Criterion 6 says a boss fight is "fully playable from the CLI", and it had been
+read as satisfied for two sessions while the fight was unreachable by anyone
+who had not read the source. `vibecoder levels` and `levels --map` now name
+both bosses and print the command. That is the third time in T3 that running
+the thing found what the suite could not.
 
 W4 was the one waypoint in the project whose difficulty the trajectory itself
 called genuinely uncertain, and the hazard list said to ship W1–W3 as a
@@ -166,13 +178,14 @@ was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.
 
-**Three** trajectories now hold `IN FLIGHT` at once, against the rule in the
-status vocabulary above, which says exactly one should. T7 was opened while T2
-was in flight; T3 was opened while both were. That is a fact rather than an
-amendment, and it is worth reading as one: T2 is late and blocked, T7 is
-complete through W8 but never formally landed, and the count says the board is
-being used as a set of open workstreams rather than a heading. Landing T7 or
-closing out T2's W4 would put it back to one.
+**Two** trajectories now hold `IN FLIGHT` at once, against the rule in the
+status vocabulary above, which says exactly one should. It was three until
+2026-09-08, when T3 landed. T7 was opened while T2 was in flight; T3 was opened
+while both were. That is a fact rather than an amendment, and it is worth
+reading as one: T2 is late and blocked on W4, and T7 is complete through W8 but
+never formally landed. **Landing T7 would put the board back to one**, and on
+the evidence it is a bookkeeping step rather than work — which makes it the
+cheapest thing on the board and the reason the count is still wrong.
 
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).

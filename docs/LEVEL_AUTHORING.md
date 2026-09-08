@@ -187,12 +187,28 @@ That is documentation for the player and a contract test against the
 *reference*; it is never enforced on the player, who may solve it any way that
 passes.
 
+**Two shapes exist, and the second is the better one.** In `w1-boss-pipeline`
+only the last step calls anything, so the middle step stands alone and the
+"linking" is one edge. In `w2-boss-ledger` every link is real — step two calls
+step one, step three calls step two — which is what makes a boss an assembly
+rather than three levels sharing a file. Prefer the chain when the algorithm
+admits one.
+
 ### The contract, enforced automatically
 
 Everything a level must satisfy, plus:
 
 - **At least two steps.** One step is a level; the format exists for the
   linking.
+- **Every starter runs, is wrong, and is not hopeless.** It must not crash, it
+  must execute enough to be worth watching, and it must pass *some* of its
+  cases — the repair's heal scales with `1 - accuracy`, so a starter that
+  passes nothing hands the boss the maximum every time and W6's curve never
+  does its job. See D154–D156 in
+  [S023](../journal/2026-09-06-S023-starters-that-run.md).
+- **Make the watched case fail.** A live step traces the *first* test case, so
+  a starter that happens to pass it shows the player a clean run and then a
+  verdict they did not see coming.
 - **No two steps share a function name.** The later definition would silently
   replace the earlier one in the shared file, and the first step's tests would
   then grade code written for the second. `BossLevel.__post_init__` refuses it.

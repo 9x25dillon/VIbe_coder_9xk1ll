@@ -265,7 +265,11 @@ def cmd_levels(args: argparse.Namespace) -> int:
             }
             for lvl in all_levels
         ]
-        for line in UI.level_map(entries):
+        bosses = [
+            {"world": boss.world, "id": boss.id, "title": boss.title}
+            for boss in level_registry.all_bosses()
+        ]
+        for line in UI.level_map(entries, bosses=bosses):
             print(line)
         print()
         return 0
@@ -292,6 +296,26 @@ def cmd_levels(args: argparse.Namespace) -> int:
         best = f"{record.best_total:6.1f}" if record else "     -"
         tags = UI.paint(",".join(level.tags), FAINT)
         print(f"    {stars}  {best}  {level.id:<16} {level.title:<28} {tags}")
+
+    # Bosses are listed separately rather than folded in among the levels.
+    # They are a different shape -- n functions, no banked stars, their own
+    # command -- and until now they appeared in no listing at all, so the only
+    # way to reach one was to already know its id (T3 W8).
+    bosses = level_registry.all_bosses()
+    if bosses:
+        print()
+        print(UI.rule("BOSS FIGHTS", width=76))
+        for boss in bosses:
+            tags = UI.paint(",".join(boss.tags), FAINT)
+            print(
+                f"    {UI.paint(UI.glyph('node_boss'), BAD)}  "
+                f"{UI.paint(f'W{boss.world}', FAINT)}  "
+                f"{boss.id:<16} {boss.title:<28} {tags}"
+            )
+        print(
+            f"\n    {UI.paint('play one with', FAINT)} "
+            + UI.paint(f"vibecoder boss {bosses[0].id} --live", MUTED)
+        )
 
     if not session.vibe:
         print(

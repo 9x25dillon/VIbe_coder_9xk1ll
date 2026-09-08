@@ -23,22 +23,25 @@ from the test suite and obvious within ninety seconds of playing (M38).
 
 ## Where things stand
 
-**T3 (boss engine) has one waypoint left: W8, a second boss fight.** W1–W7
-landed, and **all six exit criteria now have evidence** — the trajectory is
-deliberately still `IN FLIGHT` anyway. That is Q77, answered by the user in
-[S024](journal/2026-09-08-S024-scoring-the-fight.md): W8 ships before T3
-closes, because the waypoint list is the real contract and the criteria list
-has a gap. N7 forbids editing the criteria to match; it does not forbid
-noticing they are incomplete.
+**T3 (boss engine) is `LANDED`** as of 2026-09-08, twelve days inside its
+target. W1–W8 shipped and all six exit criteria have evidence. There are two
+boss fights: `w1-boss-pipeline` (a pipeline — parse, filter, report) and
+`w2-boss-ledger` (a chain — index, aggregate, rank, each step calling the one
+before it).
+
+Building the second one found what six criteria could not: **bosses appeared
+in no listing**, so the only way to reach one was to already know its id.
+`vibecoder levels` and `levels --map` now name both and print the command.
 
 | | |
 | --- | --- |
 | Branch | `main`, clean, pushed |
-| Gates | 1018 tests unpinned · 994 pinned to bwrap · `verify` 45/45 · 0 escapes in a pipe |
+| Gates | 1031 tests unpinned · 1007 pinned to bwrap · `verify` 54/54 · 0 escapes in a pipe |
 | Blocked | T2 W4 only, on a registered OAuth application |
 
-Three trajectories hold `IN FLIGHT` against a rule saying exactly one should.
-That is recorded on the flight board, not hidden.
+Two trajectories still hold `IN FLIGHT` against a rule saying exactly one
+should. **Landing T7 would fix it and looks like bookkeeping rather than
+work** — it has been complete through W8 since S008.
 
 ---
 

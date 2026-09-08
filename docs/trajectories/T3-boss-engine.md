@@ -1,6 +1,7 @@
 # T3 — Boss engine: interactive slow-motion debugger
 
-**Design phase:** 2 · **Status:** `IN FLIGHT` · **Target:** 2026-09-20 ·
+**Design phase:** 2 · **Status:** `LANDED` · **Target:** 2026-09-20 ·
+**Landed:** 2026-09-08 ·
 **Depends on:** T2 (execution boundary must be settled first)
 
 ## Heading
@@ -46,7 +47,7 @@ treat "how often did replay diverge?" as the metric that justifies the upgrade.
 | W5 | Divergence detector | Compare replayed trace to the original prefix; if it differs, say so instead of lying. |
 | W6 | Boss HP model tied to first-try step completions | Per the design: correct-first-time steps damage the boss. |
 | W7 | Boss scoring at 40/30/30 weights (`BOSS_WEIGHTS`, already defined) | `LANDED` (S024). Elegance judged by static analysis against the reference. |
-| W8 | Two boss fights: World 1 (data pipeline) and World 2 (algorithm assembly) | The design's web-scraper boss needs network, so it waits for T2 W2. |
+| W8 | Two boss fights: World 1 (data pipeline) and World 2 (algorithm assembly) | `LANDED` (S025). `w2-boss-ledger` is a three-link chain — index, aggregate, rank — where each step calls the one before it. The design's web-scraper boss needs network and is left to T2 W2. |
 
 ## Exit criteria
 

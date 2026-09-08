@@ -15,6 +15,7 @@ import unittest
 from vibecoder.levels import all_bosses, get_boss
 from vibecoder.models import BossLevel, BossStep, Source, TestCase
 from vibecoder.runner import boss_step_benchmark, run_code
+from vibecoder.scoring import functional_score
 
 SEEDS = (1, 2, 3)
 
@@ -384,6 +385,66 @@ class TestTheBossBenchmark(unittest.TestCase):
         boss = get_boss("w1-boss-pipeline")
         self.assertIsNotNone(boss_step_benchmark(boss, 0, 1))
         self.assertIsNotNone(boss_step_benchmark(boss, 0, 2))
+
+
+class TestTheLedgerChargesForTheNestedScan(unittest.TestCase):
+    """T3 W8. `w2-boss-ledger` tells the player the slow way will cost them.
+
+    That sentence is in the step's brief, which makes it a promise to the
+    player rather than a design note — and an untested promise is M36's shape.
+    Asserted as a property (passes everything, scores materially worse) rather
+    than by quoting the brief, which is M39's.
+    """
+
+    BOSS = "w2-boss-ledger"
+    STEP = 1  # totals_by_customer
+
+    def naive_source(self) -> str:
+        """Correct, and scans the whole catalogue for every single order."""
+        boss = get_boss(self.BOSS)
+        return boss.step(0).reference + """
+
+def totals_by_customer(orders, products):
+    totals = {}
+    for order in orders:
+        price = None
+        for product in products:
+            if product["sku"] == order["sku"]:
+                price = product["price"]
+        if price is None:
+            continue
+        cost = price * order["quantity"]
+        totals[order["customer"]] = totals.get(order["customer"], 0) + cost
+    return totals
+"""
+
+    def test_the_nested_scan_is_correct(self):
+        """The premise. A slow solution that also fails proves nothing about
+        the Functional axis -- Accuracy would already have caught it."""
+        boss = get_boss(self.BOSS)
+        step = boss.step(self.STEP)
+        result = run_code(self.naive_source(), step.func_name,
+                          step.tests_for(1), source=Source.PLAYER)
+        self.assertTrue(result.all_passed, result.error)
+
+    def test_the_nested_scan_costs_a_lot_more_work(self):
+        boss = get_boss(self.BOSS)
+        step = boss.step(self.STEP)
+        result = run_code(self.naive_source(), step.func_name,
+                          step.tests_for(1), source=Source.PLAYER)
+        ref_ops, _ = boss_step_benchmark(boss, self.STEP, 1)
+        self.assertGreater(result.ops, ref_ops * 5)
+
+    def test_the_functional_axis_actually_charges_for_it(self):
+        """A ratio is not a score. This is the number the player sees."""
+        boss = get_boss(self.BOSS)
+        step = boss.step(self.STEP)
+        result = run_code(self.naive_source(), step.func_name,
+                          step.tests_for(1), source=Source.PLAYER)
+        ref_ops, ref_peak = boss_step_benchmark(boss, self.STEP, 1)
+        scored = functional_score(result.ops, ref_ops,
+                                  result.peak_bytes, ref_peak)
+        self.assertLess(scored, 60.0)
 
 
 if __name__ == "__main__":

@@ -207,6 +207,7 @@ GLYPHS = {
     "bl": ("╰", "+"), "br": ("╯", "+"),
     "h": ("─", "-"), "v": ("│", "|"),
     "node_done": ("◆", "@"), "node_open": ("◇", "o"), "node_lock": ("·", "."),
+    "node_boss": ("◈", "X"),
     "link": ("─", "-"),
     "arrow": ("▸", ">"),
     "tick": ("✔", "+"), "cross": ("✘", "x"),
@@ -449,11 +450,24 @@ class Renderer:
             f"{self.paint(f'{current:.0f}/{maximum:.0f}', MUTED)}"
         )
 
-    def level_map(self, entries: Sequence[dict], *, width: int = 72) -> list[str]:
+    def level_map(
+        self,
+        entries: Sequence[dict],
+        *,
+        width: int = 72,
+        bosses: Sequence[dict] = (),
+    ) -> list[str]:
         """World progression: one row per world, one node per level.
 
         ``entries`` are dicts with ``world``, ``world_title``, ``id``, ``title``
         and ``stars``. A node is filled once the level has been cleared.
+
+        ``bosses`` are dicts with ``world``, ``id`` and ``title``, and get a
+        line of their own beneath their world rather than a node in the row.
+        Two reasons, and neither is aesthetic: a boss earns no stars, so it has
+        nothing to put in the label row without inventing a value; and the
+        thing a player actually lacks is the *id*, since `boss` takes one and
+        no listing was printing it. A node they cannot name is not a way in.
         """
         rows: list[str] = []
         worlds: dict[int, list[dict]] = {}
@@ -516,6 +530,16 @@ class Renderer:
                 level = levels[nxt]
                 label = f"{self.glyph('arrow')} next  {level['title']}"
                 rows.append(" " * (5 + nxt * 6) + self.paint(label, ACCENT))
+
+            for boss in bosses:
+                if boss["world"] != world:
+                    continue
+                rows.append(
+                    "     "
+                    + self.paint(f"{self.glyph('node_boss')} boss  ", BAD)
+                    + self.paint(f"{boss['title']:<22}", INK)
+                    + self.paint(f"vibecoder boss {boss['id']}", FAINT)
+                )
         return rows
 
     def bar_chart(

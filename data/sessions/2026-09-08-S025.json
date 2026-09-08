@@ -1,0 +1,457 @@
+{
+  "id": "S025",
+  "date": "2026-09-08",
+  "duration_minutes": 80,
+  "trajectory": "T3",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S025-the-ledger.md",
+  "supersedes": null,
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "World 2 has a boss whose steps genuinely build on each other",
+      "result": "met",
+      "note": "every link is real, unlike w1-boss-pipeline where only the last step calls anything"
+    },
+    {
+      "id": 2,
+      "statement": "Its three starters run, fail visibly, and give partial credit",
+      "result": "met",
+      "note": "43%, 50%, 38%, each failing its own worked example so the failure is in the watched trace"
+    },
+    {
+      "id": 3,
+      "statement": "The Functional axis actually charges for the naive solution the brief warns about",
+      "result": "met",
+      "note": "19.5x the work, scoring 33.6 against 100.0, and now asserted rather than claimed"
+    },
+    {
+      "id": 4,
+      "statement": "Boss reference op counts are recorded in a baseline and checked",
+      "result": "met",
+      "note": "the first baseline to cover bosses at all, plus two tests in test_records.py"
+    },
+    {
+      "id": 5,
+      "statement": "T3 lands",
+      "result": "met",
+      "note": "every waypoint shipped, every exit criterion has evidence"
+    },
+    {
+      "id": 6,
+      "statement": "A player can find a boss without reading the source",
+      "result": "partial",
+      "note": "fixed for both listings (M43); a boss is still outside world progression entirely (Q84)"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/levels/w2_boss_ledger.py",
+      "kind": "level",
+      "note": "The Ledger: index, aggregate, rank; a chain where each step calls its predecessor"
+    },
+    {
+      "path": "vibecoder/ui.py",
+      "kind": "module",
+      "note": "level_map takes bosses and gives each a labelled line under its world; node_boss glyph"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "cmd_levels lists bosses in both the map and the campaign listing, with the command to start one"
+    },
+    {
+      "path": "tests/test_bosses.py",
+      "kind": "test",
+      "note": "TestTheLedgerChargesForTheNestedScan: the brief's promise to the player, asserted as a property"
+    },
+    {
+      "path": "tests/test_ui.py",
+      "kind": "test",
+      "note": "four level_map cases including the star tally and the no-bosses default"
+    },
+    {
+      "path": "tests/test_cli_output.py",
+      "kind": "test",
+      "note": "TestABossCanBeFound: both listings name every boss and print the command"
+    },
+    {
+      "path": "tests/test_records.py",
+      "kind": "test",
+      "note": "baseline coverage and op-count reproduction for boss steps"
+    },
+    {
+      "path": "data/baselines/2026-09-08-two-bosses-baseline.json",
+      "kind": "data",
+      "note": "first baseline covering boss steps; level figures byte-identical to its predecessor"
+    },
+    {
+      "path": "docs/trajectories/T3-boss-engine.md",
+      "kind": "doc",
+      "note": "W8 LANDED; trajectory LANDED 2026-09-08"
+    },
+    {
+      "path": "docs/trajectories/README.md",
+      "kind": "doc",
+      "note": "T3 landed on the flight board; IN FLIGHT count corrected from three to two"
+    },
+    {
+      "path": "docs/PLAYING.md",
+      "kind": "doc",
+      "note": "both bosses named with their shapes"
+    },
+    {
+      "path": "docs/LEVEL_AUTHORING.md",
+      "kind": "doc",
+      "note": "the chain shape preferred over the pipeline; starter rules including the watched-case rule"
+    },
+    {
+      "path": "docs/GLOSSARY.md",
+      "kind": "doc",
+      "note": "Boss fight entry updated for two bosses and a landed T3"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc",
+      "note": "T3 landed, gate counts, the discoverability finding"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": "test count"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "doc",
+      "note": "test count"
+    },
+    {
+      "path": "journal/2026-09-08-S025-the-ledger.md",
+      "kind": "doc",
+      "note": "This session"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Every step of the new boss links to the one before it",
+      "method": "test_a_step_that_declares_uses_actually_calls_them and test_a_linked_step_fails_in_isolation, both pre-existing and generic",
+      "result": "green for all three steps",
+      "verdict": "verified"
+    },
+    {
+      "claim": "All three starters run without crashing",
+      "method": "tests/test_bosses.py::test_no_starter_crashes",
+      "result": "empty error for every step",
+      "verdict": "verified"
+    },
+    {
+      "claim": "All three fail without failing everything",
+      "method": "::test_a_starter_is_wrong_without_being_hopeless, plus direct measurement",
+      "result": "43% (3/7), 50% (4/8), 38% (3/8)",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Each starter fails its own worked example, so the failure is in the watched trace",
+      "method": "run_code against each step's own tests, listing the failures by name",
+      "result": "worked_example among the failures for all three steps",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The starter accuracies are stable across seeds",
+      "method": "the same measurement at seeds 1, 2 and 3",
+      "result": "identical at every seed",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A correct nested scan passes every case on step two",
+      "method": "tests/test_bosses.py::test_the_nested_scan_is_correct",
+      "result": "8/8",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The Functional axis charges 19.5x for it",
+      "method": "::test_the_nested_scan_costs_a_lot_more_work and ::test_the_functional_axis_actually_charges_for_it",
+      "result": "28472 ops against 1461; functional 33.6 against the reference's 100.0",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The references pass every variant",
+      "method": "python3.11 -m vibecoder.cli verify --seeds 3",
+      "result": "54/54, up from 45/45",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The baseline covers every boss step and reproduces",
+      "method": "test_baselines_cover_every_current_boss, test_recorded_boss_op_counts_still_reproduce",
+      "result": "green over 2 bosses, 6 steps, 3 seeds",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Level op counts are unchanged by W7 and W8",
+      "method": "field-by-field comparison of the new baseline's level section against the previous baseline",
+      "result": "identical",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Both listings name both bosses and print the command",
+      "method": "tests/test_cli_output.py::TestABossCanBeFound",
+      "result": "four cases green, including the escape-sequence check",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite is green unpinned",
+      "method": "python3.11 -m unittest discover -s tests",
+      "result": "1031 tests OK in 72.141s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The suite is green pinned to bubblewrap",
+      "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests",
+      "result": "1007 tests OK in 59.923s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "T3 exit criteria 1 to 5",
+      "method": "verified in S016 through S021; untouched by this session",
+      "result": "unchanged",
+      "verdict": "verified"
+    },
+    {
+      "claim": "T3 exit criterion 6, a boss fight is fully playable from the CLI",
+      "method": "two bosses played end to end, and reachable from the listings as of this session",
+      "result": "met",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The Ledger is any good to play",
+      "method": "nobody has played it",
+      "result": "unknown",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "Five repairs is the right pool for a three-step chain",
+      "method": "unchanged from W1 and still unplaytested",
+      "result": "unknown",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M43",
+      "believed": "That exit criterion 6 -- a boss fight is fully playable from the CLI with no web front-end -- had been satisfied since S022, and that W7's scorecard was the last thing it needed. The flight board said exactly that.",
+      "revealed_by": "Running `vibecoder levels --map` to check the new boss had appeared on it. Neither boss appeared. cmd_levels walks all_levels() only, in both the map and the campaign listing, so a boss had never been shown anywhere in the game.",
+      "corrected_to": "The only way to reach a boss was to already know its id from the README or the source, which is not 'fully playable from the CLI'. Both listings now name every boss and print the command to start it, because the id is the thing the player actually lacks. Bosses get a labelled line rather than a node in the level row: a boss banks no stars, so a node would have nothing to put in the label row without inventing a value, and a node cannot carry a command.",
+      "cost_minutes": 15,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "'Playable' was read as 'the code path works', and it was checked by running the code path -- with the id in hand, every time. A criterion about a player's experience cannot be verified by a command the author already knows how to type. This is the third time in T3 that running the thing found what the suite could not (S022's unplayable fight, S024's free points on Functional, this), and the pattern is identical in all three: the test and the author share an assumption, so only the front door disagrees."
+    },
+    {
+      "id": "M44",
+      "believed": "That a starter satisfying 'fails some cases, passes others' was enough. The first draft of step three used n=2 in its worked example, and with two customers in that fixture ranked[:2] and ranked are the same list, so the starter passed the worked example.",
+      "revealed_by": "Reasoning through _attempt while designing the case, not by a test -- nothing in the contract checks this.",
+      "corrected_to": "A live step traces tests[0], so the first case is the one the player watches. A starter that passes it shows a clean-looking run and then a verdict the player did not see coming, which is precisely the failure S022 was about. The worked example now uses n=1, so the starter returns two entries where one was asked for, and all three steps were checked to confirm their worked example is among the failures.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Now written in LEVEL_AUTHORING.md as a rule, but it is not a test and it could be one -- 'tests[0] fails for every starter' is a checkable property. Left undone deliberately rather than silently, as Q83. An unenforced rule in a document is exactly what M36 was about."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D164",
+      "decision": "The second boss is a chain, not a pipeline: every step calls its predecessor",
+      "alternatives": [
+        "Copy w1-boss-pipeline's shape, where only the last step links"
+      ],
+      "rationale": "W1's middle step stands alone, so 'linked steps' amounts to one edge. A chain is the stronger reading of what the boss format exists for, and gives the contract tests something real to check at every step rather than only the last.",
+      "reversible": true,
+      "seam": "vibecoder/levels/w2_boss_ledger.py"
+    },
+    {
+      "id": "D165",
+      "decision": "Step two takes the product list, not a price map",
+      "alternatives": [
+        "Pass the index in, as W1's filter step takes already-parsed rows"
+      ],
+      "rationale": "Taking the list is what leaves room for the correct-but-quadratic answer, which is World 2's whole lesson. Handing over the index would have removed the trap the world exists to teach.",
+      "reversible": true,
+      "seam": "vibecoder/levels/w2_boss_ledger.py"
+    },
+    {
+      "id": "D166",
+      "decision": "Prices are whole cents; the boss is integer arithmetic throughout",
+      "alternatives": [
+        "Floats with round(_, 2), as w1-boss-pipeline uses"
+      ],
+      "rationale": "A total summed in a different order by the player must still compare equal to the reference's. Float tolerance is a different lesson than this boss teaches, so the opportunity to need it was removed rather than managed.",
+      "reversible": true,
+      "seam": "vibecoder/levels/w2_boss_ledger.py"
+    },
+    {
+      "id": "D167",
+      "decision": "Three steps, not four",
+      "alternatives": [
+        "Four steps, for a more literal reading of 'assembly'"
+      ],
+      "rationale": "Five repairs and a mandatory failure per step means a four-step boss forces four repairs and leaves one for the whole fight -- materially harsher than W1, on numbers nobody has playtested (Q76). Three keeps the two bosses comparable so the difference is the shape, not the budget.",
+      "reversible": true,
+      "seam": "vibecoder/levels/w2_boss_ledger.py"
+    },
+    {
+      "id": "D168",
+      "decision": "Bosses get a labelled line in the listings, not a node in the level row",
+      "alternatives": [
+        "A node in the map row alongside the levels",
+        "Leave discovery to the README"
+      ],
+      "rationale": "A boss banks no stars, so a node has nothing to put in the label row without inventing a value. More importantly the id is what the player lacks, since `boss` takes one -- and a line can carry the command while a node cannot.",
+      "reversible": true,
+      "seam": "vibecoder/ui.py::level_map"
+    },
+    {
+      "id": "D169",
+      "decision": "The baseline records boss steps, and two tests check it",
+      "alternatives": [
+        "Leave the baseline level-only, as it has been since T1"
+      ],
+      "rationale": "Since T3 W7 a boss step's reference op count is a scoring input -- the denominator of the Functional axis for a fight. An unrecorded scoring input is a number nothing watches, which is M36's shape.",
+      "reversible": false,
+      "seam": "data/baselines/2026-09-08-two-bosses-baseline.json"
+    }
+  ],
+  "friction": [
+    {
+      "description": "Choosing three steps rather than four. Four would make 'assembly' more literal, but the repair pool is five and every starter must fail, so a four-step boss forces four repairs and leaves one for the whole fight. That is a materially harsher game than W1's, decided by arithmetic nobody has playtested (Q76). Three was chosen so that when someone does play both, the difference is the shape rather than the budget.",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "T3 is LANDED as of 2026-09-08, twelve days inside target. W1-W8 shipped and all six exit criteria have evidence. Two boss fights exist: w1-boss-pipeline (a pipeline) and w2-boss-ledger (a chain). Both are now discoverable from `vibecoder levels` and `levels --map`, which they were not before this session. 1031 tests green unpinned, 1007 pinned, verify clean on 54 reference runs, 0 escapes in a pipe.",
+    "next_action": "Land T7. It has been complete through W8 since S008 and was never formally closed. Two trajectories hold IN FLIGHT against a rule saying one should, and on the evidence this is bookkeeping rather than work, which makes it the cheapest way to make the board honest again. Then T4 (adaptive difficulty), which is PLOTTED and next in the design phases. Before either, ideally: play The Ledger -- three sessions running, the useful finding came from the front door and not the suite.",
+    "blockers": [
+      "None",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M43 before marking any player-facing criterion met: a command the author knows how to type is not evidence a player can reach it",
+      "M44 and D156 before authoring another boss starter",
+      "Q76 before changing the repair pool, which now governs two fights rather than one"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q68",
+      "question": "Two events land on one line when it raises. Should the display merge them?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q69",
+      "question": "Timeline holds Step objects for a live run and dicts for a recorded one.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q70",
+      "question": "An edit past step 400 fast-forwards against a truncated original.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q71",
+      "question": "Divergence rate over real play is measurable and uncollected. It is the instrument check T3 asked for, and T3 landed without it.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q73",
+      "question": "Should the crash path show the expected value, as the wrong-answer path now does?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q75",
+      "question": "Which of the remaining non-negotiables can be given a test?",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q76",
+      "question": "The heal curve and pool size were chosen by argument, not playtest, and now govern two fights rather than one.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q78",
+      "question": "Should the pane have a 'replace this function' affordance?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q81",
+      "question": "score_submission stores a computed speed for practice runs, from a clock that started when the file was read.",
+      "owner": "T1",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q82",
+      "question": "The score cannot see how wrong the code was before it was repaired.",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q83",
+      "question": "A starter must fail the case the player watches, since a live step traces tests[0]. It is a rule in LEVEL_AUTHORING.md and a checkable property, but not a test. Should it be one?",
+      "owner": "T3",
+      "status": "open",
+      "answer": null
+    },
+    {
+      "id": "Q84",
+      "question": "A boss is not part of world progression. It banks no stars, appears in no tally, and nothing unlocks it or is unlocked by it. Is a boss a side attraction, or should clearing a world's levels gate it and clearing it count for something?",
+      "owner": "T4",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 1031,
+    "tests_passing": 1031,
+    "tests_added": 13,
+    "suite_seconds_unpinned": 72.141,
+    "suite_tests_pinned_bwrap": 1007,
+    "suite_seconds_pinned_bwrap": 59.923,
+    "reference_runs_clean": 54,
+    "reference_runs_clean_before": 45,
+    "bosses": 2,
+    "boss_steps_total": 6,
+    "ledger_starter_accuracy_index": 0.429,
+    "ledger_starter_accuracy_totals": 0.5,
+    "ledger_starter_accuracy_top": 0.375,
+    "ledger_floor_from_starters": 68,
+    "ledger_nested_scan_ops": 28472,
+    "ledger_reference_ops": 1461,
+    "ledger_nested_scan_ratio": 19.5,
+    "ledger_nested_scan_functional": 33.6,
+    "t3_waypoints_landed": 8,
+    "t3_waypoints_total": 8,
+    "t3_exit_criteria_verified": 6,
+    "t3_exit_criteria_total": 6,
+    "trajectories_in_flight": 2,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 26,
+    "dependencies": 0
+  }
+}

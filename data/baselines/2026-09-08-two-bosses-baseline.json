@@ -1,0 +1,482 @@
+{
+  "name": "two-bosses-baseline",
+  "date": "2026-09-08",
+  "session": "S025",
+  "description": "The first baseline to record boss steps. Level figures are unchanged from the beginner-world baseline, which is the evidence that T3 W7's scoring work and W8's second boss touched no level. The boss section is new and matters because T3 W7 made a boss step's reference op count load-bearing: it is the denominator of the Functional axis for a fight, measured by runner.boss_step_benchmark with the earlier steps' references present. Note w2-boss-ledger/totals at 1461 ops against a 28472-op nested scan -- that 19.5x gap is the level's stated promise to the player, and this file is what would show it eroding.",
+  "measured_with": "python3.11 -m vibecoder.cli verify --seeds 3",
+  "python_version": "3.11.15",
+  "supersedes": "2026-09-03-beginner-world-baseline",
+  "levels": {
+    "w1-l1-greet": {
+      "world": 1,
+      "title": "Say Hello",
+      "tags": [
+        "basics",
+        "strings"
+      ],
+      "par_seconds": 120.0,
+      "test_count": 8,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 8,
+          "peak_bytes": 480
+        },
+        "2": {
+          "ops": 8,
+          "peak_bytes": 480
+        },
+        "3": {
+          "ops": 8,
+          "peak_bytes": 480
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w1-l2-bigger": {
+      "world": 1,
+      "title": "Pick the Larger",
+      "tags": [
+        "basics",
+        "conditionals"
+      ],
+      "par_seconds": 120.0,
+      "test_count": 9,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 18,
+          "peak_bytes": 480
+        },
+        "2": {
+          "ops": 18,
+          "peak_bytes": 480
+        },
+        "3": {
+          "ops": 18,
+          "peak_bytes": 480
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w1-l3-count": {
+      "world": 1,
+      "title": "Count What Matters",
+      "tags": [
+        "basics",
+        "loops"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 7,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 1597,
+          "peak_bytes": 480
+        },
+        "2": {
+          "ops": 1595,
+          "peak_bytes": 480
+        },
+        "3": {
+          "ops": 1595,
+          "peak_bytes": 480
+        }
+      },
+      "reference_ops_spread": 2
+    },
+    "w1-l4-double": {
+      "world": 1,
+      "title": "Double Everything",
+      "tags": [
+        "basics",
+        "lists"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 531,
+          "peak_bytes": 19272
+        },
+        "2": {
+          "ops": 531,
+          "peak_bytes": 19464
+        },
+        "3": {
+          "ops": 531,
+          "peak_bytes": 19592
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w1-l5-longest": {
+      "world": 1,
+      "title": "The Longest Word",
+      "tags": [
+        "basics",
+        "loops",
+        "strings"
+      ],
+      "par_seconds": 300.0,
+      "test_count": 9,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 896,
+          "peak_bytes": 480
+        },
+        "2": {
+          "ops": 895,
+          "peak_bytes": 480
+        },
+        "3": {
+          "ops": 901,
+          "peak_bytes": 480
+        }
+      },
+      "reference_ops_spread": 6
+    },
+    "w1-l6-tally": {
+      "world": 1,
+      "title": "Count Each One",
+      "tags": [
+        "basics",
+        "datastructures"
+      ],
+      "par_seconds": 360.0,
+      "test_count": 8,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 1096,
+          "peak_bytes": 640
+        },
+        "2": {
+          "ops": 1094,
+          "peak_bytes": 640
+        },
+        "3": {
+          "ops": 1088,
+          "peak_bytes": 600
+        }
+      },
+      "reference_ops_spread": 8
+    },
+    "w2-l1-revenue": {
+      "world": 2,
+      "title": "Revenue Above Threshold",
+      "tags": [
+        "data",
+        "tabular",
+        "functional"
+      ],
+      "par_seconds": 180.0,
+      "test_count": 5,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 442,
+          "peak_bytes": 944
+        },
+        "2": {
+          "ops": 442,
+          "peak_bytes": 944
+        },
+        "3": {
+          "ops": 442,
+          "peak_bytes": 944
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w2-l2-groupby": {
+      "world": 2,
+      "title": "Group and Total",
+      "tags": [
+        "data",
+        "tabular",
+        "datastructures"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 1042,
+          "peak_bytes": 680
+        },
+        "2": {
+          "ops": 1070,
+          "peak_bytes": 696
+        },
+        "3": {
+          "ops": 1052,
+          "peak_bytes": 680
+        }
+      },
+      "reference_ops_spread": 28
+    },
+    "w2-l3-join": {
+      "world": 2,
+      "title": "Join Without the Nested Loop",
+      "tags": [
+        "data",
+        "datastructures",
+        "algorithms"
+      ],
+      "par_seconds": 300.0,
+      "test_count": 5,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 2184,
+          "peak_bytes": 68160
+        },
+        "2": {
+          "ops": 2176,
+          "peak_bytes": 68576
+        },
+        "3": {
+          "ops": 2174,
+          "peak_bytes": 68008
+        }
+      },
+      "reference_ops_spread": 10
+    },
+    "w3-l1-flatten": {
+      "world": 3,
+      "title": "Flatten Anything",
+      "tags": [
+        "algorithms",
+        "recursion"
+      ],
+      "par_seconds": 240.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 237,
+          "peak_bytes": 728
+        },
+        "2": {
+          "ops": 222,
+          "peak_bytes": 744
+        },
+        "3": {
+          "ops": 273,
+          "peak_bytes": 736
+        }
+      },
+      "reference_ops_spread": 51
+    },
+    "w3-l2-window": {
+      "world": 3,
+      "title": "Sliding Window",
+      "tags": [
+        "algorithms",
+        "numeric"
+      ],
+      "par_seconds": 300.0,
+      "test_count": 6,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 5958,
+          "peak_bytes": 768
+        },
+        "2": {
+          "ops": 5958,
+          "peak_bytes": 768
+        },
+        "3": {
+          "ops": 5958,
+          "peak_bytes": 768
+        }
+      },
+      "reference_ops_spread": 0
+    },
+    "w3-l3-wordfreq": {
+      "world": 3,
+      "title": "Top Words",
+      "tags": [
+        "text",
+        "regex",
+        "datastructures",
+        "algorithms"
+      ],
+      "par_seconds": 360.0,
+      "test_count": 7,
+      "reference_ops_by_seed": {
+        "1": {
+          "ops": 76,
+          "peak_bytes": 56389
+        },
+        "2": {
+          "ops": 75,
+          "peak_bytes": 56524
+        },
+        "3": {
+          "ops": 75,
+          "peak_bytes": 56418
+        }
+      },
+      "reference_ops_spread": 1
+    }
+  },
+  "bosses": {
+    "w1-boss-pipeline": {
+      "world": 1,
+      "title": "The Feed",
+      "tags": [
+        "data",
+        "tabular",
+        "text"
+      ],
+      "par_seconds": 900.0,
+      "steps": {
+        "parse": {
+          "index": 0,
+          "title": "Parse the feed",
+          "func_name": "parse_rows",
+          "uses": [],
+          "test_count": 6,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 571,
+              "peak_bytes": 7944
+            },
+            "2": {
+              "ops": 571,
+              "peak_bytes": 7935
+            },
+            "3": {
+              "ops": 571,
+              "peak_bytes": 7919
+            }
+          },
+          "reference_ops_spread": 0
+        },
+        "filter": {
+          "index": 1,
+          "title": "Drop the cheap stock",
+          "func_name": "above_floor",
+          "uses": [],
+          "test_count": 6,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 91,
+              "peak_bytes": 976
+            },
+            "2": {
+              "ops": 91,
+              "peak_bytes": 976
+            },
+            "3": {
+              "ops": 91,
+              "peak_bytes": 976
+            }
+          },
+          "reference_ops_spread": 0
+        },
+        "summary": {
+          "index": 2,
+          "title": "Report the damage",
+          "func_name": "summarise",
+          "uses": [
+            "parse_rows",
+            "above_floor"
+          ],
+          "test_count": 6,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 750,
+              "peak_bytes": 9103
+            },
+            "2": {
+              "ops": 753,
+              "peak_bytes": 9094
+            },
+            "3": {
+              "ops": 758,
+              "peak_bytes": 8965
+            }
+          },
+          "reference_ops_spread": 8
+        }
+      }
+    },
+    "w2-boss-ledger": {
+      "world": 2,
+      "title": "The Ledger",
+      "tags": [
+        "data",
+        "datastructures",
+        "algorithms"
+      ],
+      "par_seconds": 1200.0,
+      "steps": {
+        "index": {
+          "index": 0,
+          "title": "Index the catalogue",
+          "func_name": "index_prices",
+          "uses": [],
+          "test_count": 7,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 115,
+              "peak_bytes": 728
+            },
+            "2": {
+              "ops": 115,
+              "peak_bytes": 728
+            },
+            "3": {
+              "ops": 115,
+              "peak_bytes": 728
+            }
+          },
+          "reference_ops_spread": 0
+        },
+        "totals": {
+          "index": 1,
+          "title": "Total up the spend",
+          "func_name": "totals_by_customer",
+          "uses": [
+            "index_prices"
+          ],
+          "test_count": 8,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 1461,
+              "peak_bytes": 1056
+            },
+            "2": {
+              "ops": 1451,
+              "peak_bytes": 1056
+            },
+            "3": {
+              "ops": 1460,
+              "peak_bytes": 1056
+            }
+          },
+          "reference_ops_spread": 10
+        },
+        "top": {
+          "index": 2,
+          "title": "Name the biggest spenders",
+          "func_name": "top_spenders",
+          "uses": [
+            "totals_by_customer"
+          ],
+          "test_count": 8,
+          "reference_ops_by_seed": {
+            "1": {
+              "ops": 1601,
+              "peak_bytes": 1288
+            },
+            "2": {
+              "ops": 1591,
+              "peak_bytes": 1288
+            },
+            "3": {
+              "ops": 1600,
+              "peak_bytes": 1288
+            }
+          },
+          "reference_ops_spread": 10
+        }
+      }
+    }
+  }
+}

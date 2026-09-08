@@ -203,6 +203,49 @@ class TestBaselines(unittest.TestCase):
                     )
 
 
+    def test_baselines_cover_every_current_boss(self):
+        """A boss added without refreshing the baseline is a silent gap.
+
+        Mirrors the level check, and matters more since T3 W7: a boss step's
+        reference op count is the denominator of the Functional axis for a
+        fight, so an unrecorded one is a scoring input nothing is watching.
+        """
+        from vibecoder.levels import all_bosses
+
+        latest = load(self.records[-1])
+        for boss in all_bosses():
+            with self.subTest(boss=boss.id):
+                self.assertIn(boss.id, latest.get("bosses", {}))
+                recorded = latest["bosses"][boss.id]["steps"]
+                for step in boss.steps:
+                    self.assertIn(step.id, recorded)
+
+    def test_recorded_boss_op_counts_still_reproduce(self):
+        """The boss half of the op-count guard.
+
+        A boss step is benchmarked with its predecessors present, so this also
+        catches an earlier step's reference changing underneath a later one --
+        a drift a per-level check could not see.
+        """
+        from vibecoder.levels import get_boss
+        from vibecoder.runner import boss_step_benchmark
+
+        latest = load(self.records[-1])
+        for boss_id, entry in latest.get("bosses", {}).items():
+            boss = get_boss(boss_id)
+            for step_id, step_entry in entry["steps"].items():
+                index = boss.index_of(step_id)
+                for seed, expected in step_entry["reference_ops_by_seed"].items():
+                    with self.subTest(boss=boss_id, step=step_id, seed=seed):
+                        ops, _ = boss_step_benchmark(boss, index, int(seed))
+                        self.assertEqual(
+                            ops,
+                            expected["ops"],
+                            f"{boss_id}/{step_id} seed {seed}: {ops} ops, "
+                            f"baseline says {expected['ops']}",
+                        )
+
+
 class TestInternalLinks(unittest.TestCase):
     """Relative Markdown links must resolve. Broken links are how docs rot."""
 
