@@ -36,12 +36,14 @@ in no listing**, so the only way to reach one was to already know its id.
 | | |
 | --- | --- |
 | Branch | `main`, clean, pushed |
-| Gates | 1031 tests unpinned · 1007 pinned to bwrap · `verify` 54/54 · 0 escapes in a pipe |
+| Gates | 1052 tests unpinned · 1028 pinned to bwrap · `verify` 54/54 · 0 escapes in a pipe |
 | Blocked | T2 W4 only, on a registered OAuth application |
 
-Two trajectories still hold `IN FLIGHT` against a rule saying exactly one
-should. **Landing T7 would fix it and looks like bookkeeping rather than
-work** — it has been complete through W8 since S008.
+**One** trajectory holds `IN FLIGHT`, which is what the rule says: T2, late
+and blocked on W4 rather than being worked. T7 landed on 2026-09-08 — and
+landing it was *not* the bookkeeping the previous hand-off (this document,
+one session ago) called it. Two of its nine criteria had no evidence and one
+was false. See M45.
 
 ---
 
@@ -121,6 +123,13 @@ first repair cheaper" option was a dial, not an answer.
 - **`redirect_stdout` does not capture a scorecard.** `UI` binds `sys.stdout`
   at import, so it catches the prints and misses every gauge. Use
   `everything_printed()` in `test_cli_output.py`. (M42.)
+- **Read the criteria, not the board.** Two trajectories in two sessions had
+  criteria recorded as met that nobody had checked — a boss no listing named,
+  and a visualiser that animated when told not to. Both checks took minutes;
+  both beliefs had stood for weeks. (M43, M45.)
+- **An assertion of absence passes hardest when the feature is gone.** Any
+  test of the form "X does not happen" needs a sibling proving X is still
+  reachable. (M46.)
 
 ---
 

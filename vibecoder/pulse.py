@@ -35,6 +35,27 @@ IDLE_AFTER = 8.0
 CHARS_PER_WORD = 5
 
 
+@dataclass(frozen=True)
+class Reading:
+    """A rhythm summary that does not move on its own.
+
+    Every other reading on `Pulse` is a function of *now*: the trail scrolls,
+    the energy decays, the state slides from `burst` to `idle` while the
+    player sits still. That is the point of the visualiser, and it is exactly
+    what T7's exit criterion 8 says must not happen when `animate` is false --
+    a terminal that cannot animate should not be sent twenty frames a second
+    of a bar quietly draining.
+
+    So this is evaluated at the moment of the **last keystroke** rather than
+    at the current time. It changes when the player types and at no other
+    moment, which is what makes it a summary rather than a slow animation.
+    """
+
+    wpm: float
+    evenness: float
+    total: int
+
+
 @dataclass
 class Pulse:
     """A decaying record of recent keystrokes."""
@@ -125,6 +146,26 @@ class Pulse:
         if recent and sum(recent) / len(recent) < BURST_INTERVAL:
             return "burst"
         return "typing"
+
+    @property
+    def last(self) -> float:
+        """When the most recent keystroke landed, or ``0.0`` if none has."""
+        return self._last
+
+    def summary(self) -> Reading:
+        """The rhythm as of the last keystroke. See `Reading` for why.
+
+        Frozen at `_last` rather than taking a ``now``, because a caller that
+        could pass the current time would be able to reintroduce the drift
+        this exists to remove.
+        """
+        if not self._last:
+            return Reading(wpm=0.0, evenness=0.0, total=self._total)
+        return Reading(
+            wpm=self.wpm(self._last),
+            evenness=self.evenness(self._last),
+            total=self._total,
+        )
 
     def trail(self, width: int = 24, now: float | None = None) -> list[float]:
         """Keystroke density per time bucket, oldest first, each 0..1.

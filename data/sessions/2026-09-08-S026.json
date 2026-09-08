@@ -1,0 +1,138 @@
+{
+  "id": "S026",
+  "date": "2026-09-08",
+  "duration_minutes": 55,
+  "trajectory": "T7",
+  "competency_band": "Evaluate",
+  "journal": "journal/2026-09-08-S026-landing-t7.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "Every one of T7's nine exit criteria has evidence, checked individually rather than inherited from the board", "result": "met", "note": "two of the nine did not, and criterion 8 was false rather than merely untested"},
+    {"id": 2, "statement": "The typing visualiser degrades to a static summary when animation is off", "result": "met", "note": "it animated identically at both settings before this session"},
+    {"id": 3, "statement": "Criterion 1's named-but-untested paths are covered", "result": "met", "note": "SIGINT, and the cursor on every abnormal exit path"},
+    {"id": 4, "statement": "T7 lands", "result": "met", "note": "one trajectory now holds IN FLIGHT, which is what the rule says"},
+    {"id": 5, "statement": "The instrument checks are recorded as they actually stand", "result": "met", "note": "two met, one partial, one never built (Q85, Q86)"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/pulse.py", "kind": "module", "note": "Reading and summary(), evaluated at the last keystroke and taking no now (D170)"},
+    {"path": "vibecoder/editor.py", "kind": "module", "note": "_draw_pulse_summary; _draw_pulse degrades when caps.animate is false"},
+    {"path": "tests/test_pulse.py", "kind": "test", "note": "TestTheStaticSummary, 6 cases"},
+    {"path": "tests/test_editor.py", "kind": "test", "note": "TestTheVisualiserDegrades, 7 cases including the paired negative and the env-var path"},
+    {"path": "tests/test_term.py", "kind": "test", "note": "SIGINT restoration, the ISIG premise, and TestTheCursorComesBack over every abnormal exit path"},
+    {"path": "docs/trajectories/T7-interactive.md", "kind": "doc", "note": "LANDED; what landing needed; instrument checks recorded with their real state"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T7 landed; IN FLIGHT count down to one"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts and the board state"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "journal/2026-09-08-S026-landing-t7.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Criterion 1: every exit path restores the mode and the cursor", "method": "TestRestoration (7 cases including SIGINT) and TestTheCursorComesBack (6 cases), all through a real pty", "result": "green; two gaps closed this session", "verdict": "verified"},
+    {"claim": "Criterion 2: usable with no colour, Unicode or animation, at identical width", "method": "TestDegradation, including test_glyphs_have_equal_width_at_both_capabilities", "result": "green", "verdict": "verified"},
+    {"claim": "Criterion 3: a keystroke lands in under 16 ms at 80x24, measured", "method": "300 keystrokes composed and diffed at each geometry", "result": "2.03 ms median wall and 2.56 ms worst-case CPU at 80x24; 6.05/9.60 at 200x50; 2.07 ms at 4000 lines", "verdict": "verified"},
+    {"claim": "Criterion 4: a redraw emits only the cells that changed", "method": "direct measurement plus TestDiff and TestDamage", "result": "one keystroke emits 56 cells of 1920", "verdict": "verified"},
+    {"claim": "Criterion 5: editing is proved headless including multi-line undo", "method": "tests/test_editing.py, 46 cases, no terminal", "result": "green, including test_undo_crosses_multiple_lines", "verdict": "verified"},
+    {"claim": "Criterion 6: highlighting changes colour and never text", "method": "test_highlighting_never_alters_the_text, test_every_prefix_of_a_program_highlights_without_raising", "result": "green", "verdict": "verified"},
+    {"claim": "Criterion 7: an in-editor run equals a CLI run", "method": "test_running_from_the_editor_matches_running_from_the_cli", "result": "green", "verdict": "verified"},
+    {"claim": "Criterion 8: the visualiser degrades and the game is playable with VIBECODER_NO_ANIM=1", "method": "TestTheVisualiserDegrades, 7 cases", "result": "green; the criterion was FALSE before this session", "verdict": "verified"},
+    {"claim": "Criterion 9: a too-narrow terminal says so rather than corrupting the frame", "method": "TestSmallTerminal, 5 cases", "result": "green", "verdict": "verified"},
+    {"claim": "The damage ratio sits at 1", "method": "43 keystrokes composed and diffed at 80x24", "result": "emitted 1625, changed 1621, ratio 1.00", "verdict": "verified"},
+    {"claim": "An idle editor emits nothing when animation is off", "method": "test_an_idle_editor_puts_no_bytes_on_the_wire", "result": "0 cells changed and empty output over 59 s of simulated idling", "verdict": "verified"},
+    {"claim": "The animated path still animates", "method": "test_the_rhythm_row_moves_when_animation_is_on, the paired negative", "result": "green", "verdict": "verified"},
+    {"claim": "Ctrl-C is a key rather than a signal in raw mode", "method": "test_ctrl_c_is_a_key_rather_than_a_signal_in_raw_mode", "result": "ISIG is clear inside a session", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1052 tests OK in 77.588s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1028 tests OK in 64.127s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "Anyone has used the editor for a long session", "method": "nobody has", "result": "unknown", "verdict": "unverified"},
+    {"claim": "Frame timing over time", "method": "measured once at landing; no per-session record exists", "result": "a slow drift inside budget would be invisible (Q86)", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M45",
+      "believed": "That T7 was finished and only needed closing. The flight board had said 'complete through W8' for five sessions, and I repeated it in S025's handoff as 'bookkeeping rather than work' -- a phrase written from the board rather than from the criteria.",
+      "revealed_by": "Reading the nine criteria and testing each one, because S025's M43 had just cost a session for exactly this shape. Criterion 8 turned out to be false in the code rather than merely untested: the visualiser animated identically at animate=True and animate=False, which a two-minute script showed and five sessions of 'complete' had not.",
+      "corrected_to": "'Complete through W8' is a statement about waypoints. Waypoints are what gets built; criteria are what makes it done, and nothing had compared the two. Landing a trajectory is the moment that comparison is forced, so leaving one open indefinitely does not defer a formality -- it defers the only check the format has.",
+      "cost_minutes": 35,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "This is M43 one trajectory later, from the other direction. There a criterion was verified by a command the author already knew how to type; here it was verified by nobody, and the board's summary was quoted instead -- by me, in the previous session's handoff. A summary of evidence is not evidence. The status line and the criteria drifted apart precisely because closing the trajectory was postponed, which is the one action that would have compared them."
+    },
+    {
+      "id": "M46",
+      "believed": "That asserting 'the rhythm row is identical at two different times when animate is false' was a sufficient test of criterion 8.",
+      "revealed_by": "Writing it and noticing it would also pass if the row were empty, absent, or if the pulse were broken and reported nothing at all -- every one of which is a worse product than the bug being fixed.",
+      "corrected_to": "The assertion is paired with test_the_rhythm_row_moves_when_animation_is_on, which fails if the row stops carrying information. A test that something does not change is only meaningful next to a test that it can.",
+      "cost_minutes": 2,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "An assertion of absence passes hardest when the feature is gone. Any test of the form 'X does not happen' needs a sibling proving X is still reachable."
+    }
+  ],
+  "decisions": [
+    {"id": "D170", "decision": "Pulse.summary() is evaluated at the last keystroke and takes no now", "alternatives": ["Take a now and let the caller pass _last", "Expose last and let the editor do the arithmetic"], "rationale": "A caller able to pass the current time could reintroduce the exact drift the reading exists to remove. The time model belongs in pulse.py where the rest of it lives.", "reversible": true, "seam": "vibecoder/pulse.py::Pulse.summary"},
+    {"id": "D171", "decision": "The static row reports total where the animated row reports state", "alternatives": ["Keep state in both rows"], "rationale": "state slides from burst to idle with the clock, so a static row carrying it would either be wrong or have to be recomputed, reintroducing motion. 'How much have I typed' is the part of the rhythm that survives not being able to watch it happen.", "reversible": true, "seam": "vibecoder/editor.py::_draw_pulse_summary"},
+    {"id": "D172", "decision": "The redraw cadence is unchanged; only the frame goes still", "alternatives": ["Lengthen the read timeout when animate is false"], "rationale": "The 50 ms select also resolves a lone Escape, whose timeout is 0.05. Lengthening it would delay every Escape keypress to save a syscall. The cost the criterion is about is bytes on the wire, and an identical frame already emits none.", "reversible": true, "seam": "vibecoder/editor.py"},
+    {"id": "D173", "decision": "T7's instrument checks are recorded in a table with their real state", "alternatives": ["Leave them unmentioned", "Mark them met"], "rationale": "Three trajectories have now landed with instrument checks nobody assessed. Writing down 'never built' is what makes Q86 exist instead of quietly evaporating.", "reversible": false, "seam": "docs/trajectories/T7-interactive.md"}
+  ],
+  "friction": [
+    {"description": "none - both findings came out of reading the criteria, and both fixes were contained. The session was shorter than the one that produced it.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T7 is LANDED as of 2026-09-08. All nine exit criteria have evidence, checked individually; two of them did not before this session, and criterion 8 was false rather than untested. One trajectory now holds IN FLIGHT, which is what the rule says, and it is T2 -- late and blocked rather than being worked. 1052 tests green unpinned, 1028 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 (adaptive difficulty), which is PLOTTED and the next design phase. It is the first trajectory in a while that starts from a clean board. Read Q84 first: whether a boss is part of world progression is T4's territory and it is unanswered.",
+    "blockers": [
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M45 before landing anything: two trajectories in two sessions had criteria recorded as met that nobody had checked, and in both cases the check took minutes while the belief had stood for weeks. Read the criteria, not the board",
+      "M46 before writing a test that asserts something does not happen"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected. T3's instrument check, landed unmeasured.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value, as the wrong-answer path now does?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty. Frames are asserted headless via compose, and the pty tests only cover term.py. T7's instrument check asked for a test that drives the real application and asserts the frame it draws. Is headless composition sufficient evidence, or is there a class of bug only the real loop shows?", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session. Latency is asserted against a budget and was measured at landing, but a slow drift inside budget would be invisible, which is the thing the instrument check existed to catch. Where would such a record live, given data/ is immutable?", "owner": "T7", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1052,
+    "tests_passing": 1052,
+    "tests_added": 21,
+    "suite_seconds_unpinned": 77.588,
+    "suite_tests_pinned_bwrap": 1028,
+    "suite_seconds_pinned_bwrap": 64.127,
+    "reference_runs_clean": 54,
+    "t7_waypoints_landed": 8,
+    "t7_waypoints_total": 8,
+    "t7_exit_criteria_verified": 9,
+    "t7_exit_criteria_total": 9,
+    "t7_exit_criteria_without_evidence_at_session_start": 2,
+    "t7_instrument_checks_met": 2,
+    "t7_instrument_checks_total": 4,
+    "keystroke_median_wall_ms_80x24": 2.03,
+    "keystroke_worst_cpu_ms_80x24": 2.56,
+    "keystroke_median_wall_ms_200x50": 6.05,
+    "keystroke_worst_cpu_ms_200x50": 9.6,
+    "keystroke_median_wall_ms_4000_lines": 2.07,
+    "keystroke_budget_ms": 16.0,
+    "damage_ratio": 1.0,
+    "cells_emitted_per_keystroke": 56,
+    "cells_in_an_80x24_screen": 1920,
+    "trajectories_in_flight": 1,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 26,
+    "dependencies": 0
+  }
+}

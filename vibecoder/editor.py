@@ -289,6 +289,19 @@ class Editor:
 
     def _draw_pulse(self, screen: Screen, row: int, columns: int,
                     now: float) -> None:
+        """The rhythm row: a moving trail, or a static summary (criterion 8).
+
+        The trail is a function of ``now`` -- it scrolls, dims and drains while
+        the player sits still, which is the whole point of it and is also the
+        thing a terminal that cannot animate must not be sent. So when
+        `animate` is false this degrades to a reading taken at the last
+        keystroke, and two frames composed a minute apart with nothing typed
+        between them come out identical. `Frame.diff` then emits nothing at
+        all, so an unattended editor puts no bytes on the wire.
+        """
+        if not self._caps.animate:
+            self._draw_pulse_summary(screen, row, columns)
+            return
         sparks = SPARKS if self._caps.unicode else SPARKS_ASCII
         state = self.pulse.state(now)
         width = max(8, min(28, columns - 34))
@@ -309,6 +322,28 @@ class Editor:
         if column + len(readout) < columns:
             screen.put(row, column, readout,
                        self.style(MUTED if state in ("idle", "thinking") else INK))
+
+    def _draw_pulse_summary(self, screen: Screen, row: int,
+                            columns: int) -> None:
+        """The same information, none of the motion.
+
+        Deliberately carries `total` where the animated row carries state:
+        "how much have I typed" is the part of the rhythm that survives not
+        being able to watch it happen, and a state that reads `thinking`
+        forever because the clock is not consulted would be a lie rather than
+        a summary.
+        """
+        reading = self.pulse.summary()
+        screen.put(row, 1, self.glyph("spark"),
+                   self.style(GOLD if reading.total else FAINT))
+        text = (
+            f"  {reading.wpm:>3.0f} wpm"
+            f"   {reading.evenness:>3.0%} even"
+            f"   {reading.total} keys"
+        )
+        if 3 + len(text) < columns:
+            screen.put(row, 3, text,
+                       self.style(INK if reading.total else MUTED))
 
     def _trail_colour(self, value: float, energy: float) -> RGB:
         if value > 0.75:

@@ -35,7 +35,7 @@ Each trajectory document has the same five sections.
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `PLOTTED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
-| [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `IN FLIGHT` | — |
+| [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `LANDED` | — |
 
 T6 is cross-cutting rather than tied to a design phase: it presents whatever the
 other trajectories build, and it landed early because T1's output was already
@@ -79,6 +79,20 @@ covered by the provenance flag W3 added. See M12 in
 [S008](../../journal/2026-09-03-S008-latency.md)). W8 shipped partial and was
 completed afterwards: the harness now replies in newline-delimited events, so
 Accuracy assembles as tests report instead of animating a finished result.
+**T7 is `LANDED` as of 2026-09-08**
+([S026](../../journal/2026-09-08-S026-landing-t7.md)).
+
+Landing it was not the bookkeeping the board had been calling it for five
+sessions. Checking the nine criteria one at a time found **two without
+evidence**, and criterion 8 was not merely untested but false: the typing
+visualiser animated identically whether or not `animate` was set, so a
+terminal that had asked for no motion got twenty frames a second of a
+draining bar. It now degrades to a reading taken at the last keystroke, and an
+idle editor emits zero bytes. Criterion 1 named `SIGINT` and nothing tested
+it; it also says "with the cursor visible", and only the normal exit path had
+ever checked that. Both are now covered on every path. The lesson is M43's,
+one trajectory later and from the other direction: **a trajectory recorded as
+complete is a claim, and the claim is worth checking before it is closed.**
 
 Exit criterion 3 is measured on two clocks as of
 [S008](../../journal/2026-09-03-S008-latency.md): a wall-clock median for what
@@ -178,14 +192,17 @@ was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.
 
-**Two** trajectories now hold `IN FLIGHT` at once, against the rule in the
-status vocabulary above, which says exactly one should. It was three until
-2026-09-08, when T3 landed. T7 was opened while T2 was in flight; T3 was opened
-while both were. That is a fact rather than an amendment, and it is worth
-reading as one: T2 is late and blocked on W4, and T7 is complete through W8 but
-never formally landed. **Landing T7 would put the board back to one**, and on
-the evidence it is a bookkeeping step rather than work — which makes it the
-cheapest thing on the board and the reason the count is still wrong.
+**One** trajectory now holds `IN FLIGHT`, which is what the status vocabulary
+above says should be true. It was three on the morning of 2026-09-08; T3 landed
+that day and T7 followed. The remaining one is **T2**, and it is late and
+blocked on W4's registered OAuth application rather than being worked.
+
+The count was wrong for five sessions and the reason is worth keeping: T7 was
+opened while T2 was in flight and T3 while both were, so the board was being
+used as a set of open workstreams rather than a heading. What made it wrong
+for so long afterwards was subtler — T7 was *finished* and simply never
+closed, and "never closed" hid a criterion that was not met. **A trajectory
+left open is not a neutral state; it is an unchecked claim.**
 
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).

@@ -12,11 +12,14 @@ import os
 import pty
 import subprocess
 import sys
+import tempfile
 import termios
 import textwrap
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+from vibecoder.term import CURSOR_HIDE, CURSOR_SHOW  # noqa: E402
 
 #: Prepended to every child script. Dedented here so that callers can indent
 #: their own bodies to taste without the two disagreeing.
@@ -96,6 +99,44 @@ class TestRestoration(unittest.TestCase):
         """)
         self.assertEqual(before, after)
 
+    def test_sigint_restores_the_terminal(self):
+        """Criterion 1 names SIGINT, and `term` deliberately installs no
+        handler for it.
+
+        That is not an omission: raw mode turns off ISIG, so Ctrl-C reaches
+        the application as a key rather than a signal. But a SIGINT delivered
+        from outside -- `kill -INT`, a process group being interrupted -- still
+        arrives, raises `KeyboardInterrupt`, and must leave the terminal as it
+        was. `KeyboardInterrupt` derives from `BaseException` rather than
+        `Exception`, which is exactly the kind of thing an `except Exception`
+        somewhere in the stack would swallow the cleanup for.
+        """
+        code, (before, after), err = run_on_pty("""
+            try:
+                with TerminalSession() as t:
+                    os.kill(os.getpid(), signal.SIGINT)
+            except KeyboardInterrupt:
+                pass
+        """)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(before, after)
+
+    def test_ctrl_c_is_a_key_rather_than_a_signal_in_raw_mode(self):
+        """The premise of the test above, asserted rather than assumed.
+
+        If ISIG were left on, Ctrl-C would kill the editor instead of reaching
+        the key decoder, and the reason SIGINT is absent from the handler list
+        would stop being true.
+        """
+        code, _, err = run_on_pty("""
+            t = TerminalSession()
+            t.start()
+            attrs = termios.tcgetattr(sys.stdin.fileno())
+            t.restore()
+            assert not (attrs[3] & termios.ISIG), "ISIG is still on in raw mode"
+        """)
+        self.assertEqual(code, 0, err)
+
     def test_forgetting_to_restore_is_caught_by_atexit(self):
         """The last line of defence: no context manager, no signal, no finally."""
         code, (before, after), err = run_on_pty("""
@@ -159,6 +200,90 @@ class TestScreenState(unittest.TestCase):
             assert PASTE_ON in written and PASTE_OFF in written
         """)
         self.assertEqual(code, 0, err)
+
+
+class TestTheCursorComesBack(unittest.TestCase):
+    """Criterion 1 says "in its original mode **with the cursor visible**".
+
+    The restoration tests above compare `termios` attributes, which say
+    nothing about the cursor: it is hidden with a private-mode sequence, not a
+    terminal flag. Only the normal-exit path asserted `CURSOR_SHOW` until
+    2026-09-08, so the half of the criterion a player would actually notice
+    was untested on every abnormal path.
+    """
+
+    def leaves_cursor_shown(self, body: str) -> tuple[int, str]:
+        """Run ``body`` with the session writing to a file, and read it back.
+
+        A file rather than a `StringIO` because two of these paths end with
+        the process being killed by the signal it re-raised, so the assertion
+        has to survive the child. `TerminalSession._write` flushes, so what
+        reaches the file is what reached the terminal.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, "out")
+            code, _, err = run_on_pty(f"""
+                from vibecoder.term import CURSOR_SHOW
+                stream = open({log!r}, "w")
+                {body}
+            """)
+            with open(log, encoding="utf-8", errors="replace") as fh:
+                return code, fh.read()
+
+    def test_the_cursor_is_restored_after_sigterm(self):
+        _, written = self.leaves_cursor_shown("""
+                t = TerminalSession(stream=stream)
+                t.start()
+                os.kill(os.getpid(), signal.SIGTERM)
+        """)
+        self.assertIn(CURSOR_SHOW, written)
+
+    def test_the_cursor_is_restored_after_sighup(self):
+        _, written = self.leaves_cursor_shown("""
+                t = TerminalSession(stream=stream)
+                t.start()
+                os.kill(os.getpid(), signal.SIGHUP)
+        """)
+        self.assertIn(CURSOR_SHOW, written)
+
+    def test_the_cursor_is_restored_after_sigint(self):
+        _, written = self.leaves_cursor_shown("""
+                try:
+                    with TerminalSession(stream=stream) as t:
+                        os.kill(os.getpid(), signal.SIGINT)
+                except KeyboardInterrupt:
+                    pass
+        """)
+        self.assertIn(CURSOR_SHOW, written)
+
+    def test_the_cursor_is_restored_after_an_uncaught_exception(self):
+        _, written = self.leaves_cursor_shown("""
+                try:
+                    with TerminalSession(stream=stream) as t:
+                        raise ValueError("boom")
+                except ValueError:
+                    pass
+        """)
+        self.assertIn(CURSOR_SHOW, written)
+
+    def test_the_cursor_is_restored_by_atexit_alone(self):
+        _, written = self.leaves_cursor_shown("""
+                t = TerminalSession(stream=stream)
+                t.start()
+                sys.exit(0)
+        """)
+        self.assertIn(CURSOR_SHOW, written)
+
+    def test_the_cursor_is_hidden_in_the_first_place(self):
+        """A restoration assertion proves nothing if it was never hidden."""
+        _, written = self.leaves_cursor_shown("""
+                from vibecoder.term import CURSOR_HIDE
+                t = TerminalSession(stream=stream)
+                t.start()
+                t.restore()
+        """)
+        self.assertIn(CURSOR_HIDE, written)
+        self.assertLess(written.index(CURSOR_HIDE), written.index(CURSOR_SHOW))
 
 
 class TestSupported(unittest.TestCase):

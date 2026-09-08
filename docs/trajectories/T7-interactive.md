@@ -1,7 +1,7 @@
 # T7 — Interactive play: editor, motion, visualiser
 
-**Design phase:** cross-cutting · **Status:** `IN FLIGHT` · **Target:** — ·
-**Depends on:** T6 (`LANDED`)
+**Design phase:** cross-cutting · **Status:** `LANDED` · **Target:** — ·
+**Landed:** 2026-09-08 · **Depends on:** T6 (`LANDED`)
 
 ## Heading
 
@@ -63,6 +63,32 @@ a thing you can read in this repository beats a thing you borrowed.
 9. A terminal narrower than the editor's minimum shows a legible message rather
    than a corrupted frame.
 
+## What landing it needed
+
+W1–W8 shipped across [S004](../../journal/2026-09-03-S004-interactive.md),
+[S007](../../journal/2026-09-03-S007-streaming.md) and
+[S008](../../journal/2026-09-03-S008-latency.md), and the board recorded the
+trajectory as complete for five sessions. Checking the criteria one at a time
+in [S026](../../journal/2026-09-08-S026-landing-t7.md) found that **two of the
+nine had no evidence**, and one of those was not merely untested but false:
+
+- **Criterion 8 was not met.** The typing visualiser animated identically at
+  `animate=True` and `animate=False` — the rhythm trail is a function of `now`,
+  so it scrolled and drained at twenty frames a second on terminals that had
+  asked for no animation. It now degrades to a reading taken at the last
+  keystroke, so an idle editor composes an identical frame and puts *zero*
+  bytes on the wire.
+- **Criterion 1 named `SIGINT` and nothing tested it.** `term.py` installs no
+  `SIGINT` handler, deliberately and correctly — raw mode clears `ISIG`, so
+  Ctrl-C arrives as a key. But an externally delivered `SIGINT` still raises
+  `KeyboardInterrupt`, which is a `BaseException`. That path is now tested,
+  as is the premise that `ISIG` really is off. The criterion also says "with
+  the cursor visible", and only the *normal* exit path had ever asserted
+  `CURSOR_SHOW`; every abnormal path now does.
+
+The instrument checks are a weaker story than the criteria and are recorded
+that way rather than quietly counted as met — see the section below.
+
 ## Known hazards
 
 - **Terminal restoration is the whole ballgame.** Raw mode plus alternate
@@ -90,11 +116,14 @@ a thing you can read in this repository beats a thing you borrowed.
 
 ## Instrument checks
 
-- A headless test suite for the buffer and the key decoder — no pty, no
-  terminal, no timing dependence.
-- A pty-based test that drives the real application, asserts the frame it
-  draws, sends `SIGINT`, and checks `termios` attributes are restored.
-- A frame-timing histogram at 80×24 and 200×50, recorded per session so a
-  regression in redraw cost is visible rather than felt.
-- A damage-ratio metric: cells emitted divided by cells changed. It should sit
-  near 1; a drift upward means the diff is giving up.
+Recorded honestly at landing: two are met, one is partly met, one was never
+built. A trajectory does not land on its instrument checks — they are how the
+destination gets measured, not what makes it the destination — but counting an
+unbuilt one as met is the mistake criterion 8 already cost a session to.
+
+| Check | State at landing |
+| --- | --- |
+| A headless test suite for the buffer and the key decoder — no pty, no terminal, no timing dependence | **Met.** `tests/test_editing.py` and `tests/test_keys.py`, 100 cases between them, no pty and no clock. |
+| A pty-based test that drives the real application, asserts the frame it draws, sends `SIGINT`, and checks `termios` attributes are restored | **Partly met.** `tests/test_term.py` drives a real pty, sends `SIGINT`/`SIGTERM`/`SIGHUP` and checks `termios` and the cursor. It does **not** assert a frame drawn by the real application — frames are asserted headless via `compose`. Nothing drives the whole editor through a pty. |
+| A frame-timing histogram at 80×24 and 200×50, recorded per session | **Not built.** Latency is asserted against a budget in `TestLatency` and was measured at landing (2.03 ms median wall at 80×24, 6.05 ms at 200×50, 9.60 ms worst-case CPU), but no per-session histogram is recorded anywhere, so a slow drift inside budget would be invisible. Q86. |
+| A damage-ratio metric: cells emitted divided by cells changed, sitting near 1 | **Met as a test, not as a metric.** `test_the_damage_ratio_stays_near_one` asserts it, and it measured **1.00** over 43 keystrokes at landing. It is not recorded over time. |

@@ -131,6 +131,52 @@ class TestTrail(unittest.TestCase):
         self.assertEqual(set(Pulse().trail(6, T0)), {0.0})
 
 
+class TestTheStaticSummary(unittest.TestCase):
+    """T7 exit criterion 8. A reading that does not move on its own.
+
+    Every other reading on `Pulse` is a function of now, which is what a
+    terminal that cannot animate must not be sent twenty times a second.
+    """
+
+    def typed(self, count: int = 12, gap: float = 0.1) -> Pulse:
+        pulse = Pulse()
+        for index in range(count):
+            pulse.press(1000.0 + index * gap)
+        return pulse
+
+    def test_a_summary_does_not_change_as_time_passes(self):
+        """The criterion, at its smallest. `state` and `wpm` both slide with
+        the clock; a summary must not."""
+        pulse = self.typed()
+        first = pulse.summary()
+        self.assertEqual(first, pulse.summary())
+
+    def test_a_summary_changes_when_a_key_is_pressed(self):
+        """Static must not mean frozen -- it still has to report typing."""
+        pulse = self.typed()
+        before = pulse.summary()
+        pulse.press(1002.0)
+        self.assertNotEqual(before, pulse.summary())
+
+    def test_an_untouched_pulse_summarises_as_zero(self):
+        reading = Pulse().summary()
+        self.assertEqual((reading.wpm, reading.evenness, reading.total),
+                         (0.0, 0.0, 0))
+
+    def test_the_total_counts_every_keystroke_not_just_the_window(self):
+        pulse = self.typed(count=5)
+        pulse.press(1000.0 + 500.0)  # far outside the window
+        self.assertEqual(pulse.summary().total, 6)
+
+    def test_last_reports_the_most_recent_keystroke(self):
+        pulse = self.typed()
+        pulse.press(1234.0)
+        self.assertEqual(pulse.last, 1234.0)
+
+    def test_last_is_zero_before_anything_is_typed(self):
+        self.assertEqual(Pulse().last, 0.0)
+
+
 class TestBookkeeping(unittest.TestCase):
     def test_total_counts_every_keystroke_ever(self):
         p = typed(30, 0.05)

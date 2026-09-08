@@ -5,15 +5,17 @@ plain text that comes back, which is the property that makes a full-screen
 application testable in CI at all.
 """
 
+import os
 import re
 import unittest
+from unittest import mock
 
 from vibecoder.editing import INDENT
 from vibecoder.editor import Editor, steady_heap
 from vibecoder.keys import Key
 from vibecoder.levels import get_level
 from vibecoder.term import MIN_HEIGHT, MIN_WIDTH
-from vibecoder.ui import Capabilities, Depth, PLAIN
+from vibecoder.ui import Capabilities, Depth, PLAIN, detect
 
 NOW = 5000.0
 FULL = Capabilities(depth=Depth.TRUECOLOR, unicode=True, animate=False, width=80)
@@ -132,6 +134,92 @@ class TestSmallTerminal(unittest.TestCase):
             for row in range(24):
                 with self.subTest(columns=columns, row=row):
                     self.assertLessEqual(len(frame.line(row)), columns)
+
+
+class TestTheVisualiserDegrades(unittest.TestCase):
+    """T7 exit criterion 8, which was not met until 2026-09-08 (M45).
+
+    The rhythm trail is a function of `now`: it scrolls, dims and drains while
+    the player sits still. That is the point of it on a terminal that can
+    animate, and it is exactly what one that cannot must not be sent. The
+    criterion had never been tested, and the visualiser was animating
+    identically at both settings.
+    """
+
+    ANIMATED = Capabilities(depth=Depth.TRUECOLOR, unicode=True,
+                            animate=True, width=80)
+    STILL = Capabilities(depth=Depth.TRUECOLOR, unicode=True,
+                         animate=False, width=80)
+    PULSE_ROW = 24 - 4
+
+    def typed(self, caps) -> Editor:
+        ed = Editor(get_level("w2-l1-revenue"), seed=1, caps=caps)
+        for index, character in enumerate("hello world"):
+            ed.handle(Key("char", character), now=NOW + index * 0.08)
+        return ed
+
+    def rows(self, caps) -> tuple[str, str]:
+        ed = self.typed(caps)
+        return (ed.compose(24, 80, now=NOW + 1.0).line(self.PULSE_ROW),
+                ed.compose(24, 80, now=NOW + 4.0).line(self.PULSE_ROW))
+
+    def test_the_rhythm_row_is_still_when_animation_is_off(self):
+        early, late = self.rows(self.STILL)
+        self.assertEqual(early, late)
+
+    def test_the_rhythm_row_moves_when_animation_is_on(self):
+        """The other half of the assertion above. Without this the first test
+        would still pass if the row were blank at both settings."""
+        early, late = self.rows(self.ANIMATED)
+        self.assertNotEqual(early, late)
+
+    def test_the_summary_reports_what_was_typed(self):
+        row, _ = self.rows(self.STILL)
+        self.assertIn("wpm", row)
+        self.assertIn("keys", row)
+
+    def test_a_whole_idle_frame_is_identical_without_animation(self):
+        """Not just the rhythm row: the criterion is about the frame the
+        terminal receives."""
+        ed = self.typed(self.STILL)
+        early = ed.compose(24, 80, now=NOW + 1.0)
+        late = ed.compose(24, 80, now=NOW + 60.0)
+        self.assertEqual(early.as_text(), late.as_text())
+
+    def test_an_idle_editor_puts_no_bytes_on_the_wire(self):
+        """What the degradation is actually for. Twenty frames a second of a
+        draining bar is the cost being avoided, and `diff` is where it is
+        paid or not."""
+        ed = self.typed(self.STILL)
+        early = ed.compose(24, 80, now=NOW + 1.0)
+        late = ed.compose(24, 80, now=NOW + 60.0)
+        output, _, changed = late.diff(early)
+        self.assertEqual(changed, 0)
+        self.assertEqual(output, "")
+
+    def test_the_summary_is_ascii_at_plain_capability(self):
+        """Criterion 2 still applies to the row criterion 8 introduced."""
+        ed = self.typed(PLAIN)
+        row = ed.compose(24, 80, now=NOW + 1.0).line(self.PULSE_ROW)
+        self.assertTrue(row.isascii(), row)
+
+    def test_the_no_anim_environment_variable_reaches_the_editor(self):
+        """Criterion 8's second half is about the env var, not the flag, so
+        the path from one to the other is what needs asserting."""
+        class Tty:
+            encoding = "utf-8"
+
+            def isatty(self):
+                return True
+
+        with mock.patch.dict(os.environ,
+                             {"VIBECODER_NO_ANIM": "1", "TERM": "xterm-256color"}):
+            caps = detect(Tty())
+        self.assertFalse(caps.animate)
+        ed = self.typed(caps)
+        early = ed.compose(24, 80, now=NOW + 1.0)
+        late = ed.compose(24, 80, now=NOW + 60.0)
+        self.assertEqual(early.as_text(), late.as_text())
 
 
 class TestKeyDispatch(unittest.TestCase):
