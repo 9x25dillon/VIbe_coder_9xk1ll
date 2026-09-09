@@ -7,6 +7,12 @@ everyday meaning and a specific meaning here, the specific one wins.
 Scoring axis: the fraction of hidden tests a submission passes. Weighted 50% on
 levels, 40% on boss fights. A fatal run scores zero.
 
+### Attributes
+The per-tag [mastery](#mastery) vector shown on the character sheet: what you
+have scored, with the run count behind each number and how old the reading is.
+Deliberately adjacent to your [function class](#function-class) and never
+combined with it — one is what you write, the other what you score.
+
 ### Baseline
 An immutable set of measurements taken at a point in time, stored in
 `data/baselines/`. Never edited — a new measurement is a new file. This is what

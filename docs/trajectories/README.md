@@ -247,8 +247,15 @@ well. **Exit criterion 6 is verified** — enforced by signature, since
 `derive_class` has no argument a score could arrive through. The first version
 classified an *empty* codebase as a Loopwright, on two "at most" signals it
 met by containing nothing; a class now needs at least one positive signal,
-because absence can corroborate a reading but never establish one. W9 and W10
-are next.
+because absence can corroborate a reading but never establish one.
+
+**W9 `LANDED`** ([S033](../../journal/2026-09-08-S033-attributes.md)): the
+per-tag mastery vector on the character sheet beside the class, sharing one
+renderer with `status --why` so the two screens cannot disagree. Displaying
+the numbers found a W6 bug the decay tests had missed — truncation sent a tag
+played *once* to zero observations after half a day, so it vanished overnight
+and reappeared under "never measured". **Only W10 and W11 remain**, and both
+are abilities.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

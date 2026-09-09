@@ -350,6 +350,26 @@ class TestDecayingAnEstimate(unittest.TestCase):
                            updated_at="2026-06-01T00:00:00")
         self.assertEqual(entry.as_of(stamp(365)), entry)
 
+    def test_a_single_observation_survives_a_day(self):
+        """M55. `int()` truncation sent one run to zero after half a day --
+        1 x 0.97 truncates to 0 -- so a tag played once stopped existing
+        overnight and reappeared in the player's "never measured" list."""
+        entry = TagMastery(value=0.6, observations=1, updated_at=stamp(0))
+        self.assertTrue(entry.as_of(stamp(1)).seen)
+        self.assertTrue(entry.as_of(stamp(10)).seen)
+
+    def test_a_single_observation_does_expire_eventually(self):
+        """The paired negative: rounding must not make one run immortal."""
+        entry = TagMastery(value=0.6, observations=1, updated_at=stamp(0))
+        self.assertFalse(entry.as_of(stamp(2 * HALF_LIFE_DAYS)).seen)
+
+    def test_a_confident_tag_still_loses_confidence_on_schedule(self):
+        """Rounding must not have moved W6's documented behaviour: six weeks
+        away and the game stops assuming."""
+        entry = TagMastery(value=0.9, observations=6, updated_at=stamp(0))
+        self.assertTrue(entry.as_of(stamp(HALF_LIFE_DAYS)).confident)
+        self.assertFalse(entry.as_of(stamp(2 * HALF_LIFE_DAYS)).confident)
+
     def test_more_time_means_more_decay(self):
         values = [self.entry(0.9).as_of(stamp(days)).value
                   for days in range(0, 200, 10)]

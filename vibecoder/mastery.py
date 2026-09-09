@@ -156,6 +156,18 @@ class TagMastery:
         """Whether anything has been observed at all."""
         return self.observations > 0
 
+    def age_days(self, now: str) -> float:
+        """How old this reading is, in days. ``0.0`` when that is unknowable.
+
+        Public because a *displayed* attribute needs it: since W6 the number a
+        player sees has already had age taken off it, and "73%" reads very
+        differently depending on whether it was measured on Tuesday or in
+        June. W9's evidence rule is that an attribute the player cannot see
+        the evidence for is a horoscope, and when the evidence was gathered is
+        part of it.
+        """
+        return _age_days(self.updated_at, now)
+
     def as_of(self, now: str) -> "TagMastery":
         """This estimate read at ``now``, with age taken off it (T4 W6).
 
@@ -183,7 +195,14 @@ class TagMastery:
         return replace(
             self,
             value=UNSEEN + (self.value - UNSEEN) * force,
-            observations=int(self.observations * force),
+            # Rounded, not truncated. `int()` sends a single observation to
+            # zero after **half a day** -- 1 x 0.97 truncates to 0 -- so a tag
+            # played once stopped existing overnight and reappeared in the
+            # "never measured" list, which is a lie about the player's own
+            # history. Rounding keeps one run worth one run until the reading
+            # is genuinely half gone. Found by looking at a character sheet
+            # (M55), not by the decay tests, which all used six.
+            observations=round(self.observations * force),
         )
 
     def to_json(self) -> dict[str, Any]:

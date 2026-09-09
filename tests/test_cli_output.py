@@ -11,6 +11,7 @@ every colour depth (the T6 rule).
 import argparse
 import io
 import json
+from datetime import datetime, timedelta, timezone
 import os
 import re
 import tempfile
@@ -775,14 +776,18 @@ class TestTheClassOnScreen(unittest.TestCase):
         weak = {tag: {"value": 0.05, "observations": 9, "updated_at": ""}
                 for tag in ("functional", "oop", "data")}
 
+        #: Everything that can follow the class section. Listed rather than
+        #: assumed: this test has twice been broken by a new block appearing
+        #: below the class and being swallowed by the slice, both times
+        #: reporting a criterion-6 failure that was not one. Anything below
+        #: the class *should* vary with mastery -- that is the rest of the
+        #: model working -- so the boundary has to be explicit.
+        AFTER_THE_CLASS = ("ATTRIBUTES", "[DRILL]", "profile:")
+
         def class_block(mastery):
-            """Just the class section. The drill below it legitimately
-            differs between these two profiles -- that is mastery doing its
-            job -- and slicing to the end of the screen would compare it too.
-            """
             out = self.status(self.COMPREHENSIONIST, mastery)
             start = out.index("FUNCTION CLASS")
-            ends = [out.index(marker, start) for marker in ("[DRILL]", "profile:")
+            ends = [out.index(marker, start) for marker in AFTER_THE_CLASS
                     if marker in out[start:]]
             # Stripped: what follows the section indents differently, and
             # that whitespace belongs to the next block rather than this one.
@@ -803,6 +808,122 @@ class TestTheClassOnScreen(unittest.TestCase):
     def test_the_class_section_emits_no_escape_sequence_into_a_pipe(self):
         profile = {"version": 1, "levels": {}, "vibe": self.COMPREHENSIONIST,
                    "vibe_source": "somewhere"}
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                with everything_printed() as buffer:
+                    cli.cmd_status(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
+class TestTheAttributesSheet(unittest.TestCase):
+    """T4 W9. The per-tag mastery vector, made legible beside the class.
+
+    No new model -- these are W1's numbers. What is under test is that they
+    read honestly: the evidence beside each one, the aged-out ones not
+    described as never played, and the same rows on both screens.
+    """
+
+    def sheet(self, mastery=None, why=False, vibe=None) -> str:
+        profile = {"version": 1, "levels": {}, "total_score": 0.0,
+                   "mastery": mastery or {}}
+        if vibe is not None:
+            profile["vibe"] = vibe
+            profile["vibe_source"] = "somewhere"
+        args = argparse.Namespace(why=why)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_status, args)
+
+    def ago(self, days: float) -> str:
+        return (datetime.now(timezone.utc)
+                - timedelta(days=days)).isoformat(timespec="seconds")
+
+    def fresh(self, **tags) -> dict:
+        return {tag: {"value": value, "observations": 6,
+                      "updated_at": self.ago(0)}
+                for tag, value in tags.items()}
+
+    def test_the_sheet_has_its_own_section(self):
+        self.assertIn("ATTRIBUTES", self.sheet(self.fresh(data=0.8)))
+
+    def test_each_attribute_shows_its_evidence(self):
+        """An attribute the player cannot see the evidence for is a
+        horoscope -- the trajectory's words, about this waypoint."""
+        out = self.sheet(self.fresh(data=0.8))
+        self.assertIn("data", out)
+        self.assertIn("6 runs", out)
+
+    def test_an_attribute_below_the_threshold_says_it_does_not_count(self):
+        out = self.sheet({"data": {"value": 0.8, "observations": 1,
+                                   "updated_at": self.ago(0)}})
+        self.assertIn("not enough yet", out)
+
+    def test_an_old_reading_says_how_old(self):
+        """Since W6 the number shown has already had age taken off it, so
+        "52%" means something different measured in June."""
+        out = self.sheet({"recursion": {"value": 0.55, "observations": 6,
+                                        "updated_at": self.ago(25)}})
+        self.assertIn("w ago", out)
+
+    def test_a_fresh_reading_is_not_annotated(self):
+        self.assertNotIn("w ago", self.sheet(self.fresh(data=0.8)))
+
+    def test_a_tag_played_once_yesterday_is_still_on_the_sheet(self):
+        """M55: truncation used to delete it overnight."""
+        out = self.sheet({"tabular": {"value": 0.6, "observations": 1,
+                                      "updated_at": self.ago(1)}})
+        self.assertIn("tabular", out)
+        self.assertNotIn("not measured yet: tabular", out)
+
+    def test_an_aged_out_tag_is_not_called_never_measured(self):
+        """Q91's mistake on a second screen: telling a player their own
+        history did not happen."""
+        out = self.sheet({"strings": {"value": 0.7, "observations": 4,
+                                      "updated_at": self.ago(200)}})
+        self.assertIn("aged out of counting", out)
+        self.assertIn("strings", out.split("aged out of counting")[1][:40])
+
+    def test_tags_never_played_are_counted(self):
+        """"What could I be measured on" is a question a character sheet
+        should answer."""
+        out = self.sheet(self.fresh(data=0.8))
+        self.assertIn("not measured yet", out)
+        self.assertIn("recursion", out)
+
+    def test_an_empty_profile_says_so(self):
+        self.assertIn("nothing measured yet", self.sheet())
+
+    def test_both_screens_render_the_same_rows(self):
+        """One renderer, deliberately. Two screens describing the same
+        numbers in two places is two things that can disagree, and the one
+        the player happens to open is the one they would believe."""
+        mastery = self.fresh(data=0.8, algorithms=0.3)
+        sheet = self.sheet(mastery)
+        why = self.sheet(mastery, why=True)
+        for tag in ("data", "algorithms"):
+            with self.subTest(tag=tag):
+                row = [l for l in sheet.splitlines() if l.strip().startswith(tag)]
+                self.assertTrue(row)
+                self.assertIn(row[0], why)
+
+    def test_the_sheet_says_the_two_measurements_are_not_combined(self):
+        """Exit criterion 8, said out loud on the screen it applies to."""
+        out = self.sheet(self.fresh(data=0.8), vibe={
+            "files": 20, "functions": 100,
+            "patterns": {"comprehension": 0.8, "generator_expr": 0.5,
+                         "builtin_aggregate": 0.7},
+        })
+        self.assertIn("never combined", out)
+        self.assertLess(out.index("FUNCTION CLASS"), out.index("ATTRIBUTES"))
+
+    def test_the_sheet_emits_no_escape_sequence_into_a_pipe(self):
+        profile = {"version": 1, "levels": {},
+                   "mastery": self.fresh(data=0.8, recursion=0.2)}
         args = argparse.Namespace(why=False)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

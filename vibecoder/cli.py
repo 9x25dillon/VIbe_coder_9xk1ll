@@ -61,7 +61,7 @@ from .scoring import (
     score_submission,
     streak_multiplier,
 )
-from .session import Session
+from .session import Session, _now
 from .replay import play as play_replay
 from .vision import play as vision_play
 from .ui import (
@@ -778,6 +778,85 @@ def cmd_play(args: argparse.Namespace) -> int:
 # status / replay / verify / reset
 # --------------------------------------------------------------------------
 
+def _attribute_rows(mastery, stored=None, now: str = "") -> list[str]:
+    """One row per measured tag, weakest first. Shared by both screens.
+
+    `status` shows these as the character sheet's attributes (T4 W9) and
+    `status --why` shows the same rows as the evidence behind a decision.
+    **One renderer, deliberately**: two screens describing the same numbers in
+    two places is two things that can disagree, and the one the player happens
+    to open would be the one they believe. Same argument as D197.
+
+    Three things per row, because a value on its own cannot be read honestly:
+    how much, on how many runs, and how long ago. Since W6 the number has
+    already had age taken off it, so "73%" means something different measured
+    on Tuesday than measured in June.
+    """
+    rows: list[str] = []
+    for tag in mastery.known_tags():
+        entry = mastery[tag]
+        counts = f"{entry.observations} run{'' if entry.observations == 1 else 's'}"
+        weight = (UI.paint("counts", GOOD) if entry.confident
+                  else UI.paint("not enough yet", WARN))
+        # Padded before painting -- an escape sequence has no width (M53).
+        row = (f"    {tag:<16} {UI.gauge(entry.value * 100, width=18)} "
+               f"{entry.value:>5.0%}  " + UI.paint(f"{counts:<14}", FAINT)
+               + f" {weight}")
+        age = (stored or mastery)[tag].age_days(now) if now else 0.0
+        if age >= 7.0:
+            row += UI.paint(f"   measured {int(age // 7)}w ago", FAINT)
+        rows.append(row)
+    return rows
+
+
+def _print_attributes(session: Session, all_levels: list) -> None:
+    """The per-tag mastery vector, made legible (T4 W9).
+
+    No new model: these are W1's numbers. What W9 adds is that they are on the
+    character sheet next to the class, and that the tags nobody has measured
+    are *counted* rather than silently absent -- "what could I be measured on"
+    is a question the sheet should answer, and a page showing only what has
+    been rolled cannot.
+
+    Kept a separate section from the class above it, with its own heading,
+    because exit criterion 8 forbids any screen presenting a single number
+    blending habits with mastery. Adjacent is fine; averaged is not.
+    """
+    mastery = session.current_mastery()
+    print()
+    print(UI.rule("ATTRIBUTES", width=76))
+    print("\n  " + UI.paint(
+        "what you have scored. Your class above is how you write; this is a "
+        "different measurement and the two are never combined.", MUTED))
+
+    rows = _attribute_rows(mastery, session.mastery, _now())
+    if rows:
+        print()
+        for row in rows:
+            print(row)
+    else:
+        print("\n    " + UI.paint("nothing measured yet", MUTED)
+              + UI.paint("  -- play a level and this fills in", FAINT))
+
+    every = {tag for level in all_levels for tag in level.tags}
+    every |= {tag for boss in level_registry.all_bosses() for tag in boss.tags}
+    shown = set(mastery.known_tags())
+    # A tag whose evidence has fully decayed was still *played*. Listing it
+    # under "not measured yet" would tell the player their own history did
+    # not happen -- Q91's mistake, on a second screen. It gets its own line.
+    aged_out = sorted(tag for tag in every - shown if tag in session.mastery)
+    unmeasured = sorted(every - shown - set(aged_out))
+    if aged_out:
+        print("\n    " + UI.paint("aged out of counting:", FAINT)
+              + UI.paint(f" {', '.join(aged_out)}", MUTED)
+              + UI.paint("  -- play one and it comes back", FAINT))
+    if unmeasured:
+        print("\n    " + UI.paint(
+            f"{len(unmeasured)} not measured yet:", FAINT)
+            + UI.paint(f" {', '.join(unmeasured)}", MUTED))
+    print()
+
+
 def _print_class(vibe) -> None:
     """The player's function class, and the patterns that earned it (T4 W8).
 
@@ -836,25 +915,12 @@ def _print_why(session: Session, all_levels: list) -> None:
     print()
     print(UI.rule("WHY YOU GET WHAT YOU GET", width=76))
 
-    known = mastery.known_tags()
-    if known:
+    rows = _attribute_rows(mastery, session.mastery, _now())
+    if rows:
         print(f"\n  {UI.paint('what has been measured', INK, bold=True)}"
               + UI.paint("   weakest first", FAINT))
-        for tag in known:
-            entry = mastery[tag]
-            # Padded before painting, never after: an escape sequence has no
-            # width, so `f"{painted:<20}"` pads the wrong string and the
-            # column drifts the moment colour is on. This is the T6 rule and
-            # it is invisible in a pipe, which is where it would be tested.
-            plural = "" if entry.observations == 1 else "s"
-            counts = f"{entry.observations} run{plural}"
-            # A tag that cannot be acted on is shown as such rather than
-            # hidden: "we have a number and are ignoring it" is information.
-            weight = (UI.paint("counts", GOOD) if entry.confident
-                      else UI.paint("not enough yet", WARN))
-            print(f"    {tag:<16} {UI.gauge(entry.value * 100, width=18)} "
-                  f"{entry.value:>5.0%}  " + UI.paint(f"{counts:<14}", FAINT)
-                  + f" {weight}")
+        for row in rows:
+            print(row)
     else:
         print(f"\n  {UI.paint('nothing measured yet', MUTED)}"
               + UI.paint("  -- play a level and this fills in", FAINT))
@@ -921,6 +987,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     # number blending what you write with what you score.
     if session.vibe is not None:
         _print_class(session.vibe)
+    _print_attributes(session, all_levels)
 
     drill = choose_drill(all_levels, session.current_mastery())
     if drill is not None:

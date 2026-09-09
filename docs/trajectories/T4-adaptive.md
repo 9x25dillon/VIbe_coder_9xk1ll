@@ -92,7 +92,7 @@ this waited for W6 rather than being started when it was first raised.
 | W6 | Time decay on mastery | `LANDED` (S030). A three-week half-life on **both** the value and the observation count, applied as a view at read time. Eroding confidence is what makes a returning player *unmeasured* rather than *weak* — and is the answer to Q90. |
 | W7 | Explanation surface: `vibecoder status --why` | `LANDED` (S031). Shows what was measured, what the game would give them for every level, and **what the model does not know** — the last generated from the content rather than written down. |
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | `LANDED` (S032). Six classes, three signals each, two required — **and at least one of them positive**, because absence must never earn an identity. `status` prints the measurements and the equally good fits. |
-| W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
+| W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | `LANDED` (S033). W1's numbers on the character sheet beside the class, each with its run count and how old it is. One renderer shared with `--why`, so the two screens cannot disagree. |
 | W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
 | W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
 
@@ -201,8 +201,12 @@ direction it sits, because age makes a rating *unknown* rather than *bad*. The
 | same day | 0.90 | 6 | yes |
 | 1 week | 0.82 | 4 | yes |
 | 3 weeks | 0.70 | 3 | yes |
-| 6 weeks | 0.60 | 1 | **no** |
+| 6 weeks | 0.60 | 2 | **no** |
 | 4 months | 0.51 | 0 | no |
+
+(The observation column is *rounded*, not truncated. Truncating sent a tag
+played once to zero after half a day — see M55 in
+[S033](../../journal/2026-09-08-S033-attributes.md).)
 
 **Decaying only the value would have been the bug.** A returning player would
 read as *measured and mediocre* rather than *unmeasured*, and those want
@@ -296,6 +300,44 @@ be presenting a coin toss as a reading.
 Every threshold is a judgement about *style, never quality*, exactly as
 `SIGNATURE_RULES` says of its own — and every one is a guess, chosen against a
 handful of real codebases and never playtested.
+
+## Attributes (W9)
+
+The per-tag mastery vector, on the character sheet beside the class. **No new
+model** — these are W1's numbers, and the waypoint is entirely about reading
+them honestly:
+
+```
+── ATTRIBUTES ──────────────────────────────────────────────────
+  what you have scored. Your class above is how you write; this is
+  a different measurement and the two are never combined.
+
+    algorithms   █████░░░░░░░░░░░░░   27%  5 runs   counts
+    recursion    █████████░░░░░░░░░   52%  2 runs   not enough yet   measured 3w ago
+    data         ███████████████░░░   81%  7 runs   counts
+
+    aged out of counting: strings  -- play one and it comes back
+    9 not measured yet: basics, conditionals, datastructures, …
+```
+
+Three things per row, because a value alone cannot be read honestly: **how
+much, on how many runs, and how long ago**. The last matters since W6 — the
+number shown has already had age taken off it, so `52%` means something
+different measured on Tuesday than measured in June.
+
+**One renderer, shared with `status --why`.** Two screens describing the same
+numbers in two places is two things that can disagree, and the one the player
+happens to open is the one they would believe.
+
+Three categories, not two. A tag whose evidence has fully decayed is listed as
+**aged out**, never as *not measured yet* — that is Q91's mistake on a second
+screen, telling a player their own history did not happen. Tags nobody has
+played are counted, because "what could I be measured on" is a question a
+character sheet should answer and a page showing only what has been rolled
+cannot.
+
+The two sections sit adjacent and the sheet says out loud that they are not
+combined, which is exit criterion 8 stated on the screen it applies to.
 
 ## Exit criteria
 

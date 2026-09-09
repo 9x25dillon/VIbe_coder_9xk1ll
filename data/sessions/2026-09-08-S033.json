@@ -1,0 +1,126 @@
+{
+  "id": "S033",
+  "date": "2026-09-08",
+  "duration_minutes": 45,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S033-attributes.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "The per-tag mastery vector is on the character sheet beside the class", "result": "met", "note": "no new model; W1's numbers made legible"},
+    {"id": 2, "statement": "Every attribute shows the evidence behind it", "result": "met", "note": "run count and how old the reading is, which matters since decay landed"},
+    {"id": 3, "statement": "The two screens showing these numbers cannot disagree", "result": "met", "note": "one shared renderer, same argument as D197"},
+    {"id": 4, "statement": "Nothing tells a player their own history did not happen", "result": "met", "note": "aged out is a third category, distinct from never measured"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/mastery.py", "kind": "module", "note": "TagMastery.age_days made public; decayed observation counts round rather than truncate (M55)"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_attribute_rows shared by both screens; _print_attributes; status shows class then attributes"},
+    {"path": "tests/test_mastery.py", "kind": "test", "note": "three cases pinning the rounding fix and that W6's schedule is unmoved"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheAttributesSheet, 12 cases; the criterion-6 slice boundary made explicit"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W9 LANDED; the attributes section; decay table corrected for rounding"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W9 landed; only W10 and W11 remain"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Attributes entry"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S033-attributes.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Each attribute shows its evidence", "method": "test_each_attribute_shows_its_evidence", "result": "value and run count both present", "verdict": "verified"},
+    {"claim": "A reading below the threshold says it does not count", "method": "test_an_attribute_below_the_threshold_says_it_does_not_count", "result": "green", "verdict": "verified"},
+    {"claim": "An old reading says how old it is", "method": "test_an_old_reading_says_how_old", "result": "green", "verdict": "verified"},
+    {"claim": "A fresh reading is not annotated", "method": "test_a_fresh_reading_is_not_annotated, the paired negative", "result": "green", "verdict": "verified"},
+    {"claim": "Both screens render identical rows", "method": "test_both_screens_render_the_same_rows, comparing row strings between status and status --why", "result": "green", "verdict": "verified"},
+    {"claim": "An aged-out tag is not called never-measured", "method": "test_an_aged_out_tag_is_not_called_never_measured", "result": "listed under 'aged out of counting'", "verdict": "verified"},
+    {"claim": "Tags never played are counted", "method": "test_tags_never_played_are_counted", "result": "green", "verdict": "verified"},
+    {"claim": "An empty profile says so", "method": "test_an_empty_profile_says_so", "result": "green", "verdict": "verified"},
+    {"claim": "Criterion 8: class and attributes are separate and the sheet says so", "method": "test_the_sheet_says_the_two_measurements_are_not_combined", "result": "separate sections, ordered, with the statement on screen", "verdict": "verified"},
+    {"claim": "A tag played once yesterday is still on the sheet", "method": "test_a_tag_played_once_yesterday_is_still_on_the_sheet", "result": "green; it vanished before this session", "verdict": "verified"},
+    {"claim": "One run still expires eventually", "method": "test_a_single_observation_does_expire_eventually", "result": "gone at two half-lives; rounding did not make one run immortal", "verdict": "verified"},
+    {"claim": "W6's documented schedule is unmoved by the rounding fix", "method": "test_a_confident_tag_still_loses_confidence_on_schedule", "result": "confident at one half-life, not at two", "verdict": "verified"},
+    {"claim": "No escape sequence reaches a pipe", "method": "test_the_sheet_emits_no_escape_sequence_into_a_pipe", "result": "0", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1281 tests OK in 208.885s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1257 tests OK in 134.560s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "A character sheet is what a player wants here at all", "method": "nobody has been shown one", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M55",
+      "believed": "That W6's decay was correct, having been tested at some length one session earlier: the curve, both directions, purity, every unusable timestamp. Twelve tests.",
+      "revealed_by": "Displaying it. Building the character sheet against a realistic profile, a tag measured yesterday on one run was missing from the rows and listed under 'not measured yet'.",
+      "corrected_to": "as_of computed observations=int(self.observations * force), and for a single observation after half a day that is int(1 x 0.97) = 0. Any tag with exactly one run ceased to exist within twelve hours and reappeared in the list of things the player had never done. Rounding rather than truncating means one run survives to one half-life and then expires, the same schedule everything else follows. W6's table moved by one observation at six weeks; the confidence behaviour it was chosen for is unchanged, and the table in T4 is corrected rather than left quoting the old figure.",
+      "cost_minutes": 10,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Every decay test used six observations, where truncation costs a fraction of a run and nothing visible happens. The bug lived precisely in the case the tests did not use, and that case is the most common one for a new player -- one run on a tag is where everybody starts. Fourth finding in T4 to come from outside the test suite: a claim propagated unchecked (S029), a failure-mode list (S032), and now a screen. The tests were written by whoever wrote the code, so they inherit its blind spots, and a display is the first consumer with different ones. A number nobody renders is a number nobody has checked, however many assertions surround it."
+    }
+  ],
+  "decisions": [
+    {"id": "D208", "decision": "One row renderer shared by the character sheet and status --why", "alternatives": ["A renderer per screen, tuned to each"], "rationale": "Two descriptions of the same numbers can disagree, and the player believes whichever screen they opened. Same argument as D197.", "reversible": true, "seam": "vibecoder/cli.py::_attribute_rows"},
+    {"id": "D209", "decision": "Decayed observation counts round rather than truncate", "alternatives": ["Keep int()", "Floor at 1 while any force remains"], "rationale": "M55. Truncation deletes a single observation within half a day, which is where every new player's every tag begins. A floor at 1 would make one run immortal.", "reversible": true, "seam": "vibecoder/mastery.py::TagMastery.as_of"},
+    {"id": "D210", "decision": "Aged-out tags are a third category, listed separately", "alternatives": ["Fold them into 'not measured yet'", "Hide them"], "rationale": "Telling a player their own history did not happen is Q91's mistake, and it was about to be repeated on a second screen.", "reversible": true, "seam": "vibecoder/cli.py::_print_attributes"},
+    {"id": "D211", "decision": "Tags nobody has played are counted on the sheet", "alternatives": ["Show only measured tags"], "rationale": "'What could I be measured on' is a question a character sheet should answer. Listing the names costs one line and makes the map of the game visible.", "reversible": true, "seam": "vibecoder/cli.py::_print_attributes"},
+    {"id": "D212", "decision": "The sheet states in words that class and attributes are not combined", "alternatives": ["Rely on them being separate sections"], "rationale": "Exit criterion 8 is about what a screen presents, and saying it is cheaper than hoping the layout implies it.", "reversible": true, "seam": "vibecoder/cli.py::_print_attributes"}
+  ],
+  "friction": [
+    {"description": "The criterion-6 test from W8 broke again, for the second time, because its slice of the rendered screen swallowed a new section that legitimately varies with mastery. Both breakages reported a criterion-6 failure that was not one. The boundary is now an explicit list of what may follow the class block, with a comment saying why: a test whose scope is 'everything after this heading' will keep being wrong every time the screen grows.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W9 LANDED. The character sheet shows both layers: the function class from how you write, the attributes from what you scored, each with its evidence and neither combined with the other. Exit criteria 1, 2, 4, 5, 6 and 8 verified; 3 verified for the two simulated players who can fail (Q89). 1281 tests green unpinned, 1257 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W10, abilities that act on a boss fight's HP and repair pool. It is the last piece of new mechanism in T4 and the one with a named hazard: power creep dissolves the boss engine. T3 W6 made a fight cost something and an ability that refills repairs freely hands that back. Criterion 7 is the guard -- every ability has a stated cost, and a fight with a full loadout is still losable -- and the instrument check is exactly that last clause, so a simulated fight that cannot be lost is the thing to build first.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M55 before trusting a tested model: render it and look, because the tests share the code's blind spots",
+      "D209 before touching decay arithmetic",
+      "Q84 and Q89 remain the user's calls"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q92", "question": "status --why lists every level, which will not scale past twelve.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q93", "question": "Three classes tie at 3/3 and the tie-break is margin. Should a tie be shown as a tie?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q94", "question": "The class is never stored, so a player cannot see that it changed.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q95", "question": "A number nobody renders is a number nobody has checked. M55 lived through twelve decay tests because every one used six observations. Is there a cheap general guard -- a property test over observation counts, a rendering smoke test per model -- or is 'look at it' the only honest answer?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1281,
+    "tests_passing": 1281,
+    "tests_added": 15,
+    "suite_seconds_unpinned": 208.885,
+    "suite_tests_pinned_bwrap": 1257,
+    "suite_seconds_pinned_bwrap": 134.56,
+    "reference_runs_clean": 54,
+    "days_a_single_observation_survived_before": 0.5,
+    "days_a_single_observation_survives_now": 21,
+    "attribute_categories": 3,
+    "t4_waypoints_landed": 9,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 6,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}
