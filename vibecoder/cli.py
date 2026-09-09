@@ -50,7 +50,7 @@ from .runner import (
     run_code,
     run_submission,
 )
-from .policy import choose_difficulty, choose_drill
+from .policy import choose_difficulty, choose_drill, limits
 from .scoring import (
     BOSS_WEIGHTS,
     LEVEL_WEIGHTS,
@@ -776,6 +776,66 @@ def cmd_play(args: argparse.Namespace) -> int:
 # status / replay / verify / reset
 # --------------------------------------------------------------------------
 
+def _print_why(session: Session, all_levels: list) -> None:
+    """`status --why`: what the game believes, what it does with it, and what
+    it is not claiming (T4 W7).
+
+    T4 calls this surface non-negotiable, and the fourth hazard says why:
+    unexplainable adaptation feels broken rather than smart. Nothing here is
+    computed for display -- every sentence is the `reason` the decision was
+    actually made with, so the screen cannot drift from the behaviour. That is
+    the whole of exit criterion 4's "no hidden state".
+    """
+    mastery = session.current_mastery()
+
+    print()
+    print(UI.rule("WHY YOU GET WHAT YOU GET", width=76))
+
+    known = mastery.known_tags()
+    if known:
+        print(f"\n  {UI.paint('what has been measured', INK, bold=True)}"
+              + UI.paint("   weakest first", FAINT))
+        for tag in known:
+            entry = mastery[tag]
+            # Padded before painting, never after: an escape sequence has no
+            # width, so `f"{painted:<20}"` pads the wrong string and the
+            # column drifts the moment colour is on. This is the T6 rule and
+            # it is invisible in a pipe, which is where it would be tested.
+            plural = "" if entry.observations == 1 else "s"
+            counts = f"{entry.observations} run{plural}"
+            # A tag that cannot be acted on is shown as such rather than
+            # hidden: "we have a number and are ignoring it" is information.
+            weight = (UI.paint("counts", GOOD) if entry.confident
+                      else UI.paint("not enough yet", WARN))
+            print(f"    {tag:<16} {UI.gauge(entry.value * 100, width=18)} "
+                  f"{entry.value:>5.0%}  " + UI.paint(f"{counts:<14}", FAINT)
+                  + f" {weight}")
+    else:
+        print(f"\n  {UI.paint('nothing measured yet', MUTED)}"
+              + UI.paint("  -- play a level and this fills in", FAINT))
+
+    print(f"\n  {UI.paint('what you would be given right now', INK, bold=True)}")
+    for level in all_levels:
+        decision = choose_difficulty(level.tags, mastery, session.vibe)
+        print(f"    {level.id:<16} "
+              + UI.paint(f"{decision.difficulty.band:<9}", ACCENT)
+              + UI.paint(decision.reason, MUTED))
+
+    drill = choose_drill(all_levels, mastery)
+    if drill is not None:
+        print(f"\n  {UI.badge('DRILL', VIOLET)} " + UI.paint(drill.reason, WARN))
+        print("      " + UI.paint("  ".join(drill.levels), MUTED))
+
+    notes = limits(all_levels, mastery)
+    if notes:
+        print(f"\n  {UI.paint('what this does not know', INK, bold=True)}")
+        for note in notes:
+            for index, line in enumerate(wrap(note, 68, indent="      ")):
+                marker = UI.paint("-", FAINT) if index == 0 else " "
+                print(f"    {marker} {line.lstrip()}" if index == 0 else line)
+    print()
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     session = Session.load()
     all_levels = list(level_registry.all_levels())
@@ -815,6 +875,10 @@ def cmd_status(args: argparse.Namespace) -> int:
     if drill is not None:
         print(f"\n    {UI.badge('DRILL', VIOLET)} " + UI.paint(drill.reason, WARN))
         print("      " + UI.paint("  ".join(drill.levels), MUTED))
+
+    if getattr(args, "why", False):
+        _print_why(session, all_levels)
+        return 0
 
     if session.levels:
         print()
@@ -1788,6 +1852,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_play.set_defaults(func=cmd_play)
 
     p_status = sub.add_parser("status", help="show progression")
+    p_status.add_argument(
+        "--why", action="store_true",
+        help="explain what the game believes about you and what it does with it",
+    )
     p_status.set_defaults(func=cmd_status)
 
     p_replay = sub.add_parser("replay", help="slow-motion playback of a run")

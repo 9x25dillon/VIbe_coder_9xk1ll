@@ -90,7 +90,7 @@ this waited for W6 rather than being started when it was first raised.
 | W4 | Selection policy targeting the ~70–80% success band | `LANDED` (S028). Measured at **72%** for an improving player and **71%** for a plateaued one, pooled over 20 simulated 50-level runs. Two of the four simulated players **cannot** be held in the band by any policy built on W2's dial — see below. |
 | W5 | Drill injection: repeated short exercises on the weakest tag | `LANDED` (S029). Three runs on the weakest **confident** tag below 0.5, injected after a clear and shown in `status` rather than hidden behind a command nobody runs. |
 | W6 | Time decay on mastery | `LANDED` (S030). A three-week half-life on **both** the value and the observation count, applied as a view at read time. Eroding confidence is what makes a returning player *unmeasured* rather than *weak* — and is the answer to Q90. |
-| W7 | Explanation surface: `vibecoder status --why` | The player can see why they were given a level. Non-negotiable. |
+| W7 | Explanation surface: `vibecoder status --why` | `LANDED` (S031). Shows what was measured, what the game would give them for every level, and **what the model does not know** — the last generated from the content rather than written down. |
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | Named from habits, never from score. `status` shows which patterns earned it. |
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
 | W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
@@ -216,6 +216,43 @@ Decay is a **view**, applied by `Mastery.as_of(now)` at one call site
 actually measured rather than one that rots on disk; only `observe` writes
 decay back, and only because a new run has genuinely superseded the old
 reading.
+
+## The explanation surface (W7)
+
+`vibecoder status --why` has four parts, and the fourth is the one the
+waypoint calls non-negotiable:
+
+1. **What has been measured** — every tag with evidence, weakest first, each
+   showing its run count and whether it is enough to act on. A tag the game
+   has a number for and is *ignoring* is shown as such; hiding it would make
+   the drill's choice look arbitrary.
+2. **What you would be given right now** — every level, its band, and the
+   sentence behind it.
+3. **The drill**, if one is warranted.
+4. **What this does not know.**
+
+**Nothing on the screen is computed for display.** Every sentence is the
+`reason` the decision was actually made with, so the screen cannot drift from
+the behaviour — which is what exit criterion 4's "no hidden state" amounts to
+in practice, as opposed to a second rendering that happens to agree today.
+
+### Saying what the model is not claiming
+
+`policy.limits` generates the caveats **from the content**, so a level gaining
+a tag changes what the player is told without anyone remembering to edit a
+paragraph. Two are real properties of the model rather than modesty:
+
+- *a level's tags all move together, so a score for `data` is about the levels
+  that carry it rather than that skill on its own* — **Q87**
+- *`recursion` is carried by a single level, so the score measures that level
+  as much as the skill* — **Q88**, stated at the right strength: thin, not
+  unusable.
+
+**Q91 is fixed here too.** A returning player whose evidence has decayed used
+to be told "nothing measured yet" — true of the decayed model and false about
+their history. There is now a `stale` source: *you have played data before,
+but not recently enough for the reading to still count*. The decision is the
+same standard variant; only the sentence is honest.
 
 ## Exit criteria
 

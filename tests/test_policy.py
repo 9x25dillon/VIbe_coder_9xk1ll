@@ -35,6 +35,7 @@ from vibecoder.policy import (
     TARGET_SUCCESS,
     choose_difficulty,
     choose_drill,
+    limits,
 )
 
 TAGS = ("data", "tabular")
@@ -652,10 +653,17 @@ class TestDecayMeetsTheDecisions(unittest.TestCase):
         self.assertIsNone(choose_drill(self.levels, self.weak_at("algorithms", 90)))
 
     def test_a_long_stale_profile_falls_back_to_the_standard_variant(self):
-        """Re-assessment in practice: the game stops assuming and asks."""
+        """Re-assessment in practice: the game stops assuming and asks.
+
+        The source is `stale` rather than `default` since W7 (Q91) -- the
+        decision is the same standard variant either way, and the difference
+        is that a returning player is told they played this before instead of
+        being told nothing was ever measured.
+        """
         decision = choose_difficulty(("algorithms",), self.weak_at("algorithms", 90))
-        self.assertEqual(decision.source, "default")
         self.assertEqual(decision.difficulty.level, 0.5)
+        self.assertEqual(decision.source, "stale")
+        self.assertNotEqual(decision.source, "mastery")
 
     def test_a_stale_strong_player_is_not_still_given_the_hardest_variant(self):
         """The trajectory's phrasing: nobody stays pinned to a rating they
@@ -673,6 +681,96 @@ class TestDecayMeetsTheDecisions(unittest.TestCase):
         who took a fortnight off."""
         drill = choose_drill(self.levels, self.weak_at("algorithms", HALF_LIFE_DAYS))
         self.assertIsNotNone(drill)
+
+
+class TestStaleIsNotUnknown(unittest.TestCase):
+    """Q91. "You played this in June" and "you have never played this" are
+    different sentences, and only one of them is true of a returning player.
+    """
+
+    def stale_model(self) -> Mastery:
+        model = Mastery(tags={
+            "data": TagMastery(value=0.9, observations=9, updated_at=when(0))
+        })
+        return model.as_of(when(120))
+
+    def test_a_never_played_tag_says_nothing_measured(self):
+        decision = choose_difficulty(("data",), Mastery())
+        self.assertEqual(decision.source, "default")
+        self.assertIn("nothing measured", decision.reason)
+
+    def test_an_aged_out_tag_says_it_was_played_before(self):
+        decision = choose_difficulty(("data",), self.stale_model())
+        self.assertEqual(decision.source, "stale")
+        self.assertIn("before", decision.reason)
+        self.assertNotIn("nothing measured", decision.reason)
+
+    def test_both_still_give_the_standard_variant(self):
+        """The sentence differs; the decision does not. Aged-out evidence is
+        not evidence, it is just a better-explained absence of it."""
+        self.assertEqual(
+            choose_difficulty(("data",), self.stale_model()).difficulty.level, 0.5
+        )
+
+    def test_the_evidence_says_when_they_last_played(self):
+        decision = choose_difficulty(("data",), self.stale_model())
+        self.assertEqual(decision.evidence["last_seen"]["data"], when(0))
+
+    def test_stale_is_preferred_over_a_guess_from_habits(self):
+        """Having played it, however long ago, beats inferring from code."""
+        decision = choose_difficulty(
+            ("data",), self.stale_model(), VibeVector(tags=["data"])
+        )
+        self.assertEqual(decision.source, "stale")
+
+    def test_fresh_evidence_still_wins_over_stale(self):
+        model = Mastery(tags={
+            "data": TagMastery(value=0.9, observations=9, updated_at=when(0)),
+        })
+        self.assertEqual(
+            choose_difficulty(("data",), model.as_of(when(0))).source, "mastery"
+        )
+
+
+class TestTheModelStatesItsLimits(unittest.TestCase):
+    """T4 W7. An explanation that only says what the game believes is half of
+    one, and both of these are real properties rather than modesty."""
+
+    def setUp(self):
+        self.levels = list(all_levels())
+
+    def measured(self, *tags) -> Mastery:
+        mastery = Mastery()
+        for tag in tags:
+            mastery.observe((tag,), 0.6)
+        return mastery
+
+    def test_nothing_is_claimed_about_tags_never_measured(self):
+        """A player who has played nothing needs no caveats about numbers
+        that do not exist."""
+        self.assertEqual(limits(self.levels, Mastery()), [])
+
+    def test_a_shared_tag_is_flagged_as_moving_with_its_level(self):
+        """Q87: a level tagged ('data', 'algorithms') cannot say which of the
+        two the player got right."""
+        notes = " ".join(limits(self.levels, self.measured("data")))
+        self.assertIn("move together", notes)
+
+    def test_a_single_level_tag_is_flagged_as_thin(self):
+        """Q88, stated at the right strength: it measures the level as much
+        as the skill, which is not the same as being unusable."""
+        notes = " ".join(limits(self.levels, self.measured("recursion")))
+        self.assertIn("single level", notes)
+        self.assertIn("recursion", notes)
+
+    def test_the_notes_are_generated_from_the_content(self):
+        """Not written down. A level gaining a tag changes what the player is
+        told without anyone remembering to edit a paragraph."""
+        self.assertEqual(limits([], self.measured("recursion")), [])
+
+    def test_a_tag_the_player_has_not_met_is_not_mentioned(self):
+        notes = " ".join(limits(self.levels, self.measured("data")))
+        self.assertNotIn("recursion", notes)
 
 
 if __name__ == "__main__":

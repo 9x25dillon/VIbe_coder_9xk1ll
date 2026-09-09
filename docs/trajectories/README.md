@@ -229,9 +229,16 @@ time.
 half-life on both the value and the observation count, applied as a read-time
 view so the stored profile stays a record rather than rotting on disk. Eroding
 confidence alongside the value is what answers Q90 — six weeks away and the
-game stops assuming rather than drilling you for having been absent. W7, the
-explanation surface, is next and is the last waypoint before the class,
-attribute and ability layers (W8–W11).
+game stops assuming rather than drilling you for having been absent.
+
+**W7 `LANDED`** ([S031](../../journal/2026-09-08-S031-why.md)):
+`status --why` shows what was measured, what every level would be given and
+the sentence behind it, and **what the model does not know** — the last
+generated from the content so it cannot go stale. It also fixed Q91: a
+returning player is told their evidence aged out rather than that nothing was
+ever measured. **W1–W7 are done and exit criteria 1, 2, 4 and 5 are
+verified.** W8–W11 are the class, attribute and ability layers, which is where
+T4 stops being a difficulty model and starts being a character sheet.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

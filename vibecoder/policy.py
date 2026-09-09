@@ -118,6 +118,33 @@ def choose_difficulty(
             },
         )
 
+    # Measured once, but the evidence has aged past being worth acting on
+    # (T4 W6). Distinct from never having played it: the honest sentence is
+    # "you did this, a while ago", and telling a returning player "nothing
+    # measured yet" is true of the decayed model and false about their
+    # history. Q91.
+    stale = sorted(
+        tag for tag in tags
+        if tag in mastery and mastery[tag].updated_at
+        and not mastery.confident(tag)
+    )
+    if stale:
+        named = ", ".join(stale)
+        return Decision(
+            difficulty=Difficulty(),
+            source="stale",
+            reason=(
+                f"you have played {named} before, but not recently enough for "
+                f"the reading to still count, so this is a standard variant "
+                f"while the game takes another look"
+            ),
+            evidence={
+                "tags_gone_stale": stale,
+                "last_seen": {tag: mastery[tag].updated_at for tag in stale},
+                "note": "decayed out of confidence, not measured as weak",
+            },
+        )
+
     if vibe is not None and tags:
         # No mastery evidence, so guess from the code the player brought.
         # Familiarity is a share of the level's tags, not of the codebase's,
@@ -238,3 +265,56 @@ def choose_drill(levels, mastery: Mastery) -> "Drill | None":
             "distinct_levels": len(carrying),
         },
     )
+
+
+# --------------------------------------------------------------------------
+# What the model cannot tell you (T4 W7)
+# --------------------------------------------------------------------------
+
+def limits(levels, mastery: Mastery) -> list[str]:
+    """The claims this model is *not* making, in the player's words.
+
+    T4 W7 says the explanation surface is non-negotiable, and an explanation
+    that only says what the game believes is half of one. These are the two
+    places the numbers read as more precise than they are, and both are real
+    properties of the model rather than caveats added for modesty:
+
+    * **Every tag on a level moves together.** A level tagged
+      ``("data", "algorithms")`` cannot say which of the two the player got
+      right, so a tag score is about *content met*, not an isolated skill
+      (Q87).
+    * **A tag carried by one level measures that level.** Replaying it does
+      build evidence -- enough to become confident -- but all of it is the
+      same problem shape (Q88).
+
+    Generated from the content rather than written down, so a level gaining a
+    tag or a world gaining a level changes what the player is told without
+    anyone remembering to edit a paragraph.
+    """
+    notes: list[str] = []
+
+    multi = sorted({
+        tag for level in levels if len(level.tags) > 1 for tag in level.tags
+    })
+    seen_multi = [tag for tag in multi if tag in mastery]
+    if seen_multi:
+        notes.append(
+            "a level's tags all move together, so a score for "
+            f"{', '.join(seen_multi[:3])} is about the levels that carry it "
+            "rather than that skill on its own"
+        )
+
+    counts: dict[str, int] = {}
+    for level in levels:
+        for tag in level.tags:
+            counts[tag] = counts.get(tag, 0) + 1
+    thin = sorted(tag for tag, count in counts.items()
+                  if count == 1 and tag in mastery)
+    if thin:
+        notes.append(
+            f"{', '.join(thin)} " + ("is carried" if len(thin) == 1 else "are carried")
+            + " by a single level, so the score measures that level as much "
+            "as the skill"
+        )
+
+    return notes

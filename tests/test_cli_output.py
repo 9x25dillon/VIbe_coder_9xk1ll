@@ -10,6 +10,7 @@ every colour depth (the T6 rule).
 
 import argparse
 import io
+import json
 import os
 import re
 import tempfile
@@ -627,6 +628,88 @@ class TestABossCanBeFound(unittest.TestCase):
                         with everything_printed() as buffer:
                             cli.cmd_levels(args)
                 self.assertNotIn("\033", buffer.getvalue())
+
+
+class TestTheWhySurface(unittest.TestCase):
+    """T4 W7. `status --why` -- non-negotiable, per the waypoint.
+
+    Nothing on this screen is computed for display: every sentence is the
+    `reason` the decision was actually made with, which is what exit criterion
+    4's "no hidden state" amounts to in practice.
+    """
+
+    PROFILE = {
+        "version": 1, "levels": {}, "total_score": 0.0,
+        "mastery": {
+            "algorithms": {"value": 0.2, "observations": 6, "updated_at": ""},
+            "data": {"value": 0.85, "observations": 6, "updated_at": ""},
+            "tabular": {"value": 0.6, "observations": 1, "updated_at": ""},
+        },
+    }
+
+    def why(self, profile=None) -> str:
+        args = argparse.Namespace(why=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(
+                json.dumps(self.PROFILE if profile is None else profile),
+                encoding="utf-8",
+            )
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_status, args)
+
+    def test_it_shows_what_has_been_measured(self):
+        out = self.why()
+        self.assertIn("what has been measured", out)
+        self.assertIn("algorithms", out)
+
+    def test_a_tag_without_enough_runs_is_shown_as_not_counting(self):
+        """"We have a number and are ignoring it" is information, and hiding
+        it would make the drill's choice look arbitrary."""
+        self.assertIn("not enough yet", self.why())
+
+    def test_it_explains_every_level(self):
+        out = self.why()
+        for level in get_level("w2-l1-revenue"), get_level("w3-l1-flatten"):
+            with self.subTest(level=level.id):
+                self.assertIn(level.id, out)
+
+    def test_the_sentence_shown_is_the_one_the_decision_carries(self):
+        """The screen cannot drift from the behaviour, because it is not a
+        second rendering of it."""
+        from vibecoder.mastery import Mastery
+        from vibecoder.policy import choose_difficulty
+
+        mastery = Mastery.from_json(self.PROFILE["mastery"])
+        expected = choose_difficulty(get_level("w3-l2-window").tags, mastery).reason
+        self.assertIn(expected, self.why())
+
+    def test_it_states_what_it_does_not_know(self):
+        out = self.why()
+        self.assertIn("what this does not know", out)
+        self.assertIn("move together", out)
+
+    def test_an_empty_profile_says_so_rather_than_showing_a_blank(self):
+        out = self.why({"version": 1, "levels": {}})
+        self.assertIn("nothing measured yet", out)
+
+    def test_an_empty_profile_still_explains_every_level(self):
+        self.assertIn("w2-l1-revenue", self.why({"version": 1, "levels": {}}))
+
+    def test_plain_status_does_not_print_the_why_surface(self):
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                out = captured(cli.cmd_status, args)
+        self.assertNotIn("WHY YOU GET WHAT YOU GET", out)
+
+    def test_the_surface_emits_no_escape_sequence_into_a_pipe(self):
+        args = argparse.Namespace(why=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                with everything_printed() as buffer:
+                    cli.cmd_status(args)
+        self.assertNotIn("\033", buffer.getvalue())
 
 
 class TestTheHintLadder(unittest.TestCase):

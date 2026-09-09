@@ -1,0 +1,123 @@
+{
+  "id": "S031",
+  "date": "2026-09-08",
+  "duration_minutes": 45,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S031-why.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player can see what the game believes about them and what it does with it", "result": "met", "note": "status --why, in four parts"},
+    {"id": 2, "statement": "The screen cannot drift from the behaviour it describes", "result": "met", "note": "it renders the decision's own reason rather than a second rendering"},
+    {"id": 3, "statement": "The model states what it is not claiming", "result": "met", "note": "generated from the content so a level gaining a tag changes what the player is told"},
+    {"id": 4, "statement": "A returning player is told their evidence aged out, not that nothing was measured", "result": "met", "note": "Q91; a stale source distinct from default"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/policy.py", "kind": "module", "note": "a stale source for aged-out evidence (Q91); limits() generating the model's caveats from the content"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_print_why and status --why; padding computed before painting (M53)"},
+    {"path": "tests/test_policy.py", "kind": "test", "note": "TestStaleIsNotUnknown and TestTheModelStatesItsLimits, 11 cases"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheWhySurface, 8 cases including that the sentence shown is the decision's own"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W7 LANDED; the four parts and why the fourth is non-negotiable"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W7 landed; W1-W7 done and criteria 1, 2, 4, 5 verified"},
+    {"path": "README.md", "kind": "doc", "note": "status --why in the command table; test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S031-why.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "The screen renders the decision's own sentence", "method": "test_the_sentence_shown_is_the_one_the_decision_carries, where the expected string comes from calling choose_difficulty in the test", "result": "green", "verdict": "verified"},
+    {"claim": "Every level is explained", "method": "test_it_explains_every_level", "result": "green", "verdict": "verified"},
+    {"claim": "A tag with too little evidence is shown as not counting", "method": "test_a_tag_without_enough_runs_is_shown_as_not_counting", "result": "green; hiding it would make the drill's choice look arbitrary", "verdict": "verified"},
+    {"claim": "An empty profile says so rather than showing a blank", "method": "test_an_empty_profile_says_so_rather_than_showing_a_blank", "result": "green", "verdict": "verified"},
+    {"claim": "An empty profile still explains every level", "method": "test_an_empty_profile_still_explains_every_level", "result": "green", "verdict": "verified"},
+    {"claim": "Plain status is unchanged", "method": "test_plain_status_does_not_print_the_why_surface", "result": "green", "verdict": "verified"},
+    {"claim": "The limits are generated from the content rather than written down", "method": "test_the_notes_are_generated_from_the_content", "result": "an empty level list produces no caveats", "verdict": "verified"},
+    {"claim": "A tag the player has not met is not caveated", "method": "test_a_tag_the_player_has_not_met_is_not_mentioned", "result": "green", "verdict": "verified"},
+    {"claim": "Q91: an aged-out tag says it was played before", "method": "test_an_aged_out_tag_says_it_was_played_before", "result": "source stale, reason mentions having played it", "verdict": "verified"},
+    {"claim": "A never-played tag still says nothing measured", "method": "test_a_never_played_tag_says_nothing_measured, the paired negative", "result": "green", "verdict": "verified"},
+    {"claim": "Both still give the standard variant", "method": "test_both_still_give_the_standard_variant", "result": "0.5 either way; only the sentence differs", "verdict": "verified"},
+    {"claim": "Stale evidence beats a guess from habits", "method": "test_stale_is_preferred_over_a_guess_from_habits", "result": "source stale even with a vibe present", "verdict": "verified"},
+    {"claim": "Columns align at every colour depth", "method": "rendered at FORCE_COLOR=3, escapes stripped, compared with the piped output", "result": "identical", "verdict": "verified"},
+    {"claim": "No escape sequence reaches a pipe", "method": "test_the_surface_emits_no_escape_sequence_into_a_pipe and grep -c", "result": "0", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1231 tests OK in 91.001s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1207 tests OK in 67.898s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "The screen makes the adaptation feel intelligible", "method": "nobody has read it who did not write it", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M53",
+      "believed": "That f-string padding of a painted string was a normal column pad. The run count was UI.paint(...) and then padded to width 20.",
+      "revealed_by": "Re-reading the line before running the suite, because T6's rule -- every element computes its plain-text layout first and paints last -- was in ARCHITECTURE.md two screens above what I was editing.",
+      "corrected_to": "An escape sequence has no display width but plenty of len, so padding a painted string pads the wrong number and the column drifts the moment colour is on. Pad the plain text and paint the padded result. Verified by rendering at FORCE_COLOR=3, stripping escapes and confirming the columns match the piped output.",
+      "cost_minutes": 3,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The whole test suite would have passed. Every assertion in test_cli_output.py runs against escape-stripped text or a pipe, where Depth.NONE makes paint a no-op and the bug cannot exist -- so this is a defect whose only symptom is on a real terminal, in a project whose presentation rule exists precisely because that class of thing is invisible from CI. T6 landed early for this reason and M36 was the same shape. The rule is not 'strip escapes when asserting', which is already done; it is 'compute width before colour', and following it is what makes the stripped assertion meaningful."
+    }
+  ],
+  "decisions": [
+    {"id": "D197", "decision": "The surface renders each decision's own reason", "alternatives": ["Generate explanation text in the view from the stored numbers"], "rationale": "A second rendering can agree today and drift later. Exit criterion 4 says 'no hidden state', and one code path is what that means in practice.", "reversible": false, "seam": "vibecoder/cli.py::_print_why"},
+    {"id": "D198", "decision": "A tag with a number that is being ignored is shown, and labelled as ignored", "alternatives": ["Show only tags that count toward a decision"], "rationale": "'We have a number and are ignoring it' is information. Hiding it makes the drill's choice look arbitrary and the confidence threshold invisible.", "reversible": true, "seam": "vibecoder/cli.py::_print_why"},
+    {"id": "D199", "decision": "limits() is generated from the content", "alternatives": ["A written paragraph in the docs or in the view"], "rationale": "A level gaining a tag then changes what the player is told without anyone editing prose. A caveat that has gone stale is worse than no caveat.", "reversible": true, "seam": "vibecoder/policy.py::limits"},
+    {"id": "D200", "decision": "A fourth decision source, stale, distinct from default", "alternatives": ["Fold it into default with a longer reason", "Treat stale evidence as habits"], "rationale": "The decision is identical but the sentence is not, and telling a returning player nothing was ever measured is a lie the model can easily avoid telling.", "reversible": true, "seam": "vibecoder/policy.py::choose_difficulty"},
+    {"id": "D201", "decision": "stale outranks habits", "alternatives": ["Prefer the codebase guess once a reading has aged out"], "rationale": "Having actually played something, however long ago, is better evidence about the player than inferring from their code, and it is the honest thing to say.", "reversible": true, "seam": "vibecoder/policy.py::choose_difficulty"}
+  ],
+  "friction": [
+    {"description": "none", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W7 LANDED. The game measures mastery per tag, decays it, chooses a difficulty and a drill from it, and can now explain all of that including what it is not claiming. Exit criteria 1, 2, 4 and 5 verified; 3 verified for the two simulated players who can fail (Q89). 1231 tests green unpinned, 1207 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W8, deriving a function class from the Vibe Vector. This is where T4 stops being a difficulty model and starts being a character sheet, and it is the waypoint with the most ways to go wrong: criterion 6 says changing a player's scores without changing their code must never change their class, and the trajectory's last hazard says a class system is a horoscope by default unless the patterns that earned it are on screen beside it. status --why is now the obvious place for that evidence to live, so read this session's surface before building W8's.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M53 before touching any aligned output: pad the plain text and paint afterwards, because the suite cannot see the difference",
+      "D197 before adding anything to the explanation surface"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q87", "question": "A level's tags all receive the same observation, so mastery is about content met rather than an isolated skill.", "owner": "T4", "status": "answered", "answer": "status --why says so, in a caveat generated from the content rather than written down (D199)."},
+    {"id": "Q88", "question": "A one-level tag is measured on a single problem shape.", "owner": "T4", "status": "answered", "answer": "Stated on the explanation surface at the right strength: thin, not unusable. Whether the content should be rebalanced is a separate level-authoring question and remains open."},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q91", "question": "Nothing tells the player their mastery decayed.", "owner": "T4", "status": "answered", "answer": "A fourth decision source, stale, distinct from default: 'you have played data before, but not recently enough for the reading to still count'. Same variant, honest sentence (D200)."},
+    {"id": "Q92", "question": "status --why lists every level, which is fine at twelve and will not be at fifty. Does the surface want a filter, a 'next few' cut, or a per-level --why? Deferred because guessing at the shape before there is content to shape it is how a surface acquires options nobody uses.", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1231,
+    "tests_passing": 1231,
+    "tests_added": 20,
+    "suite_seconds_unpinned": 91.001,
+    "suite_tests_pinned_bwrap": 1207,
+    "suite_seconds_pinned_bwrap": 67.898,
+    "reference_runs_clean": 54,
+    "decision_sources": 4,
+    "t4_waypoints_landed": 7,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 4,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}
