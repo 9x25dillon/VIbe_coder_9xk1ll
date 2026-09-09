@@ -216,8 +216,14 @@ met for the other two.** W2's difficulty scales how much work an input
 demands rather than whether the answer is right, so a player who always writes
 a correct solution always clears — at every difficulty, by construction. That
 is a finding against the criterion rather than a gap in the policy, it is
-recorded as Q89, and the criterion has not been re-cut to match (N7). W5 is
-next.
+recorded as Q89, and the criterion has not been re-cut to match (N7).
+
+**W5 `LANDED`** ([S029](../../journal/2026-09-08-S029-drills.md)): three runs
+on the weakest confident tag, injected after a clear where the player is
+already asking what comes next. It also corrected **Q88**, which this board
+had been carrying as fact — a tag carried by a single level *can* reach the
+confidence threshold, because replaying that level banks an observation each
+time. W6 (time decay) is next.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

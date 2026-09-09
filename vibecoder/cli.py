@@ -50,7 +50,7 @@ from .runner import (
     run_code,
     run_submission,
 )
-from .policy import choose_difficulty
+from .policy import choose_difficulty, choose_drill
 from .scoring import (
     BOSS_WEIGHTS,
     LEVEL_WEIGHTS,
@@ -394,15 +394,37 @@ def _print_first_failure(result: RunResult, tests: Sequence[TestCase]) -> None:
         print(f"\n  {UI.paint(note, FAINT)}")
 
 
+def _print_drill(drill) -> None:
+    """The drill, injected where the player is already looking (T4 W5).
+
+    A separate `vibecoder drill` command would be a thing nobody runs. The
+    moment after a clear is when the game has the player's attention and is
+    being asked "what now", so that is where practice on a weak tag belongs --
+    which is what the design means by *injection* rather than a mode.
+    """
+    print(f"\n    {UI.badge('DRILL', VIOLET)} "
+          + UI.paint(drill.reason, WARN))
+    for index, level_id in enumerate(drill.levels, start=1):
+        print(f"      {UI.paint(f'{index}.', FAINT)} "
+              + UI.paint(level_id, MUTED))
+
+
 def _print_next_up(level: Level, session: Session) -> None:
-    """After a clear, name the level that follows.
+    """After a clear, name what comes next.
 
     A game that ends a win by returning you to the shell has to be re-entered
-    on willpower. Naming the next level -- and what it adds -- is the cheapest
+    on willpower. Naming the next thing -- and what it adds -- is the cheapest
     thing that turns one cleared level into two, and it is the same
     information the world map carries, at the moment it is most useful.
+
+    A drill takes precedence over campaign order when one is warranted, which
+    is T4 W5's whole content: the player who has just cleared something is
+    the one who will act on "and here is the thing you are weakest at".
     """
     ordered = list(level_registry.all_levels())
+    drill = choose_drill(ordered, session.mastery)
+    if drill is not None:
+        _print_drill(drill)
     try:
         position = [lvl.id for lvl in ordered].index(level.id)
     except ValueError:
@@ -788,6 +810,11 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"    {'vibe source':<15}"
         + UI.paint(session.vibe_source or "(not profiled)", MUTED)
     )
+
+    drill = choose_drill(all_levels, session.mastery)
+    if drill is not None:
+        print(f"\n    {UI.badge('DRILL', VIOLET)} " + UI.paint(drill.reason, WARN))
+        print("      " + UI.paint("  ".join(drill.levels), MUTED))
 
     if session.levels:
         print()

@@ -88,7 +88,7 @@ this waited for W6 rather than being started when it was first raised.
 | W2 | Difficulty parameters on `make_tests(rng, difficulty)` | `LANDED` (S027). Authors opt in one at a time; detection is by signature. **The default reproduces pre-difficulty data byte for byte**, which is what keeps `data/baselines/` evidence. `w2-l2-groupby` is the first to opt in. |
 | W3 | Update rule above, applied after every ranked run | `LANDED` (S027). Applied inside `Session.submit`, which practice mode never calls — so criterion 5 holds structurally rather than by a flag. |
 | W4 | Selection policy targeting the ~70–80% success band | `LANDED` (S028). Measured at **72%** for an improving player and **71%** for a plateaued one, pooled over 20 simulated 50-level runs. Two of the four simulated players **cannot** be held in the band by any policy built on W2's dial — see below. |
-| W5 | Drill injection: repeated short exercises on the weakest tag | The design's "struggle with recursion → extra recursive drills". |
+| W5 | Drill injection: repeated short exercises on the weakest tag | `LANDED` (S029). Three runs on the weakest **confident** tag below 0.5, injected after a clear and shown in `status` rather than hidden behind a command nobody runs. |
 | W6 | Time decay on mastery | Re-assess returning players. |
 | W7 | Explanation surface: `vibecoder status --why` | The player can see why they were given a level. Non-negotiable. |
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | Named from habits, never from score. `status` shows which patterns earned it. |
@@ -133,6 +133,58 @@ the band** — 70% with no offset at all, 74% at three times the shipped value.
 The loop is self-correcting, so the equilibrium is set by the *observation
 weights* in [`mastery.py`](../../vibecoder/mastery.py), not by the policy's
 dial. Anyone trying to move the band should turn those.
+
+## Drills (W5)
+
+A drill is `DRILL_LENGTH` runs on the one tag the player is measurably weakest
+at. Three constraints shape it, and each rules something out:
+
+- **Only a confident tag.** Drilling a tag measured once acts on a single
+  unlucky afternoon, which is what `MIN_OBSERVATIONS` exists to prevent. A
+  player who has never met a tag needs to meet it — that is the selection
+  ordering's job, not a drill's.
+- **Only below 0.5.** A drill offered to someone who does not need one is
+  noise, and it teaches them to ignore the next one.
+- **`DRILL_LENGTH` is `MIN_OBSERVATIONS`, not a round number.** After a drill
+  the tag is `confident` again by definition, so the game is never adapting to
+  a drill whose result it cannot yet measure.
+
+It is *injected* rather than offered: the moment after a clear is when the
+game has the player's attention and is being asked "what now", so that is
+where it appears, with campaign order still shown beneath it. A separate
+`vibecoder drill` command would have been a thing nobody runs.
+
+Where a tag is carried by several levels the queue cycles them, because asking
+the same question three times drills the level rather than the skill. Where it
+is carried by one — `recursion`, `regex`, `numeric` — it repeats that level,
+and the evidence reports `distinct_levels: 1` so the thinness is visible
+rather than implied.
+
+## Drills (W5)
+
+A drill is `DRILL_LENGTH` runs on the one tag the player is measurably weakest
+at. Three constraints shape it, and each rules something out:
+
+- **Only a confident tag.** Drilling a tag measured once acts on a single
+  unlucky afternoon, which is what `MIN_OBSERVATIONS` exists to prevent. A
+  player who has never met a tag needs to meet it — that is the selection
+  ordering's job, not a drill's.
+- **Only below 0.5.** A drill offered to someone who does not need one is
+  noise, and it teaches them to ignore the next one.
+- **`DRILL_LENGTH` is `MIN_OBSERVATIONS`, not a round number.** After a drill
+  the tag is `confident` again by definition, so the game is never adapting to
+  a drill whose result it cannot yet measure.
+
+It is *injected* rather than offered: the moment after a clear is when the
+game has the player's attention and is being asked "what now", so that is
+where it appears, with campaign order still shown beneath it. A separate
+`vibecoder drill` command would have been a thing nobody runs.
+
+Where a tag is carried by several levels the queue cycles them, because asking
+the same question three times drills the level rather than the skill. Where it
+is carried by one — `recursion`, `regex`, `numeric` — it repeats that level,
+and the evidence reports `distinct_levels: 1` so the thinness is visible
+rather than implied.
 
 ## Exit criteria
 

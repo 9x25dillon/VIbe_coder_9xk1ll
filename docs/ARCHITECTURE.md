@@ -35,7 +35,7 @@ vibecoder/
 ├── vision.py      The machine view. Pure frames; the trace drives them.
 ├── fight.py       Boss hit points and the repair pool. Arithmetic only.
 ├── mastery.py     Per-tag competency and its update rule. Imports nothing.
-├── policy.py      How hard the next variant should be, and why.
+├── policy.py      How hard the next variant should be, and what to drill.
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.

@@ -16,15 +16,18 @@ pointed at a feedback loop.
 import random
 import unittest
 
-from vibecoder.levels import get_level
+from vibecoder.levels import all_levels, get_level
 from vibecoder.mastery import MIN_OBSERVATIONS, Mastery, observation
 from vibecoder.models import Difficulty, VibeVector
 from vibecoder.runner import reference_benchmark
 from vibecoder.policy import (
+    DRILL_BELOW,
+    DRILL_LENGTH,
     HABIT_NUDGE,
     STRETCH,
     TARGET_SUCCESS,
     choose_difficulty,
+    choose_drill,
 )
 
 TAGS = ("data", "tabular")
@@ -475,6 +478,133 @@ class TestTwoPlayersGetDifferentVariants(unittest.TestCase):
         second = reference_benchmark(level, 3, Difficulty(1.0))
         self.assertNotEqual(first, second)
         self.assertEqual(first, reference_benchmark(level, 3, Difficulty(0.0)))
+
+
+class TestDrills(unittest.TestCase):
+    """T4 W5. Repeated practice on the one tag the player is weakest at."""
+
+    def setUp(self):
+        self.levels = list(all_levels())
+
+    def profile(self, **tags) -> Mastery:
+        """A profile with each tag at a given value and enough observations."""
+        mastery = Mastery()
+        for tag, value in tags.items():
+            for _ in range(MIN_OBSERVATIONS + 1):
+                mastery.observe((tag,), value)
+        return mastery
+
+    # -- when there is no drill ------------------------------------------
+
+    def test_a_cold_profile_gets_no_drill(self):
+        """Nothing measured is not the same as measured badly."""
+        self.assertIsNone(choose_drill(self.levels, Mastery()))
+
+    def test_a_strong_player_gets_no_drill(self):
+        """A drill offered to someone who does not need one is noise, and it
+        teaches them to ignore the next one."""
+        self.assertIsNone(
+            choose_drill(self.levels, self.profile(algorithms=0.9, data=0.85))
+        )
+
+    def test_a_tag_at_the_threshold_is_not_drilled(self):
+        """`DRILL_BELOW` is 'measurably below the middle', not 'at it'."""
+        self.assertIsNone(
+            choose_drill(self.levels, self.profile(algorithms=DRILL_BELOW))
+        )
+
+    def test_a_thinly_evidenced_weak_tag_is_not_drilled(self):
+        """Acting on one unlucky afternoon is what MIN_OBSERVATIONS exists to
+        prevent, and a drill is a strong action to take on one data point."""
+        mastery = Mastery()
+        mastery.observe(("algorithms",), 0.05)
+        self.assertFalse(mastery.confident("algorithms"))
+        self.assertIsNone(choose_drill(self.levels, mastery))
+
+    def test_a_weak_tag_no_level_carries_is_not_drilled(self):
+        """A drill needs somewhere to send the player. A tag the content does
+        not cover is a content gap, not a practice problem."""
+        self.assertIsNone(
+            choose_drill(self.levels, self.profile(underwater_basketweaving=0.1))
+        )
+
+    def test_no_levels_at_all_gives_no_drill(self):
+        self.assertIsNone(choose_drill([], self.profile(algorithms=0.1)))
+
+    # -- when there is ----------------------------------------------------
+
+    def test_the_weakest_confident_tag_is_chosen(self):
+        drill = choose_drill(
+            self.levels, self.profile(algorithms=0.4, recursion=0.1, data=0.2)
+        )
+        self.assertEqual(drill.tag, "recursion")
+
+    def test_a_strong_tag_is_never_chosen_over_a_weak_one(self):
+        drill = choose_drill(self.levels, self.profile(data=0.95, recursion=0.2))
+        self.assertEqual(drill.tag, "recursion")
+
+    def test_the_queue_is_exactly_the_drill_length(self):
+        drill = choose_drill(self.levels, self.profile(recursion=0.2))
+        self.assertEqual(len(drill.levels), DRILL_LENGTH)
+
+    def test_the_drill_is_long_enough_to_be_worth_re_reading(self):
+        """`DRILL_LENGTH` is `MIN_OBSERVATIONS` on purpose: after a drill the
+        tag is confident again by definition, so the game is not adapting to
+        a drill whose result it cannot yet measure."""
+        self.assertGreaterEqual(DRILL_LENGTH, MIN_OBSERVATIONS)
+
+    def test_every_level_in_the_queue_carries_the_tag(self):
+        drill = choose_drill(self.levels, self.profile(recursion=0.2))
+        for level_id in drill.levels:
+            with self.subTest(level=level_id):
+                self.assertIn(drill.tag, get_level(level_id).tags)
+
+    def test_a_well_covered_tag_varies_the_level(self):
+        """Asking the same question three times drills the level, not the
+        skill."""
+        drill = choose_drill(self.levels, self.profile(algorithms=0.2))
+        self.assertGreater(len(set(drill.levels)), 1)
+
+    def test_a_single_level_tag_repeats_that_level(self):
+        """`recursion` is carried by one level. Repeating it is the honest
+        answer -- each run still draws a new seed and a fresh difficulty --
+        and the evidence says how thin the coverage is."""
+        drill = choose_drill(self.levels, self.profile(recursion=0.2))
+        self.assertEqual(len(set(drill.levels)), 1)
+        self.assertEqual(drill.evidence["distinct_levels"], 1)
+
+    def test_the_drill_explains_itself(self):
+        """Same rule as a difficulty decision: the reason travels with it.
+
+        The percentage is derived from the model rather than written in:
+        `observe` moves *toward* a target exponentially, so four runs at 0.2
+        leave the estimate at 0.27, and a hard-coded figure here would be
+        asserting my arithmetic rather than the sentence.
+        """
+        mastery = self.profile(recursion=0.2)
+        drill = choose_drill(self.levels, mastery)
+        self.assertIn("recursion", drill.reason)
+        self.assertIn(f"{mastery.value('recursion'):.0%}", drill.reason)
+
+    def test_the_evidence_shows_the_working(self):
+        drill = choose_drill(self.levels, self.profile(recursion=0.2))
+        self.assertEqual(drill.evidence["threshold"], DRILL_BELOW)
+        self.assertGreaterEqual(drill.evidence["observations"], MIN_OBSERVATIONS)
+
+    def test_the_choice_is_stable_across_calls(self):
+        mastery = self.profile(algorithms=0.2, recursion=0.2)
+        first = choose_drill(self.levels, mastery)
+        second = choose_drill(self.levels, mastery)
+        self.assertEqual(first, second)
+
+    def test_drilling_a_tag_can_lift_it_out_of_the_drill_band(self):
+        """The loop closes: a drill the player does well at stops being
+        offered. A drill that recurred forever would be a punishment."""
+        mastery = self.profile(recursion=0.2)
+        self.assertIsNotNone(choose_drill(self.levels, mastery))
+        for _ in range(8):
+            mastery.observe(("recursion",), 1.0)
+        self.assertIsNone(choose_drill(self.levels, mastery))
 
 
 if __name__ == "__main__":

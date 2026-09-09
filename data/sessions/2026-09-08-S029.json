@@ -1,0 +1,126 @@
+{
+  "id": "S029",
+  "date": "2026-09-08",
+  "duration_minutes": 50,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S029-drills.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player weak at something is offered repeated practice on it", "result": "met", "note": "three runs on the weakest confident tag below 0.5"},
+    {"id": 2, "statement": "A player who does not need a drill is never offered one", "result": "met", "note": "declines on no evidence, on thin evidence, and on being strong enough"},
+    {"id": 3, "statement": "The drill appears where the player is already looking, not behind a command", "result": "met", "note": "after a clear, with campaign order still shown beneath; also in status"},
+    {"id": 4, "statement": "Q88's claim is checked rather than inherited", "result": "met", "note": "it was wrong (M51), and W5 was supposed to be its answer"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/policy.py", "kind": "module", "note": "Drill, choose_drill, DRILL_BELOW and DRILL_LENGTH alongside the difficulty decision"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_print_drill; _print_next_up leads with a drill when one is warranted; status shows it too"},
+    {"path": "tests/test_policy.py", "kind": "test", "note": "TestDrills, 17 cases, most of them about when a drill is correctly declined"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W5 LANDED, and the three constraints that shape a drill"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W5 landed; Q88 corrected on the board that had been carrying it as fact"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "policy.py's one-line description covers drills"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Drill entry"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S029-drills.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "A weak player is offered their weakest tag", "method": "test_the_weakest_confident_tag_is_chosen", "result": "recursion chosen over algorithms and data", "verdict": "verified"},
+    {"claim": "A cold profile gets no drill", "method": "test_a_cold_profile_gets_no_drill", "result": "None; nothing measured is not the same as measured badly", "verdict": "verified"},
+    {"claim": "A strong player gets no drill", "method": "test_a_strong_player_gets_no_drill", "result": "None", "verdict": "verified"},
+    {"claim": "A tag exactly at the threshold is not drilled", "method": "test_a_tag_at_the_threshold_is_not_drilled", "result": "None", "verdict": "verified"},
+    {"claim": "A thinly evidenced weak tag is not drilled", "method": "test_a_thinly_evidenced_weak_tag_is_not_drilled", "result": "None on a single observation at 0.05", "verdict": "verified"},
+    {"claim": "A weak tag no level carries is not drilled", "method": "test_a_weak_tag_no_level_carries_is_not_drilled", "result": "None; a content gap is not a practice problem", "verdict": "verified"},
+    {"claim": "Every level in the queue carries the tag", "method": "test_every_level_in_the_queue_carries_the_tag", "result": "green", "verdict": "verified"},
+    {"claim": "A well-covered tag varies the level", "method": "test_a_well_covered_tag_varies_the_level", "result": "more than one distinct level in the queue", "verdict": "verified"},
+    {"claim": "A one-level tag repeats and reports the thinness", "method": "test_a_single_level_tag_repeats_that_level", "result": "one distinct level, evidence distinct_levels 1", "verdict": "verified"},
+    {"claim": "The drill stops once the player improves", "method": "test_drilling_a_tag_can_lift_it_out_of_the_drill_band", "result": "None after eight good runs; a drill that recurred forever would be a punishment", "verdict": "verified"},
+    {"claim": "The drill explains itself", "method": "test_the_drill_explains_itself, with the percentage derived from the model rather than written in", "result": "green", "verdict": "verified"},
+    {"claim": "The drill appears after a real clear", "method": "cmd_play w2-l1-revenue against a weak-at-algorithms profile", "result": "DRILL block printed above next up", "verdict": "verified"},
+    {"claim": "The drill appears in status", "method": "cmd_status with the same profile", "result": "DRILL line with the queue", "verdict": "verified"},
+    {"claim": "Q88: a tag carried by one level can never become confident", "method": "replaying w3-l1-flatten three times through Mastery.observe", "result": "confident after three replays; the claim was false", "verdict": "refuted"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1182 tests OK in 88.654s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1158 tests OK in 66.476s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "Three runs is enough repetition to teach anything", "method": "nobody has played a drill", "result": "unknown", "verdict": "unverified"},
+    {"claim": "0.5 is the right threshold to feel like struggling", "method": "chosen by argument", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M51",
+      "believed": "That three tags -- recursion, regex, numeric -- are carried by exactly one level each and therefore can never reach the confidence threshold from ordinary play. I wrote that in S027's open questions, repeated it in S028's, put it on the flight board, and told the user it was one of two things that would become their call.",
+      "revealed_by": "Checking it before building W5 on top of it, because W5 was supposed to be its answer. Replaying one level three times banks three observations -- submit observes on every ranked run, not once per level -- so recursion becomes confident on the third replay.",
+      "corrected_to": "Those tags can become confident. What they cannot do is be measured across more than one problem shape, so the estimate reads 'are you good at w3-l1-flatten' more than 'are you good at recursion'. That is worth stating and is not 'permanently unusable for selection', which is what I said. Q88 is rewritten.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Third session running where the finding came from checking a claim rather than writing code, and the first where the claim was mine. M43 was a criterion nobody had checked; M45 was a board summary I quoted instead of the criteria; this is a sentence I authored, propagated through three documents, and never tested. A claim gets more durable each time it is repeated and none of those repetitions is evidence. The moment to check a claim is when you are about to build on it -- which is also the moment you are least inclined to, because it is load-bearing and checking it might cost you the plan."
+    }
+  ],
+  "decisions": [
+    {"id": "D187", "decision": "A drill targets only a confident tag", "alternatives": ["Drill the weakest tag whatever the evidence behind it"], "rationale": "Drilling on one observation acts on a single unlucky afternoon, which is what MIN_OBSERVATIONS exists to prevent. A tag the player has never met needs meeting, and that is the selection ordering's job.", "reversible": true, "seam": "vibecoder/policy.py::choose_drill"},
+    {"id": "D188", "decision": "DRILL_LENGTH equals MIN_OBSERVATIONS", "alternatives": ["Pick a round number like 3 or 5 independently of the threshold"], "rationale": "Tying them means the tag is confident again exactly when the drill ends, so the game never adapts to a drill whose result it cannot yet measure. The one number in this waypoint that is derived rather than guessed.", "reversible": true, "seam": "vibecoder/policy.py::DRILL_LENGTH"},
+    {"id": "D189", "decision": "Drills are injected after a clear, not put behind a command", "alternatives": ["A vibecoder drill command", "A prompt at level start"], "rationale": "A command is a thing nobody runs. After a clear is when the player is already asking what comes next, which is what the design means by injection.", "reversible": true, "seam": "vibecoder/cli.py::_print_next_up"},
+    {"id": "D190", "decision": "A multi-level tag cycles its levels; a single-level tag repeats and reports it", "alternatives": ["Always repeat the first matching level"], "rationale": "Three runs of one level drills the level rather than the skill. Where the content cannot offer variety, distinct_levels makes the thinness visible instead of implying a breadth that is not there.", "reversible": true, "seam": "vibecoder/policy.py::choose_drill"},
+    {"id": "D191", "decision": "choose_drill returns None rather than an empty drill", "alternatives": ["An always-present Drill with a possibly-empty queue"], "rationale": "'No drill' is the common case and the caller phrases it differently anyway. An empty queue is a shape that invites being rendered as though it were a drill.", "reversible": true, "seam": "vibecoder/policy.py::choose_drill"}
+  ],
+  "friction": [
+    {"description": "none - the waypoint was small and the only surprise was in my own notes.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W5 LANDED. Mastery is measured per tag, difficulty is chosen from it with a reason attached, and a player weak at something is offered three runs on it where they are already looking. Exit criteria 1, 2, 4 and 5 verified; 3 verified for the two simulated players who can fail (Q89). 1182 tests green unpinned, 1158 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W6, time decay on mastery. TagMastery.updated_at has been carried since W1 for exactly this and is still unread by anything. Decay interacts with drills: a tag that decays back under DRILL_BELOW would start being drilled again on the strength of staleness rather than failure, which is either the point or a bug depending on a decision nobody has made yet (Q90).",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M51 before trusting anything in an open-questions table, including one I wrote",
+      "Q84 and Q89 are still open and still the user's call; neither has blocked a waypoint yet"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction? Has not blocked a waypoint yet.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q87", "question": "A level's tags all receive the same observation.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q88", "question": "CORRECTED (M51): a tag carried by one level CAN become confident, by replaying that level. The real limit is that its estimate is measured on a single problem shape, so it reads 'good at w3-l1-flatten' more than 'good at recursion'. Does that want more content, or a narrower claim in W7's explanation?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q90", "question": "Decay and drills interact and nobody has decided how. After W6, a tag that decays back under DRILL_BELOW would be drilled again because the evidence went stale, not because the player failed. Is a staleness drill a re-assessment (good) or nagging (bad)?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1182,
+    "tests_passing": 1182,
+    "tests_added": 17,
+    "suite_seconds_unpinned": 88.654,
+    "suite_tests_pinned_bwrap": 1158,
+    "suite_seconds_pinned_bwrap": 66.476,
+    "reference_runs_clean": 54,
+    "drill_below": 0.5,
+    "drill_length": 3,
+    "tags_carried_by_one_level": 3,
+    "t4_waypoints_landed": 5,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 4,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}

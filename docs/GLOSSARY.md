@@ -45,6 +45,13 @@ generator so it can scale input size and edge-case density. It selects variant
 exactly what the level did before difficulty existed. See
 [LEVEL_AUTHORING.md](LEVEL_AUTHORING.md).
 
+### Drill
+Three runs on the one content tag a player is measurably weakest at, chosen
+only from tags with enough observations to act on and only below 0.5. Shown
+after a clear rather than behind a command, which is what the design means by
+*injection*. Its length equals the minimum observation count, so the estimate
+is confident again by the time the drill ends.
+
 ### Exit criteria
 Observable facts that make a trajectory done. Written **before** work starts and
 never edited to match what was built — if they turn out wrong, that is a finding

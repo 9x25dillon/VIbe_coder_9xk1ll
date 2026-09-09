@@ -154,3 +154,87 @@ def choose_difficulty(
             "observations_needed": MIN_OBSERVATIONS,
         },
     )
+
+
+# --------------------------------------------------------------------------
+# Drills (T4 W5)
+# --------------------------------------------------------------------------
+
+#: A tag has to be measurably below the middle before it is worth drilling.
+#: Above this the player is not struggling, and a drill offered to someone who
+#: does not need one is noise that teaches them to ignore the next one.
+DRILL_BELOW = 0.5
+
+#: How many runs a drill is. Not a round number chosen by feel: after this
+#: many observations the tag is `confident` again by definition, so a drill is
+#: exactly long enough that the re-read at the end of it is worth acting on.
+#: Any shorter and the game would be adapting to a drill it could not yet
+#: measure the result of.
+DRILL_LENGTH = MIN_OBSERVATIONS
+
+
+@dataclass(frozen=True)
+class Drill:
+    """Repeated practice on the one tag the player is measurably weakest at.
+
+    ``levels`` is the queue in order, already repeated out to `DRILL_LENGTH`.
+    Ids rather than `Level` objects, so this module keeps depending on nothing
+    but `models` and the caller resolves them against whatever registry it is
+    holding.
+    """
+
+    tag: str
+    levels: tuple[str, ...]
+    reason: str
+    evidence: dict = field(default_factory=dict)
+
+
+def choose_drill(levels, mastery: Mastery) -> "Drill | None":
+    """The drill this player needs, or ``None`` -- which is the common case.
+
+    Only **confident** tags are eligible. Drilling a tag measured once would
+    act on a single unlucky afternoon, which is the whole reason
+    `MIN_OBSERVATIONS` exists; a player who has genuinely never met a tag needs
+    to meet it, and that is the selection ordering's job rather than a drill's.
+
+    Returning ``None`` rather than an empty drill, because "no drill" is an
+    ordinary answer the caller has to phrase differently, not a degenerate
+    queue it can render the same way.
+    """
+    weakest = None
+    for tag in mastery.confident_tags():          # already weakest-first
+        if mastery.value(tag) >= DRILL_BELOW:
+            break                                  # sorted, so nothing weaker
+        if any(tag in level.tags for level in levels):
+            weakest = tag
+            break
+
+    if weakest is None:
+        return None
+
+    carrying = [level.id for level in levels if weakest in level.tags]
+    # Cycled rather than repeated when there is more than one, so a drill on a
+    # well-covered tag varies the shape of the problem instead of asking the
+    # same question three times. With a single level it repeats -- and still
+    # differs, because each run draws a new seed and a fresh difficulty.
+    queue = tuple(carrying[index % len(carrying)] for index in range(DRILL_LENGTH))
+
+    score = mastery.value(weakest)
+    return Drill(
+        tag=weakest,
+        levels=queue,
+        reason=(
+            f"{weakest} is your weakest measured tag at {score:.0%}, so here "
+            f"are {DRILL_LENGTH} runs on it"
+        ),
+        evidence={
+            "tag": weakest,
+            "mastery": round(score, 4),
+            "observations": mastery[weakest].observations,
+            "threshold": DRILL_BELOW,
+            "levels_carrying_the_tag": carrying,
+            # Said out loud because a one-level tag measures that level as
+            # much as it measures the skill, and the drill cannot fix that.
+            "distinct_levels": len(carrying),
+        },
+    )
