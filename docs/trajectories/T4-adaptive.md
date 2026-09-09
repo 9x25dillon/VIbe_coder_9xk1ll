@@ -89,7 +89,7 @@ this waited for W6 rather than being started when it was first raised.
 | W3 | Update rule above, applied after every ranked run | `LANDED` (S027). Applied inside `Session.submit`, which practice mode never calls — so criterion 5 holds structurally rather than by a flag. |
 | W4 | Selection policy targeting the ~70–80% success band | `LANDED` (S028). Measured at **72%** for an improving player and **71%** for a plateaued one, pooled over 20 simulated 50-level runs. Two of the four simulated players **cannot** be held in the band by any policy built on W2's dial — see below. |
 | W5 | Drill injection: repeated short exercises on the weakest tag | `LANDED` (S029). Three runs on the weakest **confident** tag below 0.5, injected after a clear and shown in `status` rather than hidden behind a command nobody runs. |
-| W6 | Time decay on mastery | Re-assess returning players. |
+| W6 | Time decay on mastery | `LANDED` (S030). A three-week half-life on **both** the value and the observation count, applied as a view at read time. Eroding confidence is what makes a returning player *unmeasured* rather than *weak* — and is the answer to Q90. |
 | W7 | Explanation surface: `vibecoder status --why` | The player can see why they were given a level. Non-negotiable. |
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | Named from habits, never from score. `status` shows which patterns earned it. |
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
@@ -185,6 +185,37 @@ the same question three times drills the level rather than the skill. Where it
 is carried by one — `recursion`, `regex`, `numeric` — it repeats that level,
 and the evidence reports `distinct_levels: 1` so the thinness is visible
 rather than implied.
+
+## Decay (W6)
+
+An estimate loses half its force every `HALF_LIFE_DAYS` (21). Two things decay
+together, and the second is the one that matters.
+
+The **value** drifts toward `UNSEEN` — toward the middle, in whichever
+direction it sits, because age makes a rating *unknown* rather than *bad*. The
+**observation count** erodes with it, so a stale estimate stops being
+`confident` and the game falls back to asking instead of assuming.
+
+| Away | Value (from 0.9) | Observations (from 6) | Confident |
+| --- | --- | --- | --- |
+| same day | 0.90 | 6 | yes |
+| 1 week | 0.82 | 4 | yes |
+| 3 weeks | 0.70 | 3 | yes |
+| 6 weeks | 0.60 | 1 | **no** |
+| 4 months | 0.51 | 0 | no |
+
+**Decaying only the value would have been the bug.** A returning player would
+read as *measured and mediocre* rather than *unmeasured*, and those want
+opposite responses: one is a reason to drill them, the other a reason to
+re-assess them. That is **Q90**, answered by construction rather than by a
+rule — confidence is already this model's vocabulary for "we do not know yet",
+so staleness is expressed in it instead of in a second mechanism.
+
+Decay is a **view**, applied by `Mastery.as_of(now)` at one call site
+(`Session.current_mastery`). The stored profile stays a record of what was
+actually measured rather than one that rots on disk; only `observe` writes
+decay back, and only because a new run has genuinely superseded the old
+reading.
 
 ## Exit criteria
 

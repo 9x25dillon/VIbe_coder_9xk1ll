@@ -300,6 +300,13 @@ you score, from runs you played. T4's exit criterion 8 forbids any screen
 showing a single number blending them, and keeping them in two modules with no
 import between them is the cheapest enforcement available.
 
+Since T4 W6 the model also **decays**: `Mastery.as_of(now)` returns a view
+with age taken off both the value and the observation count. It is a view
+rather than a mutation, applied at one call site (`Session.current_mastery`),
+so the stored profile stays a record of what was measured instead of one that
+rots on disk. Only `observe` writes decay back, and only because a new run has
+superseded the old reading.
+
 The update happens inside `Session.submit`, which is the *only* writer, and
 which practice mode never calls. That makes "practice does not move mastery"
 (criterion 5) a consequence of one branch rather than a second rule to

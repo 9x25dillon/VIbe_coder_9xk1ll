@@ -1,0 +1,130 @@
+{
+  "id": "S030",
+  "date": "2026-09-08",
+  "duration_minutes": 45,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S030-decay.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A rating earned in August stops describing the player in November", "result": "met", "note": "three-week half-life, drifting toward the middle in whichever direction it sits"},
+    {"id": 2, "statement": "A returning player is re-assessed rather than acted on", "result": "met", "note": "needed more than decaying the value; the observation count had to erode too"},
+    {"id": 3, "statement": "Q90 is decided during W6 rather than left for later", "result": "met", "note": "answered by construction rather than by a rule"},
+    {"id": 4, "statement": "The stored profile stays a record of what was measured", "result": "met", "note": "decay is a read-time view; only observe writes it back"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/mastery.py", "kind": "module", "note": "HALF_LIFE_DAYS, remaining_force, _age_days, TagMastery.as_of, Mastery.as_of; observe decays before applying"},
+    {"path": "vibecoder/session.py", "kind": "module", "note": "current_mastery(): the one place the clock meets the model"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "difficulty and drill decisions read the decayed view"},
+    {"path": "tests/test_mastery.py", "kind": "test", "note": "24 cases: the curve, both decay directions, purity, and every unusable-timestamp path"},
+    {"path": "tests/test_policy.py", "kind": "test", "note": "TestDecayMeetsTheDecisions: Q90's answer, including the paired negative that a fortnight off does not discard you"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W6 LANDED; the decay table and why eroding confidence is the half that matters"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W6 landed; Q90 answered"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "decay as a view, applied at one call site"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Decay entry"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S030-decay.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Half the force is gone after one half-life", "method": "test_half_is_gone_after_one_half_life", "result": "0.5 at 21 days, 0.25 at 42", "verdict": "verified"},
+    {"claim": "A strong estimate drifts down and a weak one drifts up", "method": "two tests, toward UNSEEN from either side", "result": "green; age makes a rating unknown rather than bad", "verdict": "verified"},
+    {"claim": "An estimate already at the middle never moves", "method": "test_an_estimate_at_the_middle_does_not_move", "result": "0.5 after a year", "verdict": "verified"},
+    {"claim": "The observation count erodes alongside the value", "method": "test_the_observation_count_erodes_too", "result": "6 observations down to 1 after 42 days", "verdict": "verified"},
+    {"claim": "A long absence costs confidence", "method": "test_a_long_absence_costs_confidence", "result": "confident at 0 days, not at 60", "verdict": "verified"},
+    {"claim": "Q90: a stale weak tag is not drilled", "method": "test_a_long_stale_weak_tag_is_not_drilled", "result": "None at 90 days where fresh would drill", "verdict": "verified"},
+    {"claim": "A stale profile falls back to the standard variant", "method": "test_a_long_stale_profile_falls_back_to_the_standard_variant", "result": "source default, level 0.5", "verdict": "verified"},
+    {"claim": "A fortnight off does not discard the player", "method": "test_one_half_life_is_not_enough_to_forget, the paired negative", "result": "still drilled at one half-life", "verdict": "verified"},
+    {"claim": "A stale strong player is not still given the hardest variant", "method": "test_a_stale_strong_player_is_not_still_given_the_hardest_variant", "result": "difficulty lower at 90 days than at 0", "verdict": "verified"},
+    {"claim": "Decay never mutates the stored estimate", "method": "test_decay_does_not_mutate_the_stored_estimate and test_the_view_does_not_mutate_the_model", "result": "green", "verdict": "verified"},
+    {"claim": "An entry with no timestamp does not decay", "method": "test_an_entry_never_updated_does_not_decay", "result": "unchanged after a year; a profile written before W1 must not be silently erased", "verdict": "verified"},
+    {"claim": "A mangled or naive timestamp decays nothing", "method": "test_an_unparseable_timestamp_decays_nothing, test_a_naive_timestamp_decays_nothing", "result": "unchanged", "verdict": "verified"},
+    {"claim": "A returning player moves from where they decayed to", "method": "test_a_returning_player_moves_from_where_they_decayed_to", "result": "below 0.7 where skipping decay would leave about 0.81", "verdict": "verified"},
+    {"claim": "Decay can reorder which tag is weakest", "method": "test_decay_can_reorder_which_tag_is_weakest", "result": "the fresher mid tag overtakes the stale weak one", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1211 tests OK in 91.455s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1187 tests OK in 66.951s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "Three weeks is the right half-life", "method": "chosen from T4's phrase 'over weeks' and an argument about how fast a person's Python changes", "result": "unknown", "verdict": "unverified"},
+    {"claim": "Being re-assessed feels like fairness rather than amnesia", "method": "nobody has come back to this game after six weeks", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M52",
+      "believed": "That decay meant 'pull the value toward the middle', full stop. That is what the trajectory's own sentence describes -- mastery drifts back toward the middle over weeks -- and it is what I set out to implement.",
+      "revealed_by": "Q90, which I had written at the end of W5 and which forced the question before any code existed. A tag decaying from 0.2 toward 0.5 spends weeks below DRILL_BELOW on the way, so a player who went away would be drilled on their return; and a strong player decaying down into the drill band would be drilled too.",
+      "corrected_to": "Decay has to reach `confident`, not only `value`. A stale estimate should make the player unmeasured, and the model already has a word for that. With the observation count eroding at the same half-life, six weeks away drops a tag out of confidence and the policy falls back to the standard variant -- which is what 're-assess returning players' actually means, as opposed to 'give them a slightly different number'.",
+      "cost_minutes": 0,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A spec sentence can be complete about what moves and silent about what that means downstream. 'Drifts back toward the middle' is accurate and would have produced a worse game, because the trajectory phrased the mechanism and I was responsible for the consequence. The check that worked was asking what each other part of the system would do with the decayed value, one at a time. It also argues for recording an open question the moment you notice it: this one cost five minutes as a note in S029 and would have cost a session as a bug report."
+    }
+  ],
+  "decisions": [
+    {"id": "D192", "decision": "Decay erodes the observation count as well as the value", "alternatives": ["Decay the value only, as the trajectory's sentence describes"], "rationale": "Otherwise a returning player reads as measured-and-mediocre rather than unmeasured, and gets drilled for having been away. Confidence is already the model's word for 'we do not know yet'.", "reversible": true, "seam": "vibecoder/mastery.py::TagMastery.as_of"},
+    {"id": "D193", "decision": "Decay is a read-time view, never written to the profile", "alternatives": ["Decay on load", "Decay on save", "A periodic sweep"], "rationale": "The stored profile should stay a record of what was measured rather than one that rots on disk. Writing on load would also reset the clock it is measured against.", "reversible": true, "seam": "vibecoder/mastery.py::Mastery.as_of"},
+    {"id": "D194", "decision": "observe decays before applying new evidence, and writes that back", "alternatives": ["Observe from the stored value and let the view handle it"], "rationale": "At that moment the decay is not an interpretation -- a new run has superseded the old reading. Without it a two-month absence still moves from the August rating.", "reversible": true, "seam": "vibecoder/mastery.py::Mastery.observe"},
+    {"id": "D195", "decision": "A half-life of 21 days", "alternatives": ["7 days, too eager -- a fortnight off would erase you", "90 days, too slow to re-assess anyone"], "rationale": "Puts a 90% estimate at 70% after a month and out of confidence after six weeks, roughly the interval over which a person's Python actually changes. Unplaytested and labelled as such.", "reversible": true, "seam": "vibecoder/mastery.py::HALF_LIFE_DAYS"},
+    {"id": "D196", "decision": "A missing, mangled or naive timestamp decays nothing", "alternatives": ["Treat an unparseable stamp as ancient"], "rationale": "The profile is a file the player is invited to edit, and entries written before W1 have no stamp at all. Refusing to decay costs a re-assessment; guessing 'ancient' silently erases a profile.", "reversible": true, "seam": "vibecoder/mastery.py::_age_days"}
+  ],
+  "friction": [
+    {"description": "none", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W6 LANDED. Mastery is measured per tag, decays with a three-week half-life in both value and confidence, drives difficulty with a reason attached, and offers a drill when the player is measurably weak and the evidence is fresh. Exit criteria 1, 2, 4 and 5 verified; 3 verified for the two simulated players who can fail (Q89). 1211 tests green unpinned, 1187 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W7, vibecoder status --why: the explanation surface, and the last waypoint before the class, attribute and ability layers (W8-W11). Most of it exists already -- every Decision and Drill carries a reason and an evidence dict built for exactly this -- so W7 is largely a view rather than new model work. The interesting part is what it must not claim: see Q87, the restated Q88 and the new Q91, all of which are about the explanation implying a precision the model does not have.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M52 before implementing anything a trajectory sentence describes: the sentence may be complete about the mechanism and silent about the consequence",
+      "D193 before touching how mastery is stored"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q87", "question": "A level's tags all receive the same observation, so mastery is about content met rather than an isolated skill. W7's explanation must not imply otherwise.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q88", "question": "A one-level tag is measured on a single problem shape. More content, or a narrower claim in W7?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q90", "question": "Decay and drills interact and nobody has decided how.", "owner": "T4", "status": "answered", "answer": "Decay erodes the observation count as well as the value, so a stale estimate stops being confident. Staleness therefore makes a player unmeasured rather than weak, and no drill is offered: they are re-assessed by playing a standard variant (D192)."},
+    {"id": "Q91", "question": "Nothing tells the player their mastery decayed. A returning player sees a standard variant with the reason 'nothing measured yet', which is true of the decayed model and misleading about their history -- they did play, it just aged out. Should the explanation distinguish 'never measured' from 'measured, but a while ago'?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1211,
+    "tests_passing": 1211,
+    "tests_added": 29,
+    "suite_seconds_unpinned": 91.455,
+    "suite_tests_pinned_bwrap": 1187,
+    "suite_seconds_pinned_bwrap": 66.951,
+    "reference_runs_clean": 54,
+    "half_life_days": 21.0,
+    "days_until_a_strong_tag_loses_confidence": 42,
+    "decayed_value_after_one_half_life": 0.7,
+    "decayed_value_after_four_months": 0.51,
+    "t4_waypoints_landed": 6,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 4,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}

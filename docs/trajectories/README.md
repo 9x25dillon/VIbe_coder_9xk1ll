@@ -223,7 +223,15 @@ on the weakest confident tag, injected after a clear where the player is
 already asking what comes next. It also corrected **Q88**, which this board
 had been carrying as fact — a tag carried by a single level *can* reach the
 confidence threshold, because replaying that level banks an observation each
-time. W6 (time decay) is next.
+time.
+
+**W6 `LANDED`** ([S030](../../journal/2026-09-08-S030-decay.md)): a three-week
+half-life on both the value and the observation count, applied as a read-time
+view so the stored profile stays a record rather than rotting on disk. Eroding
+confidence alongside the value is what answers Q90 — six weeks away and the
+game stops assuming rather than drilling you for having been absent. W7, the
+explanation surface, is next and is the last waypoint before the class,
+attribute and ability layers (W8–W11).
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

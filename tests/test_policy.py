@@ -15,9 +15,16 @@ pointed at a feedback loop.
 
 import random
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from vibecoder.levels import all_levels, get_level
-from vibecoder.mastery import MIN_OBSERVATIONS, Mastery, observation
+from vibecoder.mastery import (
+    HALF_LIFE_DAYS,
+    MIN_OBSERVATIONS,
+    Mastery,
+    TagMastery,
+    observation,
+)
 from vibecoder.models import Difficulty, VibeVector
 from vibecoder.runner import reference_benchmark
 from vibecoder.policy import (
@@ -605,6 +612,67 @@ class TestDrills(unittest.TestCase):
         for _ in range(8):
             mastery.observe(("recursion",), 1.0)
         self.assertIsNone(choose_drill(self.levels, mastery))
+
+
+BASE = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+def when(days: float) -> str:
+    return (BASE + timedelta(days=days)).isoformat(timespec="seconds")
+
+
+class TestDecayMeetsTheDecisions(unittest.TestCase):
+    """Q90, answered by construction rather than by a rule (T4 W6).
+
+    Decay erodes the observation count as well as the value, so a stale
+    estimate stops being `confident`. That matters because *measured and
+    mediocre* and *unmeasured* want opposite responses: one is a reason to
+    drill the player, the other is a reason to re-assess them. A player
+    returning after two months away is the second, and would have looked like
+    the first had only the value decayed.
+    """
+
+    def setUp(self):
+        self.levels = list(all_levels())
+
+    def weak_at(self, tag: str, days_ago: float) -> Mastery:
+        model = Mastery(tags={
+            tag: TagMastery(value=0.2, observations=9, updated_at=when(0))
+        })
+        return model.as_of(when(days_ago))
+
+    def test_a_freshly_measured_weak_tag_is_drilled(self):
+        drill = choose_drill(self.levels, self.weak_at("algorithms", 0))
+        self.assertIsNotNone(drill)
+        self.assertEqual(drill.tag, "algorithms")
+
+    def test_a_long_stale_weak_tag_is_not_drilled(self):
+        """The player was away, not failing. Drilling them for absence is
+        nagging rather than re-assessment."""
+        self.assertIsNone(choose_drill(self.levels, self.weak_at("algorithms", 90)))
+
+    def test_a_long_stale_profile_falls_back_to_the_standard_variant(self):
+        """Re-assessment in practice: the game stops assuming and asks."""
+        decision = choose_difficulty(("algorithms",), self.weak_at("algorithms", 90))
+        self.assertEqual(decision.source, "default")
+        self.assertEqual(decision.difficulty.level, 0.5)
+
+    def test_a_stale_strong_player_is_not_still_given_the_hardest_variant(self):
+        """The trajectory's phrasing: nobody stays pinned to a rating they
+        earned in August."""
+        model = Mastery(tags={
+            "algorithms": TagMastery(value=0.95, observations=9,
+                                     updated_at=when(0))
+        })
+        fresh = choose_difficulty(("algorithms",), model.as_of(when(0)))
+        stale = choose_difficulty(("algorithms",), model.as_of(when(90)))
+        self.assertLess(stale.difficulty.level, fresh.difficulty.level)
+
+    def test_one_half_life_is_not_enough_to_forget(self):
+        """Decay re-assesses returning players; it must not discard someone
+        who took a fortnight off."""
+        drill = choose_drill(self.levels, self.weak_at("algorithms", HALF_LIFE_DAYS))
+        self.assertIsNotNone(drill)
 
 
 if __name__ == "__main__":

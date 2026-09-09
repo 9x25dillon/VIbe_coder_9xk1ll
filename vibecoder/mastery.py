@@ -27,7 +27,8 @@ statistically once there is data worth learning from, and measure this first.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any
 
 #: Where a tag sits before anything has been observed. The middle, because an
@@ -56,6 +57,14 @@ ALPHA = 0.3
 #: bonus rather than a third of the weight, because it is the noisiest of the
 #: three and the easiest to game by re-reading the brief before submitting.
 #:
+#: How long it takes an estimate to lose half its force. T4 asks for mastery
+#: to "drift back toward the middle over weeks, so returning players get
+#: re-assessed instead of being permanently pinned to a rating they earned in
+#: August". Three weeks puts a 90% estimate at 70% after a month away and back
+#: to nearly unknown after two, which is roughly the interval over which a
+#: person's Python actually changes.
+HALF_LIFE_DAYS = 21.0
+
 #: These are **not** the three scoring axes and must not be kept in step with
 #: them. Speed is deliberately absent: solve time measures a session, not a
 #: competence, and a player interrupted by a phone call is not worse at
@@ -79,6 +88,37 @@ def observation(accuracy: float, functional: float, first_try: bool) -> float:
         + FUNCTIONAL_WEIGHT * (max(0.0, min(100.0, functional)) / 100.0)
         + FIRST_TRY_WEIGHT * (1.0 if first_try else 0.0)
     ))
+
+
+def _age_days(updated_at: str, now: str) -> float:
+    """Days between two ISO-8601 stamps, or 0.0 if either is unusable.
+
+    Unparseable input decays nothing rather than raising. The profile is a
+    file the player is invited to edit, and a hand-mangled timestamp should
+    cost them a re-assessment, not the ability to start the game.
+    """
+    if not updated_at or not now:
+        return 0.0
+    try:
+        then = datetime.fromisoformat(updated_at)
+        current = datetime.fromisoformat(now)
+    except ValueError:
+        return 0.0
+    if then.tzinfo is None or current.tzinfo is None:
+        return 0.0
+    return max(0.0, (current - then).total_seconds() / 86400.0)
+
+
+def remaining_force(age_days: float) -> float:
+    """What share of an estimate's force survives ``age_days``. 1.0 down to 0.
+
+    A half-life rather than a linear ramp, for the same reason the keystroke
+    energy in `pulse.py` uses one: there is no age at which evidence becomes
+    worthless, and a linear decay has to invent one.
+    """
+    if age_days <= 0.0:
+        return 1.0
+    return 0.5 ** (age_days / HALF_LIFE_DAYS)
 
 
 @dataclass
@@ -115,6 +155,36 @@ class TagMastery:
     def seen(self) -> bool:
         """Whether anything has been observed at all."""
         return self.observations > 0
+
+    def as_of(self, now: str) -> "TagMastery":
+        """This estimate read at ``now``, with age taken off it (T4 W6).
+
+        Two things decay together, and the second is the one that matters:
+
+        * **The value drifts toward `UNSEEN`**, so a rating earned in August
+          does not still be claiming to describe you in November.
+        * **The observation count erodes too**, so a stale estimate stops
+          being `confident` and the game falls back to asking rather than
+          assuming.
+
+        Decaying only the value would leave a returning player looking
+        *measured and mediocre* rather than *unmeasured*, which are entirely
+        different states and want opposite responses: one is a reason to drill
+        them, the other is a reason to re-assess them (Q90). Confidence is
+        already the vocabulary this module has for "we do not know yet", so
+        staleness is expressed in it rather than in a second mechanism.
+
+        Pure: the stored estimate is what was actually measured and is never
+        rewritten by the passage of time. Decay is how it is *read*.
+        """
+        force = remaining_force(_age_days(self.updated_at, now))
+        if force >= 1.0:
+            return self
+        return replace(
+            self,
+            value=UNSEEN + (self.value - UNSEEN) * force,
+            observations=int(self.observations * force),
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -175,6 +245,19 @@ class Mastery:
         """Tags with enough evidence to act on, weakest first."""
         return [tag for tag in self.known_tags() if self.tags[tag].confident]
 
+    def as_of(self, now: str) -> "Mastery":
+        """The whole model read at ``now``. See `TagMastery.as_of`.
+
+        A view rather than a mutation, applied at one call site, so every
+        reader below stays unaware that time exists and the stored profile
+        stays a record of what happened rather than one that rots on disk.
+        """
+        if not now:
+            return self
+        return Mastery(
+            tags={tag: entry.as_of(now) for tag, entry in self.tags.items()}
+        )
+
     # -- updating ----------------------------------------------------------
 
     def observe(self, tags: "list[str] | tuple[str, ...]", observed: float,
@@ -202,6 +285,15 @@ class Mastery:
         moves: dict[str, float] = {}
         for tag in tags:
             entry = self.tags.setdefault(tag, TagMastery())
+            # Age comes off before the new evidence goes on, so a player
+            # returning after two months moves from where they have decayed to
+            # rather than from the rating they left behind. Written back,
+            # because at this point the decay is not a reading of an old
+            # measurement -- a new one has superseded it.
+            if at:
+                aged = entry.as_of(at)
+                entry.value = aged.value
+                entry.observations = aged.observations
             before = entry.value
             entry.value = max(0.0, min(1.0, before + ALPHA * (observed - before)))
             entry.observations += 1

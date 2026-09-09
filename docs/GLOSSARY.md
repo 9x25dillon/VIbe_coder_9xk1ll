@@ -34,6 +34,13 @@ Bloom-style classification of a working session's dominant activity — `Recall`
 journal entry so that a project spending every session at `Apply` becomes
 visible as executing rather than designing.
 
+### Decay
+Mastery loses half its force every three weeks — the value drifting toward the
+middle and the observation count eroding with it, so a stale estimate stops
+being confident. Applied when the model is *read*, never written to the stored
+profile, so a record of what was measured stays one. It is what makes a
+returning player unmeasured rather than weak.
+
 ### Elegance bonus
 +5% for satisfying every style goal a level declares. One of three bonuses; the
 others are `first_try` (+10%) and `clean_first_run` (+5%).

@@ -9,14 +9,17 @@ what can be honestly read out of it.
 """
 
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from vibecoder.mastery import (
     ALPHA,
+    HALF_LIFE_DAYS,
     MIN_OBSERVATIONS,
     UNSEEN,
     Mastery,
     TagMastery,
     observation,
+    remaining_force,
 )
 
 
@@ -248,6 +251,168 @@ class TestTheUpdateRule(unittest.TestCase):
         before = mastery.value("t")
         moved = mastery.observe(("t",), 1.0)
         self.assertAlmostEqual(mastery.value("t") - before, moved["t"], places=5)
+
+
+BASE = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+
+def stamp(days: float = 0.0) -> str:
+    return (BASE + timedelta(days=days)).isoformat(timespec="seconds")
+
+
+class TestRemainingForce(unittest.TestCase):
+    """T4 W6. How much of an estimate survives being old."""
+
+    def test_nothing_has_aged_at_zero_days(self):
+        self.assertEqual(remaining_force(0.0), 1.0)
+
+    def test_half_is_gone_after_one_half_life(self):
+        self.assertAlmostEqual(remaining_force(HALF_LIFE_DAYS), 0.5)
+
+    def test_a_quarter_survives_two_half_lives(self):
+        self.assertAlmostEqual(remaining_force(2 * HALF_LIFE_DAYS), 0.25)
+
+    def test_it_never_reaches_zero(self):
+        """A half-life rather than a ramp, because there is no age at which
+        evidence becomes worthless and a linear decay has to invent one."""
+        self.assertGreater(remaining_force(3650.0), 0.0)
+
+    def test_a_negative_age_decays_nothing(self):
+        """A clock that went backwards is not a reason to forget anything."""
+        self.assertEqual(remaining_force(-30.0), 1.0)
+
+    def test_it_is_monotone(self):
+        forces = [remaining_force(days) for days in range(0, 120, 7)]
+        self.assertEqual(forces, sorted(forces, reverse=True))
+
+
+class TestDecayingAnEstimate(unittest.TestCase):
+    def entry(self, value: float, observations: int = 6) -> TagMastery:
+        return TagMastery(value=value, observations=observations,
+                          updated_at=stamp(0))
+
+    def test_a_strong_estimate_drifts_down_toward_the_middle(self):
+        aged = self.entry(0.9).as_of(stamp(HALF_LIFE_DAYS))
+        self.assertLess(aged.value, 0.9)
+        self.assertGreater(aged.value, UNSEEN)
+
+    def test_a_weak_estimate_drifts_up_toward_the_middle(self):
+        """Toward the middle, not toward zero. Age makes a rating unknown,
+        not bad."""
+        aged = self.entry(0.1).as_of(stamp(HALF_LIFE_DAYS))
+        self.assertGreater(aged.value, 0.1)
+        self.assertLess(aged.value, UNSEEN)
+
+    def test_an_estimate_at_the_middle_does_not_move(self):
+        self.assertEqual(self.entry(UNSEEN).as_of(stamp(365)).value, UNSEEN)
+
+    def test_the_observation_count_erodes_too(self):
+        """The half that matters: staleness has to reach `confident`, or a
+        returning player reads as measured-and-mediocre rather than
+        unmeasured (Q90)."""
+        aged = self.entry(0.9, observations=6).as_of(stamp(2 * HALF_LIFE_DAYS))
+        self.assertLess(aged.observations, 6)
+
+    def test_a_long_absence_costs_confidence(self):
+        fresh = self.entry(0.2, observations=6)
+        self.assertTrue(fresh.confident)
+        self.assertFalse(fresh.as_of(stamp(60)).confident)
+
+    def test_decay_does_not_mutate_the_stored_estimate(self):
+        """The profile is a record of what was measured, not one that rots on
+        disk. Decay is how it is read."""
+        entry = self.entry(0.9)
+        entry.as_of(stamp(365))
+        self.assertEqual(entry.value, 0.9)
+        self.assertEqual(entry.observations, 6)
+
+    def test_reading_at_the_same_moment_changes_nothing(self):
+        entry = self.entry(0.9)
+        self.assertEqual(entry.as_of(stamp(0)), entry)
+
+    def test_an_entry_never_updated_does_not_decay(self):
+        """No timestamp means nothing is known about when, and guessing
+        "ancient" would silently erase a profile written before W1."""
+        entry = TagMastery(value=0.9, observations=6, updated_at="")
+        self.assertEqual(entry.as_of(stamp(365)), entry)
+
+    def test_an_unparseable_timestamp_decays_nothing(self):
+        """The profile is a file the player may edit. A mangled stamp should
+        cost a re-assessment, not the ability to start the game."""
+        entry = TagMastery(value=0.9, observations=6, updated_at="last tuesday")
+        self.assertEqual(entry.as_of(stamp(365)), entry)
+        self.assertEqual(self.entry(0.9).as_of("whenever"), self.entry(0.9))
+
+    def test_a_naive_timestamp_decays_nothing(self):
+        """Comparing an aware stamp with a naive one raises; refusing to
+        decay is the recoverable answer."""
+        entry = TagMastery(value=0.9, observations=6,
+                           updated_at="2026-06-01T00:00:00")
+        self.assertEqual(entry.as_of(stamp(365)), entry)
+
+    def test_more_time_means_more_decay(self):
+        values = [self.entry(0.9).as_of(stamp(days)).value
+                  for days in range(0, 200, 10)]
+        self.assertEqual(values, sorted(values, reverse=True))
+
+
+class TestDecayingTheWholeModel(unittest.TestCase):
+    def model(self) -> Mastery:
+        return Mastery(tags={
+            "fresh": TagMastery(value=0.9, observations=6, updated_at=stamp(60)),
+            "stale": TagMastery(value=0.9, observations=6, updated_at=stamp(0)),
+        })
+
+    def test_only_the_stale_tag_moves(self):
+        aged = self.model().as_of(stamp(60))
+        self.assertEqual(aged.value("fresh"), 0.9)
+        self.assertLess(aged.value("stale"), 0.9)
+
+    def test_the_view_does_not_mutate_the_model(self):
+        model = self.model()
+        model.as_of(stamp(365))
+        self.assertEqual(model.value("stale"), 0.9)
+
+    def test_an_empty_now_is_the_identity(self):
+        """Every existing caller passes nothing and must be unaffected."""
+        model = self.model()
+        self.assertIs(model.as_of(""), model)
+
+    def test_decay_can_reorder_which_tag_is_weakest(self):
+        """The point of the view: decisions are made against it, so it has to
+        be able to change one."""
+        model = Mastery(tags={
+            "old_weak": TagMastery(value=0.2, observations=9, updated_at=stamp(0)),
+            "new_mid": TagMastery(value=0.4, observations=9, updated_at=stamp(90)),
+        })
+        self.assertEqual(model.known_tags()[0], "old_weak")
+        self.assertEqual(model.as_of(stamp(90)).known_tags()[0], "new_mid")
+
+
+class TestObservingAfterAnAbsence(unittest.TestCase):
+    def test_a_returning_player_moves_from_where_they_decayed_to(self):
+        """Not from the rating they left behind two months ago."""
+        mastery = Mastery(tags={
+            "t": TagMastery(value=0.95, observations=9, updated_at=stamp(0))
+        })
+        mastery.observe(("t",), 0.5, at=stamp(90))
+        # Had decay been skipped the value would still be near 0.95 - alpha
+        # times the gap, which is about 0.81.
+        self.assertLess(mastery.value("t"), 0.7)
+
+    def test_the_decay_is_written_back_when_a_run_supersedes_it(self):
+        mastery = Mastery(tags={
+            "t": TagMastery(value=0.95, observations=9, updated_at=stamp(0))
+        })
+        mastery.observe(("t",), 0.5, at=stamp(90))
+        self.assertLess(mastery["t"].observations, 10)
+
+    def test_observing_without_a_timestamp_does_not_decay(self):
+        mastery = Mastery(tags={
+            "t": TagMastery(value=0.95, observations=9, updated_at=stamp(0))
+        })
+        mastery.observe(("t",), 0.95)
+        self.assertEqual(mastery["t"].observations, 10)
 
 
 if __name__ == "__main__":

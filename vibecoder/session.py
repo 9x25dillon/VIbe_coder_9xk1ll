@@ -162,6 +162,15 @@ class Session:
 
     # -- mutation ----------------------------------------------------------
 
+    def current_mastery(self) -> Mastery:
+        """Mastery as it reads today, with age taken off it (T4 W6).
+
+        The one place the clock meets the model. `self.mastery` stays the
+        record of what was actually measured -- a profile should not rot on
+        disk -- and this is the view every decision is made against.
+        """
+        return self.mastery.as_of(_now())
+
     def record(self, level_id: str) -> LevelRecord:
         return self.levels.setdefault(level_id, LevelRecord(level_id=level_id))
 

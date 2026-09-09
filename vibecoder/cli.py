@@ -422,7 +422,7 @@ def _print_next_up(level: Level, session: Session) -> None:
     the one who will act on "and here is the thing you are weakest at".
     """
     ordered = list(level_registry.all_levels())
-    drill = choose_drill(ordered, session.mastery)
+    drill = choose_drill(ordered, session.current_mastery())
     if drill is not None:
         _print_drill(drill)
     try:
@@ -558,7 +558,7 @@ def cmd_play(args: argparse.Namespace) -> int:
     seed = args.seed if args.seed is not None else session.next_seed(level.id)
     # T4 W4: how hard this variant is, and why. The decision carries its own
     # reason so the two cannot drift apart -- see `policy.Decision`.
-    decision = choose_difficulty(level.tags, session.mastery, session.vibe)
+    decision = choose_difficulty(level.tags, session.current_mastery(), session.vibe)
     tests = level.tests_for(seed, decision.difficulty)
 
     print()
@@ -811,7 +811,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         + UI.paint(session.vibe_source or "(not profiled)", MUTED)
     )
 
-    drill = choose_drill(all_levels, session.mastery)
+    drill = choose_drill(all_levels, session.current_mastery())
     if drill is not None:
         print(f"\n    {UI.badge('DRILL', VIOLET)} " + UI.paint(drill.reason, WARN))
         print("      " + UI.paint("  ".join(drill.levels), MUTED))
