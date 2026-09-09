@@ -9,7 +9,10 @@ levels, 40% on boss fights. A fatal run scores zero.
 
 ### Ability
 Something a player may do to a boss fight's resources, always at a stated cost
-paid in the fight's own currency. `Refactor` buys a spent repair back by
+paid in the fight's own currency. **Which** abilities you have comes from your
+[function class](#function-class); **whether** you have reached them comes from
+your [mastery](#mastery). The two meet as a gate and are never averaged — no
+number anywhere combines them. `Refactor` buys a spent repair back by
 giving the boss health, and is bounded by damage already dealt — you may buy
 attempts only with progress you have made. An ability with no cost is a
 difficulty setting wearing a costume, and a fight with a full loadout must

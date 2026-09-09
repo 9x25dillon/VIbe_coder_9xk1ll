@@ -34,7 +34,8 @@ vibecoder/
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 ├── vision.py      The machine view. Pure frames; the trace drives them.
 ├── fight.py       Boss hit points and the repair pool. Arithmetic only.
-├── abilities.py   What may spend or refill those resources, and what it costs.
+├── abilities.py   What may spend or refill those resources, what it costs,
+│                  and the gate between a class and reaching one.
 ├── mastery.py     Per-tag competency and its update rule. Imports nothing.
 ├── policy.py      How hard the next variant should be, and what to drill.
 ├── repair.py      The pane a player types a boss-fight fix into.
@@ -294,6 +295,15 @@ It is a separate module from `models.py` rather than another dataclass in it,
 for the reason `fight.py` is: this is a model *with rules* — a confidence
 threshold, an update step, a decay to come in W6 — and those rules have
 constants that need explaining. `models.py` holds shapes.
+
+The two layers meet in exactly one function, `abilities.earned`, and they meet
+as a **set intersection**: the class filters which abilities exist for a
+player, mastery gates whether they have reached them, and no arithmetic
+combines the pair. Exit criterion 8 -- no screen presenting a single number
+blending habits with mastery -- is therefore held by there being no such
+number to display. `abilities.py` imports `mastery` (which imports nothing)
+and takes the class as a *name*, so it never pulls in the profiler and the
+dependency stays one-directional.
 
 Its counterpart is the **function class** in
 [`profiler.py`](../vibecoder/profiler.py), which reads the Vibe Vector and

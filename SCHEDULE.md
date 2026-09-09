@@ -90,7 +90,7 @@ This is also where the open questions from S001 get settled — Q1 (memory
 weighting), Q3 (star thresholds), Q4 and Q6 (reference calibration). All four
 need play data, which is why they wait until there is some.
 
-**T4 lands: Sun 4 Oct.**
+**T4 lands: Sun 4 Oct.** — **landed 2026-09-08**, twenty-six days early. The eleven waypoints were built in a single day rather than over the two planned weeks; the schedule is left as written rather than back-dated, because a plan edited to match what happened stops being evidence about estimation (N7's argument, applied to dates).
 
 ### Phase 4 — Community · [T5](docs/trajectories/T5-community.md)
 

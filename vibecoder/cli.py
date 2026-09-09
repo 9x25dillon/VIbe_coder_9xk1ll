@@ -810,6 +810,54 @@ def _attribute_rows(mastery, stored=None, now: str = "") -> list[str]:
     return rows
 
 
+def _print_abilities(session: Session) -> None:
+    """What the player has earned, and what is still behind a gate (T4 W11).
+
+    The one screen where both layers appear, and they appear as **two
+    sentences rather than one number**: your class decides which abilities
+    exist for you, your mastery decides whether you have reached them. Exit
+    criterion 8 forbids presenting a figure that blends the two, and none is
+    computed anywhere -- `earned` is a set intersection.
+
+    Locked abilities are shown with their gate. An ability you cannot see is
+    not a goal, and W7's rule that the player can see *why* applies to a
+    locked door as much as to a difficulty.
+    """
+    found = derive_class(session.vibe) if session.vibe is not None else None
+    name = found.name if found is not None else None
+    mastery = session.current_mastery()
+
+    have = ability_model.earned(name, mastery)
+    waiting = ability_model.locked(name, mastery)
+    if not have and not waiting:
+        if name is None:
+            print()
+            print(UI.rule("ABILITIES", width=76))
+            print("\n  " + UI.paint(
+                "abilities are flavoured by how you write, so this fills in "
+                "once you have profiled a codebase.", MUTED))
+            print("  " + UI.paint("vibecoder profile <path>", FAINT) + "\n")
+        return
+
+    print()
+    print(UI.rule("ABILITIES", width=76))
+    print("\n  " + UI.paint(
+        f"your class picks which two; your scores decide when. {name} "
+        "offers:", MUTED))
+    print()
+    for ability in have:
+        print(f"    {UI.paint(UI.glyph('tick'), GOOD)} "
+              + UI.paint(f"{ability.name:<13}", INK, bold=True)
+              + UI.paint(f"{ability.blurb:<42}", MUTED)
+              + UI.paint(f"cost: {ability.cost}", FAINT))
+    for ability, gate in waiting:
+        print(f"    {UI.paint(UI.glyph('pause'), FAINT)} "
+              + UI.paint(f"{ability.name:<13}", FAINT)
+              + UI.paint(f"{ability.blurb:<42}", FAINT)
+              + UI.paint(f"needs {gate}", WARN))
+    print()
+
+
 def _print_attributes(session: Session, all_levels: list) -> None:
     """The per-tag mastery vector, made legible (T4 W9).
 
@@ -989,6 +1037,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     if session.vibe is not None:
         _print_class(session.vibe)
     _print_attributes(session, all_levels)
+    _print_abilities(session)
 
     drill = choose_drill(all_levels, session.current_mastery())
     if drill is not None:

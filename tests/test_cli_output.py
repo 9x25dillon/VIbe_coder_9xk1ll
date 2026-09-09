@@ -1034,6 +1034,88 @@ class TestSpendingAnAbilityToSurvive(unittest.TestCase):
         )
 
 
+class TestTheAbilitySheet(unittest.TestCase):
+    """T4 W11 on screen: the one place both layers appear, as two sentences.
+
+    Exit criterion 8 forbids a single number blending habits with mastery.
+    None is computed anywhere -- `earned` is a set intersection -- and this
+    class checks the screen keeps them as separate statements.
+    """
+
+    COMPREHENSIONIST = {
+        "files": 20, "functions": 100,
+        "patterns": {"comprehension": 0.8, "generator_expr": 0.5,
+                     "builtin_aggregate": 0.7},
+    }
+
+    def strong(self, *tags) -> dict:
+        return {tag: {"value": 0.9, "observations": 9,
+                      "updated_at": datetime.now(timezone.utc).isoformat(
+                          timespec="seconds")}
+                for tag in tags}
+
+    def sheet(self, vibe=None, mastery=None) -> str:
+        profile = {"version": 1, "levels": {}, "mastery": mastery or {}}
+        if vibe is not None:
+            profile["vibe"] = vibe
+            profile["vibe_source"] = "somewhere"
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_status, args)
+
+    def test_an_earned_ability_is_shown_with_its_cost(self):
+        out = self.sheet(self.COMPREHENSIONIST, self.strong("data"))
+        self.assertIn("ABILITIES", out)
+        self.assertIn("Refactor", out)
+        self.assertIn("cost:", out)
+
+    def test_a_locked_ability_is_shown_with_its_gate(self):
+        """An ability you cannot see is not a goal."""
+        out = self.sheet(self.COMPREHENSIONIST, self.strong("data"))
+        self.assertIn("Overclock", out)
+        self.assertIn("needs", out)
+        self.assertIn("75%", out)
+
+    def test_more_mastery_unlocks_more(self):
+        one = self.sheet(self.COMPREHENSIONIST, self.strong("data"))
+        two = self.sheet(self.COMPREHENSIONIST, self.strong("data", "algorithms"))
+        self.assertIn("needs", one)
+        self.assertNotIn("needs", two.split("ABILITIES")[1].split("DRILL")[0])
+
+    def test_the_screen_names_both_sources_separately(self):
+        """Criterion 8 where it is most at risk: class picks which, scores
+        decide when, and no figure combines them."""
+        out = self.sheet(self.COMPREHENSIONIST, self.strong("data"))
+        self.assertIn("your class picks which two; your scores decide when",
+                      out)
+
+    def test_without_a_profile_it_invites_rather_than_penalises(self):
+        """No class is not a punishment -- abilities are flavoured by how you
+        write, and that is simply not known yet."""
+        out = self.sheet(None, self.strong("data", "algorithms"))
+        self.assertIn("flavoured by how you write", out)
+        self.assertIn("vibecoder profile", out)
+
+    def test_a_profile_with_no_mastery_shows_everything_locked(self):
+        out = self.sheet(self.COMPREHENSIONIST, {})
+        self.assertIn("needs", out)
+
+    def test_the_ability_section_emits_no_escape_sequence_into_a_pipe(self):
+        profile = {"version": 1, "levels": {}, "vibe": self.COMPREHENSIONIST,
+                   "vibe_source": "somewhere", "mastery": self.strong("data")}
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                with everything_printed() as buffer:
+                    cli.cmd_status(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
 class TestTheHintLadder(unittest.TestCase):
     LEVEL = get_level("w1-l6-tally")
 

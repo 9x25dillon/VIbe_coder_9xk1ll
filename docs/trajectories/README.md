@@ -32,7 +32,7 @@ Each trajectory document has the same five sections.
 | [T1](T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | Phase 0 | `LANDED` | 2026-08-08 |
 | [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
 | [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `LANDED` | 2026-09-20 |
-| [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `IN FLIGHT` | 2026-10-04 |
+| [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `LANDED` | 2026-10-04 |
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
 | [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `LANDED` | — |
@@ -192,16 +192,14 @@ was started at the user's request with T2 one waypoint from landing and
 externally blocked, which is the honest reason it went first rather than a
 claim that T2 finished.
 
-**Two** trajectories hold `IN FLIGHT`. It was three on the morning of
-2026-09-08, then one by that evening — T3 landed and T7 followed — and then
-two again when **T4 started the same day**. The other is **T2**, late and
-blocked on W4's registered OAuth application rather than being worked.
+**One** trajectory holds `IN FLIGHT`, which is what the status vocabulary
+says should be true. 2026-09-08 was an unusual day: it opened with three, went
+to one as T3 landed and T7 followed, back to two when T4 started, and closed
+at one when T4 landed as well.
 
-Recorded rather than absorbed, per the rule: a second trajectory starting
-means the first slipped, and T2 has. The honest reading is that T2 is not
-in flight in any sense that involves flying — it is one externally blocked
-waypoint from landing, and has been since 2026-09-03. **T4 is the one being
-worked.**
+The remaining one is **T2**, and it is not in flight in any sense involving
+flying — one externally blocked waypoint from landing, and untouched since
+2026-09-03. That is the honest reading rather than a tidy one.
 
 **T4 waypoint state:** W1–W4 `LANDED`
 ([S027](../../journal/2026-09-08-S027-mastery.md),
@@ -260,7 +258,23 @@ and reappeared under "never measured".
 abilities, each priced in the fight's own currency, with `Refactor` bounded by
 damage already dealt so a player who has achieved nothing can buy nothing.
 **Exit criterion 7 is verified**, and the losability guard was checked by
-breaking it — with the cost removed, seven tests fail. **Only W11 remains.**
+breaking it — with the cost removed, seven tests fail.
+
+**W11 `LANDED`, and with it T4** ([S035](../../journal/2026-09-08-S035-earning.md)),
+on 2026-09-08, twenty-six days inside its target. Earning is a set
+intersection — the class filters, mastery gates, and no number combines them —
+which is exit criterion 8 held at the one seam that could break it: no blended
+figure exists to display because none is computed. **All eight exit criteria
+are verified.**
+
+S035 also corrects an over-claim from
+[S028](../../journal/2026-09-08-S028-selection-policy.md), which said
+criterion 3 was partly unmeetable. It is not: the criterion asks that *"a"*
+simulated 50-level run stay in band, and that is verified robustly. The
+**instrument check** is the thing demanding the band hold *"for each"* of four
+named players, and that is what cannot be satisfied for a player who always
+writes correct code. Both stand as written; the instrument checks are recorded
+in a table with their real state, following T7's precedent.
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

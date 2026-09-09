@@ -1,7 +1,7 @@
 # T4 — Adaptive difficulty
 
-**Design phase:** 3 · **Status:** `IN FLIGHT` · **Target:** 2026-10-04 ·
-**Started:** 2026-09-08 ·
+**Design phase:** 3 · **Status:** `LANDED` · **Target:** 2026-10-04 ·
+**Started:** 2026-09-08 · **Landed:** 2026-09-08 ·
 **Depends on:** T1 (score history), T3 (boss telemetry)
 
 ## Heading
@@ -94,7 +94,7 @@ this waited for W6 rather than being started when it was first raised.
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | `LANDED` (S032). Six classes, three signals each, two required — **and at least one of them positive**, because absence must never earn an identity. `status` prints the measurements and the equally good fits. |
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | `LANDED` (S033). W1's numbers on the character sheet beside the class, each with its run count and how old it is. One renderer shared with `--why`, so the two screens cannot disagree. |
 | W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | `LANDED` (S034). Three, each priced in the fight's own currency. `Refactor` is bounded by damage already dealt, which is what keeps a fight losable. |
-| W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
+| W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | `LANDED` (S035). A set intersection: the class filters, mastery gates, and no number combines them. Every class offers exactly two. |
 
 ## What W4 measured, and what it could not
 
@@ -109,8 +109,8 @@ Measured over 20 seeds × 50 runs each:
 | Always-correct | **100%** | ❌ 0/40 |
 | Always-naive | **100%** | ❌ 0/40 |
 
-**The last two cannot be fixed by any selection policy**, and the reason is
-structural rather than a tuning failure. W2's difficulty scales *how much work
+**The last two cannot be held inside the band by any selection policy**, and
+the reason is structural rather than a tuning failure. W2's difficulty scales *how much work
 an input demands*, not whether the answer is right — that is the design, and
 it is why a level's hand-written edge cases survive every difficulty. A player
 who always writes a correct solution therefore always clears, at every
@@ -123,10 +123,19 @@ player's mastery down and they settle at a gentler variant (0.61) than the ace
 (0.90) — but being correct first time weighs 0.7 of the observation, so
 mastery cannot fall below that floor however inefficient the code is.
 
-Criterion 3 stands as written; N7 forbids re-cutting it to match what was
-built. **Q89** carries the finding: either "success" means something other
-than "cleared" for a scored game, or the criterion needs a player who can
-actually fail.
+**This is a finding against the instrument check, not against criterion 3**,
+and [S035](../../journal/2026-09-08-S035-earning.md) corrects an over-claim in
+[S028](../../journal/2026-09-08-S028-selection-policy.md) that conflated the
+two. The document draws the distinction itself: criterion 3 asks that
+*"success rate across **a** simulated 50-level run"* stay in band, which is
+verified and robust — 40/40 seeds for an improving player, 38/40 for a
+plateaued one. The instrument check below is the one demanding the band hold
+*"for each"* of the four named players, and it is that check which cannot be
+satisfied.
+
+Neither is re-cut to match what was built (N7). **Q89** carries the finding:
+either "success" means something other than "cleared" for a scored game, or
+the check needs a player who can actually fail.
 
 The other measured surprise: **`STRETCH`, the policy's offset, barely moves
 the band** — 70% with no offset at all, 74% at three times the shipped value.
@@ -407,6 +416,34 @@ Criteria 6–8 were added when classes, attributes and abilities were folded in
 new criteria, not the existing five re-cut to fit something already built —
 1–5 are untouched.
 
+## Earning and equipping (W11)
+
+The only place T4's two layers meet, and the trajectory is precise about how:
+*they meet as a gate, never as an average.*
+
+* Your **class** decides **which** abilities exist for you. It comes from how
+  you write, and no amount of scoring changes it.
+* Your **mastery** decides **whether** you have reached them. It comes from
+  what you scored, and no amount of rewriting changes it.
+
+`earned()` is a set intersection — `unlocked_by(class) & gates_met(mastery)` —
+and there is no arithmetic combination anywhere in the path. That is exit
+criterion 8 held at the one seam that could plausibly break it: **no blended
+number exists to display, because none is computed.**
+
+Every class offers exactly **two** abilities, which extends W8's "no class
+outranks another" to what they unlock. An Architect is not short of a
+Refactor; they have a different two.
+
+A gate counts **confident tags at or above a level**, never an average. An
+average would let a player unlock something by being adequate at everything,
+which is a different claim from having got good at some of it — and would
+quietly reintroduce the single blended figure on one side of the wall.
+
+Locked abilities are shown with their gate, because an ability you cannot see
+is not a goal, and W7's rule that the player can see *why* applies to a locked
+door as much as to a difficulty.
+
 ## Known hazards
 
 - **A death spiral in either direction.** Ratchet difficulty up too eagerly and
@@ -432,8 +469,14 @@ new criteria, not the existing five re-cut to fit something already built —
 
 ## Instrument checks
 
-- Simulated players (always-correct, always-naive, improving, plateaued) run
-  against the policy; assert the success band holds for each.
-- Per-tag mastery trajectories plotted over a session; look for oscillation.
-- The honest test: when the game says "you struggle with recursion", does the
-  score history actually support that claim?
+Recorded as they actually stand at landing, following the precedent
+[T7](T7-interactive.md) set. A trajectory does not land on its instrument
+checks — they are how the destination is measured, not what makes it the
+destination — but counting an unmet one as met is a mistake this project has
+already paid for twice.
+
+| Check | State at landing |
+| --- | --- |
+| Simulated players (always-correct, always-naive, improving, plateaued) run against the policy; assert the success band holds for each | **Partly met, and partly unmeetable.** Improving 72% (40/40 seeds in band) and plateaued 71% (38/40). Always-correct and always-naive hold 100% at every seed and no difficulty policy can move them, because W2's dial scales how much work an input demands rather than whether the answer is right. Q89. |
+| Per-tag mastery trajectories plotted over a session; look for oscillation | **Met.** Measured over 20 seeds: the plateaued player's difficulty spans 0.084 over the last ten runs and the same over runs 20–30, with drift under 0.05 — stationary noise around an equilibrium rather than a growing spread. The improving player drifts upward by 0.25, which is the paired negative. |
+| The honest test: when the game says "you struggle with recursion", does the score history actually support that claim? | **Met, and it is the reason `status --why` exists.** The claim is never made without the run count beside it, the threshold that made it actionable, and how old the reading is. `policy.limits` also states what the claim does *not* mean: a tag score is about content met, not an isolated skill. |

@@ -1,0 +1,134 @@
+{
+  "id": "S035",
+  "date": "2026-09-08",
+  "duration_minutes": 50,
+  "trajectory": "T4",
+  "competency_band": "Evaluate",
+  "journal": "journal/2026-09-08-S035-earning.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A class decides which abilities exist for a player; mastery decides whether they have reached them", "result": "met", "note": "earned() is a set intersection"},
+    {"id": 2, "statement": "The two layers meet as a gate and nowhere as an average", "result": "met", "note": "criterion 8 held by there being no blended number to display, because none is computed"},
+    {"id": 3, "statement": "Every exit criterion's status is checked against what the document actually says", "result": "met", "note": "one was wrong: criterion 3 was verified all along and I had reported it as unmeetable (M57)"},
+    {"id": 4, "statement": "T4 lands", "result": "met", "note": "all eight exit criteria verified, twenty-six days inside target"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/abilities.py", "kind": "module", "note": "Gate, UNLOCKS, GATES, unlocked_by, earned, locked -- the one place the two layers meet"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_print_abilities: earned with their costs, locked with their gates"},
+    {"path": "tests/test_abilities.py", "kind": "test", "note": "TestEarningAndEquipping, 19 cases, most of them about the gate not being an average"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheAbilitySheet, 7 cases including criterion 8 on the one screen showing both layers"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "LANDED; the W11 section; criterion 3's status corrected; instrument checks recorded in a table"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T4 landed; the IN FLIGHT count back to one; the criterion-3 correction"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "the two layers meet in exactly one function, as a set intersection"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Ability entry extended with which/whether"},
+    {"path": "SCHEDULE.md", "kind": "doc", "note": "T4 landed 26 days early; the plan left as written rather than back-dated"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S035-earning.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Every class offers the same number of abilities", "method": "test_every_class_offers_the_same_number", "result": "exactly two each", "verdict": "verified"},
+    {"claim": "Every class in the rules exists and every ability is offered by someone", "method": "two tests against CLASS_RULES and ALL", "result": "green; an ability no class can reach would be decoration", "verdict": "verified"},
+    {"claim": "Mastery never changes which abilities a class offers", "method": "test_mastery_never_changes_which_abilities_a_class_offers", "result": "identical at empty and at maximal mastery", "verdict": "verified"},
+    {"claim": "The class never changes what a gate requires", "method": "test_the_class_never_changes_what_a_gate_requires", "result": "gate text unchanged after deriving for several classes", "verdict": "verified"},
+    {"claim": "earned is exactly the intersection", "method": "test_earned_is_exactly_the_intersection over every class", "result": "green", "verdict": "verified"},
+    {"claim": "A gate counts confident tags and never averages them", "method": "test_a_gate_counts_confident_tags_and_never_averages_them", "result": "five tags at 0.55 open nothing; two at 0.9 open the hardest gate", "verdict": "verified"},
+    {"claim": "A thinly evidenced tag opens no gate", "method": "test_a_thinly_evidenced_tag_does_not_open_a_gate", "result": "one run is not enough", "verdict": "verified"},
+    {"claim": "Two classes at equal mastery differ in which, not how many", "method": "test_two_classes_at_the_same_mastery_differ_only_in_which", "result": "different sets, equal sizes", "verdict": "verified"},
+    {"claim": "Locked abilities are shown with their gate", "method": "test_locked_reports_what_is_missing_and_why, plus the CLI test", "result": "the requirement is on screen", "verdict": "verified"},
+    {"claim": "Earned and locked partition what the class offers", "method": "test_earned_and_locked_partition_what_the_class_offers", "result": "union is the class's set, intersection empty", "verdict": "verified"},
+    {"claim": "No class is a penalty", "method": "test_without_a_profile_it_invites_rather_than_penalises", "result": "the screen invites profiling rather than reporting a lack", "verdict": "verified"},
+    {"claim": "An unknown class name does not crash the sheet", "method": "test_an_unknown_class_name_is_not_an_error", "result": "empty tuple", "verdict": "verified"},
+    {"claim": "Criterion 8 on the one screen showing both layers", "method": "test_the_screen_names_both_sources_separately", "result": "two sentences, no combined figure", "verdict": "verified"},
+    {"claim": "No escape sequence reaches a pipe", "method": "test_the_ability_section_emits_no_escape_sequence_into_a_pipe", "result": "0", "verdict": "verified"},
+    {"claim": "T4 exit criterion 3 is verified", "method": "reading the criterion against the instrument check; S028's measurement of 72% and 71% across 40 seeds", "result": "the criterion asks about 'a' run and is met; the instrument check demands 'for each' and is what cannot be satisfied", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1338 tests OK in 210.469s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1314 tests OK in 140.052s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "Any of T4's eleven waypoints is good to use", "method": "nobody has played an adapted level, seen a class, or spent an ability", "result": "unknown", "verdict": "unverified"},
+    {"claim": "The gate thresholds are right", "method": "chosen by argument", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M57",
+      "believed": "That T4's exit criterion 3 was partly unmeetable -- that the 60-90% success band 'cannot hold for a player who always writes correct code', and that this was a finding against the criterion. Written into S028's journal, its data twin, the flight board, T4 itself, and reported to the user as one of two things standing between T4 and a clean landing.",
+      "revealed_by": "Reading criterion 3 and the instrument check side by side before landing, because landing is the moment the comparison is forced. First time M45's lesson was applied deliberately rather than learned again.",
+      "corrected_to": "The document draws the distinction itself. Criterion 3 asks that 'success rate across A simulated 50-level run' stay inside 60-90%, which is verified and robust: 72% for an improving player across 40/40 seeds, 71% for a plateaued one across 38/40. The instrument check below it is the thing demanding the band hold 'FOR EACH' of four named players, and that is what cannot be satisfied. The finding is real; it was against a different line. Criterion 3 verified, the instrument check recorded as partly unmeetable in T4's table, neither re-cut (N7).",
+      "cost_minutes": 0,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "I was reading my own summary rather than the source, which is M45 with the roles reversed: there a board summary hid an unmet criterion, here a summary I wrote invented an unmeetable one. A summary drifts in whichever direction the summariser was worried about -- I had just spent a session on the power-creep hazard and read the next line pessimistically. The fix is the same either way and it is cheap: when a criterion's status matters, quote it."
+    }
+  ],
+  "decisions": [
+    {"id": "D219", "decision": "earned is a set intersection, never a weighted combination", "alternatives": ["Score the pair and threshold it", "Let a strong class lower a gate"], "rationale": "The trajectory's own words: a gate, never an average. Exit criterion 8 is held by there being no blended number to display, which is cheaper and more durable than reviewing every screen that might show one.", "reversible": false, "seam": "vibecoder/abilities.py::earned"},
+    {"id": "D220", "decision": "Every class offers exactly two abilities", "alternatives": ["Let each class offer as many as its theme suggests"], "rationale": "W8's no-class-outranks-another extended to what they unlock. Unequal counts would make one class better equipped, which is a ranking arriving through the back door.", "reversible": true, "seam": "vibecoder/abilities.py::UNLOCKS"},
+    {"id": "D221", "decision": "A gate counts confident tags above a level rather than averaging mastery", "alternatives": ["A mean-mastery threshold"], "rationale": "An average unlocks by adequacy at everything, which is not the claim being made; and a single mastery figure is the shape criterion 8 exists to prevent, even on one side of the wall.", "reversible": true, "seam": "vibecoder/abilities.py::Gate"},
+    {"id": "D222", "decision": "abilities.py takes the class as a name, not a FunctionClass", "alternatives": ["Import profiler and take the object"], "rationale": "Keeps the dependency one-directional and light -- abilities imports mastery, which imports nothing -- and stops the ability layer reaching into how a class was derived.", "reversible": true, "seam": "vibecoder/abilities.py::unlocked_by"},
+    {"id": "D223", "decision": "No class means no abilities, framed as an invitation", "alternatives": ["Give a baseline loadout", "Give every ability"], "rationale": "Abilities are flavoured by how you write, and that is unknown until a profile exists. A baseline would make 'no class' a class; denying with no explanation would make it a penalty.", "reversible": true, "seam": "vibecoder/cli.py::_print_abilities"},
+    {"id": "D224", "decision": "T4 lands with its instrument checks recorded in a table, one partly unmeetable", "alternatives": ["Hold T4 open until Q89 is answered", "Land without recording their state"], "rationale": "T7's precedent. A trajectory does not land on its instrument checks, and counting an unmet one as met is a mistake this project has paid for twice.", "reversible": false, "seam": "docs/trajectories/T4-adaptive.md"}
+  ],
+  "friction": [
+    {"description": "none", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 is LANDED as of 2026-09-08, twenty-six days inside target, with all eight exit criteria verified. The game measures per-tag mastery, decays it, chooses a variant difficulty and a drill from it, explains every decision including what the model cannot claim, names what the player's code looks like from a model that cannot see any of that, and gates abilities behind the two layers meeting as a set intersection. One trajectory holds IN FLIGHT: T2, externally blocked. 1338 tests green unpinned, 1314 pinned, verify clean on 54 reference runs, 0 escapes in a pipe.",
+    "next_action": "Play it. T4 shipped eleven waypoints in a day and not one of them has been played by a person: nobody has seen an adapted variant, a class, an attribute sheet or an ability. Every finding in T3 that mattered came from playing rather than testing, and T4's equivalent evidence does not exist. Run `vibecoder profile <a codebase>`, then `status`, then `status --why`, then play a level twice and watch the difficulty move. Then T5 (community), PLOTTED and the last unstarted trajectory -- note its hard gate, W6 may not ship unless T2 W1-W3 are landed, satisfiable now but per M12 not sufficient.",
+    "blockers": [
+      "T2 W4 only, on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M57 before reporting any criterion's status: quote it rather than paraphrasing your own summary",
+      "M56 before pricing anything",
+      "M55 before trusting a tested model: render it and look"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve, the pool size and the ability prices were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction? T4 landed without needing it.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the editor, the repair pane or an ability through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q89", "question": "The success band cannot hold for a player who always writes correct code. Corrected in S035: this is a finding against T4's instrument check, not against exit criterion 3, which is verified.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q92", "question": "status --why lists every level, which will not scale past twelve.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q93", "question": "Three classes tie at 3/3 and the tie-break is margin. Should a tie be shown as a tie?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q94", "question": "The class is never stored, so a player cannot see that it changed.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q95", "question": "A number nobody renders is a number nobody has checked.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q96", "question": "Steady Hand and Overclock cannot be spent from the CLI; only Refactor has an automatic trigger.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q97", "question": "Eleven waypoints landed in one day and nobody has played any of them. T3's three most valuable findings all came from the front door, and T4's exit criteria are all verified without a person being involved. What is the smallest play-through that would actually test it?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1338,
+    "tests_passing": 1338,
+    "tests_added": 26,
+    "suite_seconds_unpinned": 210.469,
+    "suite_tests_pinned_bwrap": 1314,
+    "suite_seconds_pinned_bwrap": 140.052,
+    "reference_runs_clean": 54,
+    "abilities_per_class": 2,
+    "t4_waypoints_landed": 11,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 8,
+    "t4_exit_criteria_total": 8,
+    "t4_instrument_checks_met": 2,
+    "t4_instrument_checks_total": 3,
+    "t4_days_early": 26,
+    "trajectories_in_flight": 1,
+    "trajectories_landed": 6,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 29,
+    "dependencies": 0
+  }
+}

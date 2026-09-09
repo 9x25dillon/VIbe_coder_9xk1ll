@@ -14,14 +14,20 @@ import unittest
 
 from vibecoder.abilities import (
     ALL,
+    GATES,
+    UNLOCKS,
     OVERCLOCK_DAMAGE,
     REFACTOR_HP,
     Overclock,
     Refactor,
     SteadyHand,
+    earned,
+    locked,
+    unlocked_by,
     usable,
 )
 from vibecoder.fight import DEFAULT_REPAIRS, Fight
+from vibecoder.mastery import Mastery
 
 
 def fight_with_progress(steps: int = 3, cleared: int = 2) -> Fight:
@@ -247,3 +253,146 @@ class TestAFightIsStillLosable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEarningAndEquipping(unittest.TestCase):
+    """T4 W11. The one place the two layers meet, and they meet as a gate.
+
+    Class decides *which*, mastery decides *whether*, and nothing anywhere
+    reduces the pair to a number -- which is exit criterion 8 held at the one
+    seam that could break it.
+    """
+
+    def mastery_with(self, **tags) -> Mastery:
+        mastery = Mastery()
+        for tag, value in tags.items():
+            for _ in range(30):        # well past the confidence threshold
+                mastery.observe((tag,), value)
+        return mastery
+
+    # -- no class is better equipped than another -------------------------
+
+    def test_every_class_offers_the_same_number(self):
+        """The W8 rule extended: an Architect is not short of a Refactor,
+        they have a different two."""
+        counts = {len(keys) for keys in UNLOCKS.values()}
+        self.assertEqual(counts, {2})
+
+    def test_every_class_in_the_rules_exists(self):
+        from vibecoder.profiler import CLASS_RULES
+
+        self.assertEqual(set(UNLOCKS), {name for name, _, _ in CLASS_RULES})
+
+    def test_every_unlocked_key_is_a_real_ability(self):
+        for name, keys in UNLOCKS.items():
+            for key in keys:
+                with self.subTest(cls=name, ability=key):
+                    self.assertIn(key, ALL)
+
+    def test_every_ability_is_offered_by_someone(self):
+        """An ability no class can reach is decoration."""
+        offered = {key for keys in UNLOCKS.values() for key in keys}
+        self.assertEqual(offered, set(ALL))
+
+    # -- the gate ---------------------------------------------------------
+
+    def test_nothing_is_earned_without_mastery(self):
+        self.assertEqual(earned("Comprehensionist", Mastery()), [])
+
+    def test_a_gate_opens_when_it_is_met(self):
+        one = self.mastery_with(data=0.9)
+        keys = [ability.key for ability in earned("Comprehensionist", one)]
+        self.assertIn("refactor", keys)
+
+    def test_a_harder_gate_needs_more(self):
+        one = self.mastery_with(data=0.9)
+        two = self.mastery_with(data=0.9, algorithms=0.9)
+        self.assertNotIn("overclock",
+                         [a.key for a in earned("Comprehensionist", one)])
+        self.assertIn("overclock",
+                      [a.key for a in earned("Comprehensionist", two)])
+
+    def test_a_gate_counts_confident_tags_and_never_averages_them(self):
+        """An average would let a player unlock something by being adequate at
+        everything, which is a different claim -- and would reintroduce the
+        blended number on one side of the wall."""
+        broad = self.mastery_with(a=0.55, b=0.55, c=0.55, d=0.55, e=0.55)
+        self.assertFalse(GATES["overclock"].met(broad))
+        deep = self.mastery_with(a=0.9, b=0.9)
+        self.assertTrue(GATES["overclock"].met(deep))
+
+    def test_a_thinly_evidenced_tag_does_not_open_a_gate(self):
+        mastery = Mastery()
+        mastery.observe(("data",), 1.0)      # one run only
+        self.assertFalse(GATES["refactor"].met(mastery))
+
+    def test_every_gate_states_itself_in_words(self):
+        for key, gate in GATES.items():
+            with self.subTest(ability=key):
+                self.assertIn("tag", str(gate))
+                self.assertIn("%", str(gate))
+
+    # -- a gate, never an average -----------------------------------------
+
+    def test_mastery_never_changes_which_abilities_a_class_offers(self):
+        """Half of criterion 8 at this seam: scoring more cannot hand you a
+        different class's abilities."""
+        for mastery in (Mastery(), self.mastery_with(a=0.99, b=0.99, c=0.99)):
+            with self.subTest():
+                self.assertEqual(unlocked_by("Architect"), ("steady", "overclock"))
+
+    def test_the_class_never_changes_what_a_gate_requires(self):
+        """The other half: rewriting your code cannot lower a bar."""
+        before = str(GATES["overclock"])
+        earned("Loopwright", self.mastery_with(a=0.9, b=0.9))
+        earned("Delegator", self.mastery_with(a=0.1))
+        self.assertEqual(str(GATES["overclock"]), before)
+
+    def test_earned_is_exactly_the_intersection(self):
+        mastery = self.mastery_with(a=0.9, b=0.9)
+        for name, keys in UNLOCKS.items():
+            with self.subTest(cls=name):
+                expected = [k for k in keys if GATES[k].met(mastery)]
+                self.assertEqual([a.key for a in earned(name, mastery)], expected)
+
+    def test_two_classes_at_the_same_mastery_differ_only_in_which(self):
+        mastery = self.mastery_with(a=0.9, b=0.9)
+        comp = {a.key for a in earned("Comprehensionist", mastery)}
+        arch = {a.key for a in earned("Architect", mastery)}
+        self.assertNotEqual(comp, arch)
+        self.assertEqual(len(comp), len(arch))
+
+    def test_no_function_here_returns_a_combined_score(self):
+        """Criterion 8 by signature: there is no number to display."""
+        mastery = self.mastery_with(a=0.9, b=0.9)
+        self.assertIsInstance(earned("Comprehensionist", mastery), list)
+        self.assertIsInstance(unlocked_by("Comprehensionist"), tuple)
+
+    # -- no class ---------------------------------------------------------
+
+    def test_no_class_offers_nothing(self):
+        self.assertEqual(unlocked_by(None), ())
+        self.assertEqual(earned(None, self.mastery_with(a=0.99, b=0.99)), [])
+
+    def test_an_unknown_class_name_is_not_an_error(self):
+        """A profile written by a build with classes this one has never heard
+        of must not crash the character sheet."""
+        self.assertEqual(unlocked_by("Metaprogrammer"), ())
+
+    # -- what is still locked ---------------------------------------------
+
+    def test_locked_reports_what_is_missing_and_why(self):
+        """An ability you cannot see is not a goal."""
+        waiting = locked("Comprehensionist", self.mastery_with(data=0.9))
+        keys = {ability.key for ability, _ in waiting}
+        self.assertEqual(keys, {"overclock"})
+        self.assertIn("75%", str(waiting[0][1]))
+
+    def test_earned_and_locked_partition_what_the_class_offers(self):
+        mastery = self.mastery_with(data=0.9)
+        for name in UNLOCKS:
+            with self.subTest(cls=name):
+                have = {a.key for a in earned(name, mastery)}
+                waiting = {a.key for a, _ in locked(name, mastery)}
+                self.assertEqual(have | waiting, set(UNLOCKS[name]))
+                self.assertEqual(have & waiting, set())
