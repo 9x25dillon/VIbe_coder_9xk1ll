@@ -88,3 +88,78 @@ def choose(date: str, level_ids: "list[str] | tuple[str, ...]") -> "Daily | None
     level = int.from_bytes(raw[_LEVEL_BYTES], "big") % len(catalogue)
     seed = int.from_bytes(raw[_SEED_BYTES], "big") % SEED_MODULUS
     return Daily(date=date, level_id=catalogue[level], seed=seed)
+
+
+# --------------------------------------------------------------------------
+# History and the local board (T5 W2)
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Attempt:
+    """One completed daily, as it was actually played.
+
+    **The level and seed are stored, not re-derived** (Q99). `choose` depends
+    on the build's level catalogue, so adding a level changes which one a past
+    date selects -- and a history that recomputed yesterday would quietly
+    rewrite what you played. A board comparing two builds would then be
+    comparing two puzzles while showing one date.
+
+    ``ranked`` marks the first completed run of a date. A daily is one shot at
+    the same problem as everyone else, so later replays are recorded and
+    counted but never replace the score that counts. That is enforceable
+    without a server, which is the whole point of W2.
+    """
+
+    date: str
+    level_id: str
+    seed: int
+    total: float
+    stars: int
+    ranked: bool = True
+    at: str = ""
+
+
+def streak(dates: "list[str] | tuple[str, ...]", today: str) -> int:
+    """Consecutive days played, counting back from ``today``.
+
+    A streak that survives a gap is not a streak, and one that requires today
+    to have been played would read as broken every morning -- so it counts
+    back from today if today is present and from yesterday otherwise. Pure
+    string arithmetic on ISO dates, so it needs no `datetime` and no clock.
+    """
+    played = set(dates)
+    if not played:
+        return 0
+
+    from datetime import date as _date, timedelta
+
+    try:
+        cursor = _date.fromisoformat(today)
+    except ValueError:
+        return 0
+
+    if today not in played:
+        cursor -= timedelta(days=1)
+
+    count = 0
+    while cursor.isoformat() in played:
+        count += 1
+        cursor -= timedelta(days=1)
+    return count
+
+
+def board(attempts: "list[Attempt] | tuple[Attempt, ...]", limit: int = 10
+          ) -> list[Attempt]:
+    """The ranked attempts, best first. Local, and complete on its own.
+
+    Exit criterion 5 says leaderboards must remain usable offline, degrading
+    to local-only. This *is* the local one: it reads a list and reaches for
+    nothing. W3's server becomes an overlay on top rather than the source, so
+    "offline" is the default path rather than a fallback that has to be
+    remembered.
+
+    Only ranked attempts appear. A replay is real and is kept, but a board
+    that let you grind the same date would be measuring persistence.
+    """
+    ranked = [attempt for attempt in attempts if attempt.ranked]
+    return sorted(ranked, key=lambda a: (-a.total, a.date))[:limit]

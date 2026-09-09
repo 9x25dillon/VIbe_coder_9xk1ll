@@ -1228,6 +1228,74 @@ class TestADailyIsNotAdapted(unittest.TestCase):
         )
 
 
+class TestTheDailyHistoryScreen(unittest.TestCase):
+    """T5 W2. Your dailies and your local board, complete without a server."""
+
+    def history(self, dailies=None) -> str:
+        profile = {"version": 1, "levels": {}, "dailies": dailies or []}
+        args = argparse.Namespace(
+            date=None, show=False, history=True, solution=None, elapsed=None,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_daily, args)
+
+    def played(self, date, total, ranked=True) -> dict:
+        return {"date": date, "level_id": "w1-l2-bigger", "seed": 431691,
+                "total": total, "stars": 3, "ranked": ranked, "at": ""}
+
+    def test_an_empty_history_says_so(self):
+        out = self.history()
+        self.assertIn("no dailies played yet", out)
+
+    def test_it_lists_what_was_played(self):
+        out = self.history([self.played("2026-09-08", 88.0)])
+        self.assertIn("2026-09-08", out)
+        self.assertIn("w1-l2-bigger", out)
+        self.assertIn("88.0", out)
+
+    def test_a_replay_is_marked_as_one(self):
+        out = self.history([self.played("2026-09-08", 88.0),
+                            self.played("2026-09-08", 99.0, ranked=False)])
+        self.assertIn("replay", out)
+
+    def test_a_replay_stays_off_the_board(self):
+        """It is shown in the history because it happened, and kept off the
+        board because a board of replays measures persistence."""
+        out = self.history([self.played("2026-09-08", 88.0),
+                            self.played("2026-09-08", 99.0, ranked=False)])
+        best = out.split("your best")[1]
+        self.assertIn("88.0", best)
+        self.assertNotIn("99.0", best)
+
+    def test_it_says_the_board_is_local(self):
+        """Criterion 5, said out loud rather than implied by there being no
+        network code yet."""
+        out = self.history([self.played("2026-09-08", 88.0)])
+        self.assertIn("local only", out)
+
+    def test_it_shows_a_streak(self):
+        out = self.history([self.played("2026-09-06", 80.0),
+                            self.played("2026-09-07", 85.0)])
+        self.assertIn("streak", out)
+
+    def test_it_emits_no_escape_sequence_into_a_pipe(self):
+        profile = {"version": 1, "levels": {},
+                   "dailies": [self.played("2026-09-08", 88.0)]}
+        args = argparse.Namespace(
+            date=None, show=False, history=True, solution=None, elapsed=None,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                with everything_printed() as buffer:
+                    cli.cmd_daily(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
 class TestTheHintLadder(unittest.TestCase):
     LEVEL = get_level("w1-l6-tally")
 

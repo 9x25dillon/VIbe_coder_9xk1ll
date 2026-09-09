@@ -13,7 +13,15 @@ import sys
 import unittest
 from pathlib import Path
 
-from vibecoder.daily import SEED_MODULUS, Daily, choose, digest
+from vibecoder.daily import (
+    SEED_MODULUS,
+    Attempt,
+    Daily,
+    board,
+    choose,
+    digest,
+    streak,
+)
 from vibecoder.levels import all_levels
 
 REPO = Path(__file__).resolve().parent.parent
@@ -138,3 +146,111 @@ class TestTheSelection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheStreak(unittest.TestCase):
+    """T5 W2. Consecutive days played, counting back from today."""
+
+    def test_a_run_ending_today_counts(self):
+        self.assertEqual(
+            streak(["2026-09-06", "2026-09-07", "2026-09-08"], "2026-09-08"), 3
+        )
+
+    def test_it_counts_back_from_yesterday_when_today_is_unplayed(self):
+        """A streak that reads as broken every morning before you have played
+        would be a worse number than no number."""
+        self.assertEqual(streak(["2026-09-06", "2026-09-07"], "2026-09-08"), 2)
+
+    def test_a_gap_ends_it(self):
+        self.assertEqual(
+            streak(["2026-09-01", "2026-09-07", "2026-09-08"], "2026-09-08"), 2
+        )
+
+    def test_nothing_played_is_zero(self):
+        self.assertEqual(streak([], "2026-09-08"), 0)
+
+    def test_a_long_gap_is_zero(self):
+        self.assertEqual(streak(["2026-01-01"], "2026-09-08"), 0)
+
+    def test_duplicates_do_not_inflate_it(self):
+        self.assertEqual(streak(["2026-09-08", "2026-09-08"], "2026-09-08"), 1)
+
+    def test_an_unparseable_today_is_zero_rather_than_a_crash(self):
+        """The profile is a file the player may edit."""
+        self.assertEqual(streak(["2026-09-08"], "sometime"), 0)
+
+    def test_it_crosses_a_month_boundary(self):
+        self.assertEqual(streak(["2026-08-31", "2026-09-01"], "2026-09-01"), 2)
+
+
+class TestTheLocalBoard(unittest.TestCase):
+    """Exit criterion 5: usable offline, degrading to local-only.
+
+    It is local *only* -- `board` reads a list and reaches for nothing, so
+    "offline" is the default path rather than a fallback somebody has to
+    remember to write.
+    """
+
+    def attempts(self):
+        return [
+            Attempt("2026-09-06", "a", 1, 80.0, 2),
+            Attempt("2026-09-07", "b", 2, 95.0, 3),
+            Attempt("2026-09-08", "c", 3, 60.0, 1),
+            Attempt("2026-09-08", "c", 3, 99.0, 3, ranked=False),
+        ]
+
+    def test_best_first(self):
+        self.assertEqual([a.total for a in board(self.attempts())],
+                         [95.0, 80.0, 60.0])
+
+    def test_a_replay_never_reaches_the_board(self):
+        """Otherwise the board measures persistence rather than the day."""
+        self.assertNotIn(99.0, [a.total for a in board(self.attempts())])
+
+    def test_the_limit_is_honoured(self):
+        self.assertEqual(len(board(self.attempts(), limit=2)), 2)
+
+    def test_an_empty_history_gives_an_empty_board(self):
+        self.assertEqual(board([]), [])
+
+    def test_ties_break_on_the_date_so_the_order_is_stable(self):
+        tied = [Attempt("2026-09-09", "b", 1, 50.0, 1),
+                Attempt("2026-09-08", "a", 1, 50.0, 1)]
+        self.assertEqual([a.date for a in board(tied)],
+                         ["2026-09-08", "2026-09-09"])
+
+    def test_the_module_reaches_for_nothing(self):
+        """Criterion 5 structurally: a module that imports no package cannot
+        acquire a network dependency by accident."""
+        source = (REPO / "vibecoder" / "daily.py").read_text(encoding="utf-8")
+        self.assertNotIn("\\nfrom .", source)
+        self.assertNotIn("\\nimport vibecoder", source)
+
+
+class TestQ99WhatWasPlayedIsWhatIsRecorded(unittest.TestCase):
+    """A history that re-derived would rewrite the past.
+
+    `choose` depends on the build's level catalogue, so adding a level changes
+    which one a date selects. An `Attempt` therefore stores the level and seed
+    that were actually served.
+    """
+
+    def test_an_attempt_stores_the_level_and_seed(self):
+        fields = set(Attempt.__dataclass_fields__)
+        self.assertIn("level_id", fields)
+        self.assertIn("seed", fields)
+
+    def test_re_deriving_would_have_given_a_different_answer(self):
+        """The reason the field exists, demonstrated: the same date against a
+        larger catalogue picks something else."""
+        before = choose("2026-09-08", IDS)
+        after = choose("2026-09-08", IDS + ["w9-l1-newly-added"])
+        self.assertNotEqual((before.level_id, before.seed),
+                            (after.level_id, after.seed))
+
+    def test_a_stored_attempt_is_unaffected_by_the_catalogue_growing(self):
+        played = choose("2026-09-08", IDS)
+        record = Attempt(played.date, played.level_id, played.seed, 88.0, 3)
+        choose("2026-09-08", IDS + ["w9-l1-newly-added"])
+        self.assertEqual(record.level_id, played.level_id)
+        self.assertEqual(record.seed, played.seed)

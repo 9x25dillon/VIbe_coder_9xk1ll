@@ -688,6 +688,18 @@ def cmd_play(args: argparse.Namespace) -> int:
             tags=level.tags,
         )
 
+    # A daily is recorded with the level and seed it was actually served
+    # (Q99), never re-derived: `choose` depends on the build's catalogue, so
+    # recomputing later would rewrite what the player played.
+    served = getattr(args, "daily", None)
+    if served is not None and not practice:
+        entry = session.record_daily(
+            served.date, served.level_id, served.seed, score
+        )
+        note = ("recorded" if entry.ranked
+                else "recorded as a replay -- your ranked score stands")
+        print(f"\n    {UI.badge('DAILY', VIOLET)} " + UI.paint(note, MUTED))
+
     run_id = session.save_run(
         level.id,
         {
@@ -1020,6 +1032,47 @@ def _print_why(session: Session, all_levels: list) -> None:
     print()
 
 
+def _print_daily_history(session: Session, today: str) -> None:
+    """Your dailies, and the local board (T5 W2).
+
+    Complete on its own and reaching for nothing: exit criterion 5 says a
+    leaderboard must remain usable offline, degrading to local-only, and the
+    cheapest way to guarantee that is for the local path to be the *only*
+    path until W3 adds a server on top of it.
+    """
+    print()
+    print(UI.rule("DAILY HISTORY", width=76))
+
+    if not session.dailies:
+        print("\n  " + UI.paint("no dailies played yet", MUTED)
+              + UI.paint("  -- `vibecoder daily` starts one", FAINT) + "\n")
+        return
+
+    run = daily_model.streak([e.date for e in session.dailies if e.ranked], today)
+    ranked = [entry for entry in session.dailies if entry.ranked]
+    print(f"\n  {UI.paint('played', FAINT)} {len(ranked)}"
+          + UI.paint("   streak ", FAINT)
+          + UI.paint(str(run), GOLD if run > 1 else MUTED, bold=run > 1))
+
+    print(f"\n  {UI.paint('most recent', INK, bold=True)}")
+    for entry in list(reversed(session.dailies))[:7]:
+        mark = "" if entry.ranked else UI.paint("  replay", FAINT)
+        print(f"    {UI.paint(entry.date, MUTED)}  "
+              + UI.paint(f"{entry.level_id:<16}", FAINT)
+              + UI.paint(f"{entry.total:>6.1f}", INK)
+              + f"  {UI.stars(entry.stars)}{mark}")
+
+    best = daily_model.board(session.dailies, limit=5)
+    if best:
+        print(f"\n  {UI.paint('your best', INK, bold=True)}"
+              + UI.paint("   local only -- there is no server yet", FAINT))
+        for place, entry in enumerate(best, start=1):
+            print(f"    {UI.paint(f'{place}.', FAINT)} "
+                  + UI.paint(f"{entry.total:>6.1f}", GOLD if place == 1 else INK)
+                  + UI.paint(f"   {entry.date}  {entry.level_id}", MUTED))
+    print()
+
+
 def cmd_daily(args: argparse.Namespace) -> int:
     """Today's challenge: the same level and variant for everybody (T5 W1).
 
@@ -1028,6 +1081,10 @@ def cmd_daily(args: argparse.Namespace) -> int:
     which is also how the determinism is demonstrated rather than asserted.
     """
     when = getattr(args, "date", None) or date.today().isoformat()
+    if getattr(args, "history", False):
+        _print_daily_history(Session.load(), date.today().isoformat())
+        return 0
+
     catalogue = [level.id for level in level_registry.all_levels()]
     today = daily_model.choose(when, catalogue)
     if today is None:
@@ -1049,12 +1106,20 @@ def cmd_daily(args: argparse.Namespace) -> int:
               + UI.paint(f"vibecoder daily", MUTED) + "\n")
         return 0
 
+    already = Session.load().daily_played(today.date)
+    if already is not None:
+        print("\n  " + UI.badge("ALREADY PLAYED", VIOLET) + " "
+              + UI.paint(f"you scored {already.total:.1f} on this one. "
+                         "Playing again is recorded but does not replace it.",
+                         MUTED))
+
     # Played through the ordinary path, at the imposed difficulty, so a daily
     # is scored by exactly the same machinery as anything else.
     play_args = argparse.Namespace(
         level_id=today.level_id, seed=today.seed, solution=args.solution,
         elapsed=args.elapsed, no_vision=getattr(args, "no_vision", False),
         difficulty=DEFAULT_DIFFICULTY.level,
+        daily=today,
     )
     return cmd_play(play_args)
 
@@ -2122,6 +2187,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_daily.add_argument("--date", help="play a past daily (YYYY-MM-DD)")
     p_daily.add_argument("--show", action="store_true",
                          help="name it without playing it")
+    p_daily.add_argument("--history", action="store_true",
+                         help="your dailies and your local board")
     p_daily.add_argument("--solution", help="score a file instead of editing")
     p_daily.add_argument("--elapsed", type=float,
                          help="real solve time in seconds")

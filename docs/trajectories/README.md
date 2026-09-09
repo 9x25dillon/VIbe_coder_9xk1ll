@@ -202,12 +202,20 @@ absorbed, per the rule. The other is **T2**, which is not in flight in any
 sense involving flying: one externally blocked waypoint from landing, and
 untouched since 2026-09-03. That is the honest reading rather than a tidy one.
 
-**T5 waypoint state:** W1 `LANDED`
-([S036](../../journal/2026-09-08-S036-daily.md)). The daily challenge is the
+**T5 waypoint state:** W1 and W2 `LANDED`
+([S036](../../journal/2026-09-08-S036-daily.md),
+[S037](../../journal/2026-09-08-S037-history.md)). The daily challenge is the
 same level and variant for everyone, derived from the date with `hashlib`
 rather than the `hash()` the waypoint names — `hash` is randomised per process
 and would have failed exit criterion 1 on a single machine. **Exit criterion 1
 is verified**, by re-deriving the daily in a separate interpreter.
+
+W2 added the history and the local board, and **exit criterion 5 is verified**
+— structurally, because the board reaches for nothing and the local path is
+the only path W3 will build on top of. It also answered Q99: an attempt
+records the level and seed it was *served*, because `choose` depends on the
+build's catalogue and a history that recomputed would rewrite what the player
+played.
 
 W6 remains behind the hard gate below, and the gate is necessary rather than
 sufficient: a level is an *importable module* whose `make_tests` runs in the

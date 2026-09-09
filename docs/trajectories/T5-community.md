@@ -20,7 +20,7 @@ This is stated here so that no one can reach the editor by accident.
 | ID | Waypoint | Notes |
 | --- | --- | --- |
 | W1 | Deterministic daily seed: `hash(date)` → variant, identical for everyone | `LANDED` (S036). **Not `hash`** — it is randomised per process, so the same date differs between two runs on one machine. `hashlib.sha256`, and criterion 1 is checked by re-deriving in a separate interpreter. |
-| W2 | Local leaderboard and personal daily history | Playable and useful with no backend at all. |
+| W2 | Local leaderboard and personal daily history | `LANDED` (S037). The first run of a date is the ranked one; replays are kept and never replace it. An attempt records the level and seed it was **served**, never re-derived (Q99). |
 | W3 | Score submission API + server-side re-verification | A client-reported score is a claim, not a fact. Re-run the submission server-side. |
 | W4 | Vibe-filtered leaderboards | The design's "compare against similar coding style" — cosine similarity over Vibe Vectors. |
 | W5 | Level editor: author a level, validate it, export it | Validation runs the same contract tests as `tests/test_levels.py`. |
@@ -76,6 +76,42 @@ mean pinning a catalogue snapshot into the code, which would then rot against
 the levels that actually exist. The criterion is about two machines agreeing,
 and two machines on the same build do. Ids are sorted before indexing, so a
 registry ordering bug cannot silently move today's challenge.
+
+## History and the local board (W2)
+
+`vibecoder daily --history` shows what you have played, your streak, and your
+best scores. It reaches for nothing — which is exit criterion 5 held
+structurally rather than by a fallback somebody has to remember to write.
+**The local path is the only path**, and W3's server becomes an overlay on top
+of it rather than the source it degrades from.
+
+### One shot, enforced without a server
+
+The first completed run of a date is the **ranked** one. A replay is recorded
+— it happened — and never replaces the score that counts, so a board cannot be
+ground. That needs no backend at all, which is what makes W2 useful on its own
+rather than a client waiting for W3.
+
+The player is told before they start (*"you scored 114.0 on this one. Playing
+again is recorded but does not replace it"*) and again after, rather than
+discovering the rule from a number that failed to move.
+
+### Q99, answered: record what was served
+
+An `Attempt` stores the **level and seed it was actually played with**, never
+re-derived. `choose` depends on the build's level catalogue, so adding a level
+changes which one a past date selects — and a history that recomputed would
+quietly rewrite what you played. A board comparing two builds would then be
+comparing two puzzles while showing one date.
+
+`test_re_deriving_would_have_given_a_different_answer` demonstrates the drift
+rather than asserting it: the same date against a catalogue with one more
+level picks something else.
+
+### The streak counts back from yesterday when today is unplayed
+
+A streak that read as broken every morning before you had played would be a
+worse number than no number at all.
 
 ## Exit criteria
 

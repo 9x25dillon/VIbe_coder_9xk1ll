@@ -58,6 +58,13 @@ the player: [difficulty](#difficulty) is imposed rather than chosen, because a
 shared challenge that varied per person would not be shared. Derived with
 `hashlib`, never `hash`, which Python randomises per process.
 
+### Daily attempt
+One completed [daily](#daily-challenge), stored with the level and seed it was
+actually served rather than re-derived — because which level a date selects
+depends on the build's catalogue, and a history that recomputed would rewrite
+what you played. The **first** run of a date is the ranked one; replays are
+kept and never replace it.
+
 ### Decay
 Mastery loses half its force every three weeks — the value drifting toward the
 middle and the observation count eroding with it, so a stale estimate stops

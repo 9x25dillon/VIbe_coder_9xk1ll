@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from vibecoder.daily import Attempt
 from vibecoder.mastery import TagMastery
 from vibecoder.models import ScoreBreakdown, VibeVector
 from vibecoder.session import Session
@@ -329,6 +330,86 @@ class TestPracticeCannotMoveMastery(SessionTestBase):
         session.recompute_total()
         session.save()
         self.assertEqual(len(Session.load(self.path).mastery), 0)
+
+
+class TestDailyHistory(SessionTestBase):
+    """T5 W2. What was played is recorded, and the first run is the ranked one."""
+
+    def score(self, total: float, stars: int = 3) -> ScoreBreakdown:
+        return ScoreBreakdown(total=total, stars=stars)
+
+    def test_a_fresh_profile_has_no_dailies(self):
+        self.assertEqual(self.session().dailies, [])
+
+    def test_the_first_run_of_a_date_is_ranked(self):
+        session = self.session()
+        entry = session.record_daily("2026-09-08", "w1-l2-bigger", 431691,
+                                     self.score(88.0))
+        self.assertTrue(entry.ranked)
+
+    def test_a_replay_is_recorded_but_not_ranked(self):
+        """A daily is one shot at the same problem as everyone else. The
+        replay happened, so it is kept; it just does not count."""
+        session = self.session()
+        session.record_daily("2026-09-08", "w1-l2-bigger", 431691, self.score(88.0))
+        replay = session.record_daily("2026-09-08", "w1-l2-bigger", 431691,
+                                      self.score(99.0))
+        self.assertFalse(replay.ranked)
+        self.assertEqual(len(session.dailies), 2)
+
+    def test_a_better_replay_does_not_replace_the_ranked_score(self):
+        session = self.session()
+        session.record_daily("2026-09-08", "w1-l2-bigger", 431691, self.score(88.0))
+        session.record_daily("2026-09-08", "w1-l2-bigger", 431691, self.score(99.0))
+        self.assertEqual(session.daily_played("2026-09-08").total, 88.0)
+
+    def test_a_different_date_is_ranked_again(self):
+        session = self.session()
+        session.record_daily("2026-09-08", "a", 1, self.score(88.0))
+        self.assertTrue(session.record_daily("2026-09-09", "b", 2,
+                                             self.score(70.0)).ranked)
+
+    def test_dailies_survive_a_save_and_load(self):
+        session = self.session()
+        session.record_daily("2026-09-08", "w1-l2-bigger", 431691, self.score(88.0))
+        session.save()
+
+        again = Session.load(self.path)
+        self.assertEqual(len(again.dailies), 1)
+        self.assertEqual(again.dailies[0].level_id, "w1-l2-bigger")
+        self.assertEqual(again.dailies[0].seed, 431691)
+
+    def test_an_unrecognised_field_in_a_stored_daily_is_dropped(self):
+        self.path.write_text(json.dumps({
+            "version": 1, "levels": {},
+            "dailies": [{"date": "2026-09-08", "level_id": "a", "seed": 1,
+                         "total": 5.0, "stars": 1, "from_the_future": 9}],
+        }), encoding="utf-8")
+        self.assertEqual(len(Session.load(self.path).dailies), 1)
+
+    def test_a_malformed_daily_entry_is_skipped_rather_than_fatal(self):
+        self.path.write_text(json.dumps({
+            "version": 1, "levels": {},
+            "dailies": ["not a dict", {"no_date": True},
+                        {"date": "2026-09-08", "level_id": "a", "seed": 1,
+                         "total": 5.0, "stars": 1}],
+        }), encoding="utf-8")
+        self.assertEqual(len(Session.load(self.path).dailies), 1)
+
+    def test_a_profile_written_before_dailies_existed_still_loads(self):
+        self.path.write_text(json.dumps({"version": 1, "levels": {}}),
+                             encoding="utf-8")
+        self.assertEqual(Session.load(self.path).dailies, [])
+
+    def test_dailies_are_a_top_level_key_the_envelope_knows(self):
+        """M47: an unknown key is preserved, but a known one must not be
+        treated as unknown and duplicated."""
+        session = self.session()
+        session.record_daily("2026-09-08", "a", 1, self.score(5.0))
+        session.save()
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self.assertIn("dailies", raw)
+        self.assertEqual(Session.load(self.path).unknown, {})
 
 
 if __name__ == "__main__":

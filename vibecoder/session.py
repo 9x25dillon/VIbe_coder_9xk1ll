@@ -13,11 +13,12 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
+from .daily import Attempt
 from .mastery import Mastery, observation
 from .models import ScoreBreakdown, VibeVector
 from .scoring import streak_multiplier
@@ -28,7 +29,7 @@ STATE_VERSION = 1
 #: a newer build and is preserved untouched -- see `Session.unknown`.
 _KNOWN_KEYS = frozenset({
     "version", "created_at", "updated_at", "vibe_source", "vibe",
-    "levels", "streak", "tokens", "total_score", "mastery",
+    "levels", "streak", "tokens", "total_score", "mastery", "dailies",
 })
 
 
@@ -85,6 +86,12 @@ class Session:
         #: exit criterion 8 forbids any screen blending the two, and two
         #: fields are harder to average by accident than two keys in one dict.
         self.mastery = Mastery()
+        #: Every daily played, in the order they were played (T5 W2). Stored
+        #: with the level and seed that were actually served, never
+        #: re-derived: `daily.choose` depends on the build's catalogue, so a
+        #: history that recomputed would rewrite what you played the moment a
+        #: level was added (Q99).
+        self.dailies: list[Attempt] = []
         self.levels: dict[str, LevelRecord] = {}
         self.streak = 0
         self.tokens: dict[str, int] = {"hint": 3, "skip": 1}
@@ -130,6 +137,12 @@ class Session:
         session.tokens = data.get("tokens", session.tokens)
         session.total_score = data.get("total_score", 0.0)
         session.mastery = Mastery.from_json(data.get("mastery", {}))
+        session.dailies = [
+            Attempt(**{k: v for k, v in entry.items()
+                       if k in Attempt.__dataclass_fields__})
+            for entry in data.get("dailies", [])
+            if isinstance(entry, dict) and "date" in entry
+        ]
         session.unknown = {
             key: value for key, value in data.items() if key not in _KNOWN_KEYS
         }
@@ -149,6 +162,7 @@ class Session:
             "tokens": self.tokens,
             "total_score": round(self.total_score, 2),
             "mastery": self.mastery.to_json(),
+            "dailies": [asdict(entry) for entry in self.dailies],
         }
         # Merged rather than nested, so a newer build finds its own fields
         # exactly where it left them. A key this build knows about always
@@ -161,6 +175,31 @@ class Session:
         temporary.replace(self.path)
 
     # -- mutation ----------------------------------------------------------
+
+    def daily_played(self, date: str) -> "Attempt | None":
+        """The ranked attempt for ``date``, if there is one."""
+        for entry in self.dailies:
+            if entry.date == date and entry.ranked:
+                return entry
+        return None
+
+    def record_daily(self, date: str, level_id: str, seed: int,
+                     score: ScoreBreakdown) -> Attempt:
+        """Record a completed daily. The first run of a date is the ranked one.
+
+        A daily is one shot at the same problem as everybody else, so a replay
+        is kept -- it happened -- but never replaces the score that counts.
+        Enforcing that needs no server, which is what makes W2 useful on its
+        own rather than a client waiting for W3.
+        """
+        entry = Attempt(
+            date=date, level_id=level_id, seed=seed,
+            total=score.total, stars=score.stars,
+            ranked=self.daily_played(date) is None,
+            at=_now(),
+        )
+        self.dailies.append(entry)
+        return entry
 
     def current_mastery(self) -> Mastery:
         """Mastery as it reads today, with age taken off it (T4 W6).
