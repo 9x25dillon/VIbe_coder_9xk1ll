@@ -91,7 +91,7 @@ this waited for W6 rather than being started when it was first raised.
 | W5 | Drill injection: repeated short exercises on the weakest tag | `LANDED` (S029). Three runs on the weakest **confident** tag below 0.5, injected after a clear and shown in `status` rather than hidden behind a command nobody runs. |
 | W6 | Time decay on mastery | `LANDED` (S030). A three-week half-life on **both** the value and the observation count, applied as a view at read time. Eroding confidence is what makes a returning player *unmeasured* rather than *weak* — and is the answer to Q90. |
 | W7 | Explanation surface: `vibecoder status --why` | `LANDED` (S031). Shows what was measured, what the game would give them for every level, and **what the model does not know** — the last generated from the content rather than written down. |
-| W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | Named from habits, never from score. `status` shows which patterns earned it. |
+| W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | `LANDED` (S032). Six classes, three signals each, two required — **and at least one of them positive**, because absence must never earn an identity. `status` prints the measurements and the equally good fits. |
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | No new model — W1's numbers, made legible. The evidence rule from W7 applies unchanged. |
 | W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
 | W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
@@ -253,6 +253,49 @@ to be told "nothing measured yet" — true of the decayed model and false about
 their history. There is now a `stale` source: *you have played data before,
 but not recently enough for the reading to still count*. The decision is the
 same standard variant; only the sentence is honest.
+
+## Function classes (W8)
+
+Six classes, each defined by exactly three measured signals, of which two must
+land. Equal signal counts on purpose: "cleared 3 of 3" has to mean the same
+thing for every class or the comparison that picks a winner is unfair.
+
+**Criterion 6 is enforced by signature.** `derive_class(vibe)` takes a
+`VibeVector` and there is no argument through which a score could reach it, so
+"changing scores without changing code never changes the class" is not a rule
+anyone has to remember. A test asserts the parameter list.
+
+**No class outranks another.** `FunctionClass` carries a name, a blurb and its
+signals — there is deliberately nothing to sort players by. A test asserts no
+blurb contains a grading word, because a Loopwright is not a junior
+Comprehensionist.
+
+### Absence never earns an identity
+
+An `at_most` signal — *comprehensions in at most 15%* — is satisfied by an
+empty codebase, so the first version classified `VibeVector()` as a
+**Loopwright** on two signals it met by containing nothing at all. A project
+with no comprehensions because it has no *code* is not thereby a Loopwright.
+
+A class now needs at least one **positive** signal as well: absence can
+corroborate a reading, never establish one. Found by a test rather than by
+argument, which is the only reason it is not still in there.
+
+### The evidence is the feature
+
+The trajectory's last hazard says a class system is a horoscope by default,
+and "You are a Comprehensionist" is flattery unless the patterns that earned
+it are on screen beside it. So `status` prints the measurement and the line it
+cleared — `comprehensions in 70%, at least 45%` — where a player can disagree
+with it. Disagreeing means they looked.
+
+It also prints **every class that fits equally well**. On this repository three
+classes clear all three of their signals; naming one and hiding the rest would
+be presenting a coin toss as a reading.
+
+Every threshold is a judgement about *style, never quality*, exactly as
+`SIGNATURE_RULES` says of its own — and every one is a guess, chosen against a
+handful of real codebases and never playtested.
 
 ## Exit criteria
 

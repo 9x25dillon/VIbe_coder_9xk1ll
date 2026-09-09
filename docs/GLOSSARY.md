@@ -52,6 +52,14 @@ generator so it can scale input size and edge-case density. It selects variant
 exactly what the level did before difficulty existed. See
 [LEVEL_AUTHORING.md](LEVEL_AUTHORING.md).
 
+### Function class
+What your code *looks like* — Comprehensionist, Loopwright, Architect,
+Contractor, Streamwright, Delegator — derived from the [Vibe Vector](#vibe-vector)
+alone and never from what you score. **No class outranks another**, and the
+measurements that earned it are printed beside the name, because a class
+without its evidence is a horoscope. A codebase that does not lean gets no
+class rather than an invented one.
+
 ### Drill
 Three runs on the one content tag a player is measurably weakest at, chosen
 only from tags with enough observations to act on and only below 0.5. Shown

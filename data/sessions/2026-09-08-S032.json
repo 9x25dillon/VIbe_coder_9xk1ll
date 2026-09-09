@@ -1,0 +1,132 @@
+{
+  "id": "S032",
+  "date": "2026-09-08",
+  "duration_minutes": 50,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S032-classes.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player has a class derived from how they write, never from what they score", "result": "met", "note": "enforced by signature: derive_class takes a VibeVector and nothing else"},
+    {"id": 2, "statement": "The measurements that earned it are on screen beside it", "result": "met", "note": "the value and the line it cleared, where a player can disagree with them"},
+    {"id": 3, "statement": "No class outranks another", "result": "met", "note": "nothing to sort by, and a test asserts no blurb contains a grading word"},
+    {"id": 4, "statement": "A codebase that does not lean gets no class rather than an invented one", "result": "met", "note": "the first version classified an empty codebase as a Loopwright (M54)"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/profiler.py", "kind": "module", "note": "Signal, FunctionClass, CLASS_RULES, all_classes, derive_class; a class needs at least one positive signal"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "_print_class; status shows the class, its evidence and every equally good fit"},
+    {"path": "tests/test_classes.py", "kind": "test", "note": "new. 27 cases: the signal, derivation, criterion 6 four ways, no-class-outranks-another, and the runners-up"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheClassOnScreen, 8 cases including criterion 6 end to end and criterion 8's separation"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W8 LANDED; the six classes, criterion 6 by signature, and why absence never earns an identity"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W8 landed; criterion 6 verified"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "the class model lives with the profiler and cannot see mastery"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Function class entry"},
+    {"path": "README.md", "kind": "doc", "note": "test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S032-classes.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Criterion 6: there is nowhere to pass a score", "method": "test_there_is_nowhere_to_pass_a_score, asserting the parameter list", "result": "['vibe']", "verdict": "verified"},
+    {"claim": "Mastery cannot reach the derivation", "method": "test_mastery_cannot_reach_the_derivation, grepping the source of both functions", "result": "green", "verdict": "verified"},
+    {"claim": "A hundred observations change nothing about the class", "method": "test_the_class_survives_any_amount_of_scoring", "result": "identical FunctionClass before and after", "verdict": "verified"},
+    {"claim": "Changing the code does change the class", "method": "test_changing_the_code_can_change_the_class, the paired negative", "result": "Comprehensionist vs Loopwright", "verdict": "verified"},
+    {"claim": "Criterion 6 holds end to end through the CLI", "method": "test_scores_do_not_change_what_the_class_section_says, comparing the rendered block under opposite mastery", "result": "identical", "verdict": "verified"},
+    {"claim": "No class carries a rank or a score", "method": "test_a_class_carries_no_score_or_rank, asserting the dataclass field set", "result": "name, blurb, signals only", "verdict": "verified"},
+    {"claim": "No blurb reads as a verdict", "method": "test_no_blurb_reads_as_a_verdict over a list of grading words", "result": "green", "verdict": "verified"},
+    {"claim": "Every class is reachable", "method": "test_every_class_is_reachable, building a codebase from each rule's own thresholds", "result": "all six reach 3/3", "verdict": "verified"},
+    {"claim": "Absence alone never earns a class", "method": "test_absence_alone_never_earns_a_class", "result": "None for an empty vector; it returned Loopwright before this session", "verdict": "verified"},
+    {"claim": "Absence still corroborates a real Loopwright", "method": "test_absence_still_corroborates_a_present_habit", "result": "Loopwright still reachable", "verdict": "verified"},
+    {"claim": "One matching signal is not enough", "method": "test_one_matching_signal_is_not_enough", "result": "None", "verdict": "verified"},
+    {"claim": "The measurements are on screen beside the name", "method": "test_the_measurements_are_on_screen_beside_it", "result": "the value and the threshold both present", "verdict": "verified"},
+    {"claim": "Equally good fits are named", "method": "test_equally_good_fits_are_named", "result": "green; three classes tie at 3/3 on this repository", "verdict": "verified"},
+    {"claim": "Criterion 8: habits and mastery are separate sections", "method": "test_habits_and_mastery_are_separate_sections", "result": "class and drill in distinct blocks, no blended figure", "verdict": "verified"},
+    {"claim": "A player who has not profiled sees no class", "method": "test_a_player_who_has_not_profiled_sees_no_class_section", "result": "green", "verdict": "verified"},
+    {"claim": "No escape sequence reaches a pipe", "method": "test_the_class_section_emits_no_escape_sequence_into_a_pipe", "result": "0", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1266 tests OK in 94.059s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1242 tests OK in 93.959s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "The six classes are the right six", "method": "chosen against a handful of real codebases", "result": "unknown", "verdict": "unverified"},
+    {"claim": "Anyone recognises themselves in one", "method": "nobody has been shown one", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M54",
+      "believed": "That requiring two of three signals was a sufficient guard against handing out labels cheaply. Two thresholds cleared is not a coincidence and one is, which was the whole reasoning behind the number.",
+      "revealed_by": "test_an_empty_codebase_has_no_class, written as an afterthought while listing the ways a class system goes wrong. It failed immediately: VibeVector() classified as a Loopwright.",
+      "corrected_to": "Loopwright's signals are 'comprehensions in at most 15%' and 'generator expressions in at most 10%', and an empty codebase satisfies both by having no code. A class now needs at least one positive signal as well as its two: absence can corroborate a reading -- a real Loopwright genuinely does avoid comprehensions -- but it can never establish one.",
+      "cost_minutes": 5,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "The rule counted evidence, and the failure was that absence is not evidence of the same kind. A threshold of the form 'at most X' is satisfied by the empty set, by the null hypothesis, by having never tried -- so any scoring system treating it as interchangeable with 'at least X' hands out its most confident answer to its least informative input. Same shape as M1, free points on an axis measuring nothing, arrived at from the opposite direction. Worth asking of any predicate: what does the empty case score?"
+    }
+  ],
+  "decisions": [
+    {"id": "D202", "decision": "A class needs at least one positive signal, not merely two of any kind", "alternatives": ["Two of three regardless of direction"], "rationale": "M54. An at_most signal is satisfied by an empty codebase, so absence alone would earn the most confident label from the least informative input.", "reversible": true, "seam": "vibecoder/profiler.py::derive_class"},
+    {"id": "D203", "decision": "derive_class takes a VibeVector and nothing else", "alternatives": ["Pass the whole Session and read the vector from it"], "rationale": "Exit criterion 6 becomes a property of the signature rather than a rule someone has to remember. Enforcement by argument list is the cheapest kind there is.", "reversible": false, "seam": "vibecoder/profiler.py::derive_class"},
+    {"id": "D204", "decision": "Every class has exactly three signals", "alternatives": ["Let each class have as many as its habit suggests"], "rationale": "'Cleared 3 of 3' has to mean the same thing across classes, or ranking by signals met silently favours whichever class was given the fewest.", "reversible": true, "seam": "vibecoder/profiler.py::CLASS_RULES"},
+    {"id": "D205", "decision": "Equally good fits are printed beside the winner", "alternatives": ["Show only the class awarded"], "rationale": "Three classes clear every signal on this repository and the winner is decided by margin. Hiding that presents a coin toss as a reading, which is the horoscope the hazard names.", "reversible": true, "seam": "vibecoder/cli.py::_print_class"},
+    {"id": "D206", "decision": "A codebase that does not lean gets None", "alternatives": ["A default class such as Generalist"], "rationale": "A default class is a label nobody earned. 'Your code does not lean hard enough in any one direction to name' is a description rather than a gap.", "reversible": true, "seam": "vibecoder/profiler.py::derive_class"},
+    {"id": "D207", "decision": "Classes live in profiler.py, not with mastery", "alternatives": ["A new classes.py", "Alongside policy.py"], "rationale": "It reads the Vibe Vector and belongs with style_signature and derive_tags, which do the same. Keeping it out of the mastery module means the two layers cannot be blended by accident.", "reversible": true, "seam": "vibecoder/profiler.py"}
+  ],
+  "friction": [
+    {"description": "none", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W8 LANDED. The game measures mastery, decays it, chooses difficulty and drills from it, explains all of that including its own limits, and now names what the player's code looks like from a separate model that cannot see any of it. Exit criteria 1, 2, 4, 5 and 6 verified; 3 verified for the two simulated players who can fail (Q89); 8 holds so far and gains a new way to be broken with every screen. 1266 tests green unpinned, 1242 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W9, surfacing attributes -- the per-tag mastery vector made legible in the same view as the class. The trajectory is explicit that this is no new model: W1's numbers, presented. Most of it already exists in status --why's 'what has been measured' block, so W9 is largely deciding what belongs on the character sheet versus the explanation screen, and keeping criterion 8 true while both live on one page.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M54 before writing any threshold rule: ask what the empty case scores",
+      "D203 before changing a class-derivation signature",
+      "Q84 and Q89 remain the user's calls and neither has blocked a waypoint"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q92", "question": "status --why lists every level, which will not scale past twelve.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q93", "question": "Three classes tie at 3/3 on this repository and the tie-break is margin. Margin is a defensible ordering and it is still an ordering over things the design says are not ordered. Should a tie be shown as a genuine tie -- 'you are equally a Comprehensionist and an Architect' -- rather than resolved?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q94", "question": "The class is derived on demand and never stored. That is what keeps criterion 6 trivially true, but it also means a player cannot see that their class changed when they re-profiled, which is the most interesting thing a class could ever tell them. Worth storing a history?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1266,
+    "tests_passing": 1266,
+    "tests_added": 35,
+    "suite_seconds_unpinned": 94.059,
+    "suite_tests_pinned_bwrap": 1242,
+    "suite_seconds_pinned_bwrap": 93.959,
+    "reference_runs_clean": 54,
+    "function_classes": 6,
+    "signals_per_class": 3,
+    "class_signals_required": 2,
+    "classes_tying_on_this_repo": 3,
+    "t4_waypoints_landed": 8,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 5,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 28,
+    "dependencies": 0
+  }
+}

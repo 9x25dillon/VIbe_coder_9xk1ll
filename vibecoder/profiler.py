@@ -957,3 +957,194 @@ def recommend(
         return (-score, level.world, level.index)
 
     return sorted(levels, key=rank)
+
+
+# --------------------------------------------------------------------------
+# Function classes (T4 W8)
+# --------------------------------------------------------------------------
+
+#: Signals a class needs before it is claimed. Two of three, because one
+#: matching threshold is a coincidence and three is a rare codebase -- and a
+#: class handed out on a single number is the horoscope T4's last hazard warns
+#: about.
+CLASS_SIGNALS_REQUIRED = 2
+
+
+@dataclass(frozen=True)
+class Signal:
+    """One measured habit, and the line it cleared.
+
+    Carries the *measurement*, not just the fact that it passed, because the
+    hazard is explicit: "You are a Comprehensionist" is flattery unless the
+    patterns that earned it are on screen next to it. A player who can see
+    `comprehensions in 71% of files, wanted 45%` can argue with it, and
+    arguing means they looked.
+    """
+
+    label: str
+    value: float
+    threshold: float
+    at_most: bool = False
+
+    @property
+    def met(self) -> bool:
+        return self.value <= self.threshold if self.at_most else self.value >= self.threshold
+
+    @property
+    def margin(self) -> float:
+        """How far past the line, as a share of the room available."""
+        if self.at_most:
+            return max(0.0, (self.threshold - self.value) / max(1e-9, self.threshold))
+        room = max(1e-9, 1.0 - self.threshold)
+        return max(0.0, (self.value - self.threshold) / room)
+
+    def __str__(self) -> str:
+        want = "at most" if self.at_most else "at least"
+        return f"{self.label} {self.value:.0%}, {want} {self.threshold:.0%}"
+
+
+@dataclass(frozen=True)
+class FunctionClass:
+    """What the player's code looks like. **Never what it scores.**
+
+    T4 keeps three layers apart and this is the one derived from *habits*.
+    Exit criterion 6 says changing a player's scores without changing their
+    code must never change their class, which is enforced here by the crudest
+    means available: `derive_class` takes a `VibeVector` and there is nowhere
+    to pass a score.
+
+    Exit criterion 7's sibling rule applies too -- **no class is better than
+    another**. There is no ordering, no tier, no score attached. A Loopwright
+    is not a junior Comprehensionist; they are two ways of writing the same
+    program, and the blurbs are written so neither reads as the consolation.
+    """
+
+    name: str
+    blurb: str
+    signals: tuple[Signal, ...]
+
+    @property
+    def met(self) -> tuple[Signal, ...]:
+        return tuple(signal for signal in self.signals if signal.met)
+
+
+def _pattern(key: str):
+    return lambda vibe: vibe.patterns.get(key, 0.0)
+
+
+#: Every threshold below is a judgement about **style, never about quality**,
+#: exactly as `SIGNATURE_RULES` says of its own. They are also guesses: chosen
+#: against a handful of real codebases and never playtested, which is recorded
+#: rather than implied.
+CLASS_RULES: list[tuple[str, str, list[tuple[str, object, float, bool]]]] = [
+    (
+        "Comprehensionist",
+        "you build the result rather than filling one in",
+        [
+            ("comprehensions in", _pattern("comprehension"), 0.45, False),
+            ("generator expressions in", _pattern("generator_expr"), 0.25, False),
+            ("sum/any/min and friends in", _pattern("builtin_aggregate"), 0.40, False),
+        ],
+    ),
+    (
+        "Loopwright",
+        "you write the iteration out, where it can be read and stepped through",
+        [
+            ("comprehensions in", _pattern("comprehension"), 0.15, True),
+            ("generator expressions in", _pattern("generator_expr"), 0.10, True),
+            ("enumerate in", _pattern("enumerate"), 0.10, False),
+        ],
+    ),
+    (
+        "Architect",
+        "you give the data a shape before writing the code that uses it",
+        [
+            ("classes in", _pattern("class"), 0.40, False),
+            ("dataclasses in", _pattern("dataclass"), 0.20, False),
+            ("properties in", _pattern("property"), 0.05, False),
+        ],
+    ),
+    (
+        "Contractor",
+        "you state the contract before the implementation",
+        [
+            ("type hints on", _pattern("type_hints"), 0.70, False),
+            ("docstrings on", lambda vibe: vibe.docstring_ratio, 0.50, False),
+            ("keyword-only arguments on", _pattern("keyword_only_args"), 0.05, False),
+        ],
+    ),
+    (
+        "Streamwright",
+        "you hand back a stream and let the caller decide how much of it to want",
+        [
+            ("generator functions in", _pattern("generator_function"), 0.12, False),
+            ("context managers in", _pattern("context_manager"), 0.15, False),
+            ("lambdas in", _pattern("lambda"), 0.15, False),
+        ],
+    ),
+    (
+        "Delegator",
+        "you reach for the thing that already exists before writing one",
+        [
+            ("sum/any/min and friends in", _pattern("builtin_aggregate"), 0.50, False),
+            ("map/filter/reduce in", _pattern("map_filter_reduce"), 0.10, False),
+            ("lambdas in", _pattern("lambda"), 0.20, False),
+        ],
+    ),
+]
+
+
+def all_classes(vibe: VibeVector) -> list[FunctionClass]:
+    """Every class, measured against this vector. Ordered by fit, best first.
+
+    Exposed rather than kept private because "why am I this and not that" is
+    the first question a class system invites, and answering it needs the
+    runners-up.
+    """
+    classes = [
+        FunctionClass(
+            name=name,
+            blurb=blurb,
+            signals=tuple(
+                Signal(label=label, value=round(read(vibe), 3),
+                       threshold=threshold, at_most=at_most)
+                for label, read, threshold, at_most in rules
+            ),
+        )
+        for name, blurb, rules in CLASS_RULES
+    ]
+    return sorted(
+        classes,
+        key=lambda cls: (
+            -len(cls.met),
+            -sum(signal.margin for signal in cls.met),
+            cls.name,          # deterministic, never alphabetical by luck
+        ),
+    )
+
+
+def derive_class(vibe: VibeVector) -> "FunctionClass | None":
+    """The player's function class, or ``None`` if their code does not lean.
+
+    ``None`` is a real answer and not a failure. A codebase that clears two
+    signals for nothing in particular is a codebase without a pronounced
+    habit, and inventing a label for it is exactly the personality quiz this
+    is supposed not to be.
+
+    **A class must be earned by the presence of a habit, never by the absence
+    of one.** An ``at_most`` signal is satisfied by an empty codebase -- a
+    project with no comprehensions because it has no *code* is not thereby a
+    Loopwright -- so at least one positive signal has to land as well. Absence
+    can corroborate a reading; it cannot establish one. Found by a test rather
+    than by argument: the empty vector classified as a Loopwright on two
+    signals it met by containing nothing.
+
+    Takes a `VibeVector` and nothing else. That is exit criterion 6 enforced
+    by signature: there is no argument through which a score could reach it.
+    """
+    best = all_classes(vibe)[0]
+    if len(best.met) < CLASS_SIGNALS_REQUIRED:
+        return None
+    if not any(not signal.at_most for signal in best.met):
+        return None
+    return best

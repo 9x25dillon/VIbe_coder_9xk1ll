@@ -712,6 +712,107 @@ class TestTheWhySurface(unittest.TestCase):
         self.assertNotIn("\033", buffer.getvalue())
 
 
+class TestTheClassOnScreen(unittest.TestCase):
+    """T4 W8. `status` shows the class and the patterns that earned it."""
+
+    COMPREHENSIONIST = {
+        "files": 20, "functions": 100,
+        "patterns": {"comprehension": 0.8, "generator_expr": 0.5,
+                     "builtin_aggregate": 0.7},
+    }
+
+    def status(self, vibe=None, mastery=None) -> str:
+        profile = {"version": 1, "levels": {}, "total_score": 0.0}
+        if vibe is not None:
+            profile["vibe"] = vibe
+            profile["vibe_source"] = "somewhere"
+        if mastery is not None:
+            profile["mastery"] = mastery
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_status, args)
+
+    def test_the_class_is_named(self):
+        self.assertIn("Comprehensionist", self.status(self.COMPREHENSIONIST))
+
+    def test_the_measurements_are_on_screen_beside_it(self):
+        """The hazard: a class is flattery unless the numbers that earned it
+        are visible, where the player can disagree with them."""
+        out = self.status(self.COMPREHENSIONIST)
+        self.assertIn("what earned it", out)
+        self.assertIn("80%", out)
+        self.assertIn("at least 45%", out)
+
+    def test_a_player_who_has_not_profiled_sees_no_class_section(self):
+        self.assertNotIn("FUNCTION CLASS", self.status())
+
+    def test_a_codebase_that_does_not_lean_is_told_so(self):
+        """Rather than being given a label it did not earn."""
+        out = self.status({"files": 5, "functions": 10, "patterns": {}})
+        self.assertIn("no pronounced habit", out)
+        self.assertIn("not a gap", out)
+
+    def test_equally_good_fits_are_named(self):
+        """Naming one of three equal fits and hiding the rest would present a
+        coin toss as a reading."""
+        out = self.status({
+            "files": 20, "functions": 100,
+            "patterns": {"comprehension": 0.8, "generator_expr": 0.5,
+                         "builtin_aggregate": 0.7, "class": 0.9,
+                         "dataclass": 0.9, "property": 0.9},
+        })
+        self.assertIn("fits you equally well", out)
+        self.assertIn("Architect", out)
+
+    def test_scores_do_not_change_what_the_class_section_says(self):
+        """Exit criterion 6, end to end through the CLI rather than on the
+        function alone."""
+        strong = {tag: {"value": 0.95, "observations": 9, "updated_at": ""}
+                  for tag in ("functional", "oop", "data")}
+        weak = {tag: {"value": 0.05, "observations": 9, "updated_at": ""}
+                for tag in ("functional", "oop", "data")}
+
+        def class_block(mastery):
+            """Just the class section. The drill below it legitimately
+            differs between these two profiles -- that is mastery doing its
+            job -- and slicing to the end of the screen would compare it too.
+            """
+            out = self.status(self.COMPREHENSIONIST, mastery)
+            start = out.index("FUNCTION CLASS")
+            ends = [out.index(marker, start) for marker in ("[DRILL]", "profile:")
+                    if marker in out[start:]]
+            # Stripped: what follows the section indents differently, and
+            # that whitespace belongs to the next block rather than this one.
+            return out[start:min(ends)].rstrip()
+
+        self.assertEqual(class_block(strong), class_block(weak))
+
+    def test_habits_and_mastery_are_separate_sections(self):
+        """Exit criterion 8: no screen presents a single number blending what
+        you write with what you score."""
+        out = self.status(self.COMPREHENSIONIST, {
+            "algorithms": {"value": 0.2, "observations": 6, "updated_at": ""},
+        })
+        self.assertIn("FUNCTION CLASS", out)
+        self.assertIn("DRILL", out)
+        self.assertLess(out.index("FUNCTION CLASS"), out.index("DRILL"))
+
+    def test_the_class_section_emits_no_escape_sequence_into_a_pipe(self):
+        profile = {"version": 1, "levels": {}, "vibe": self.COMPREHENSIONIST,
+                   "vibe_source": "somewhere"}
+        args = argparse.Namespace(why=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                with everything_printed() as buffer:
+                    cli.cmd_status(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
 class TestTheHintLadder(unittest.TestCase):
     LEVEL = get_level("w1-l6-tally")
 

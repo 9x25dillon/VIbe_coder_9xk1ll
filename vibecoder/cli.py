@@ -39,6 +39,8 @@ from .models import Level, RunResult, Source, TestCase, VibeVector
 from .profiler import (
     CONVENTION_PLURALS,
     CONVENTIONS,
+    all_classes,
+    derive_class,
     profile_path,
     recommend,
     style_signature,
@@ -776,6 +778,49 @@ def cmd_play(args: argparse.Namespace) -> int:
 # status / replay / verify / reset
 # --------------------------------------------------------------------------
 
+def _print_class(vibe) -> None:
+    """The player's function class, and the patterns that earned it (T4 W8).
+
+    The evidence is not an appendix. T4's last hazard says a class system is a
+    horoscope by default -- "You are a Comprehensionist" is flattery unless
+    the measurements are on screen beside it, where the player can disagree
+    with them. Disagreeing means they looked, which is the whole point.
+
+    Near-fits are printed for the same reason. On a codebase where three
+    classes clear every signal, naming one and hiding the others would be
+    presenting a coin toss as a reading.
+    """
+    found = derive_class(vibe)
+    print()
+    print(UI.rule("FUNCTION CLASS", width=76))
+    if found is None:
+        print(f"\n  {UI.paint('no pronounced habit', INK, bold=True)}")
+        print("  " + UI.paint(
+            "your code does not lean hard enough in any one direction to name. "
+            "That is a description, not a gap.", MUTED))
+        print()
+        return
+
+    print(f"\n  {UI.paint(found.name, VIOLET, bold=True)}  "
+          + UI.paint(found.blurb, INK))
+    print(f"\n  {UI.paint('what earned it', FAINT)}")
+    for signal in found.signals:
+        mark = UI.glyph("tick") if signal.met else UI.glyph("cross")
+        colour = GOOD if signal.met else FAINT
+        print(f"    {UI.paint(mark, colour)} " + UI.paint(str(signal), MUTED))
+
+    # Anything else clearing the same number of signals is as good a fit, and
+    # saying so costs one line.
+    rivals = [
+        other.name for other in all_classes(vibe)[1:]
+        if len(other.met) == len(found.met)
+    ]
+    if rivals:
+        print(f"\n  {UI.paint('fits you equally well', FAINT)} "
+              + UI.paint(", ".join(rivals), MUTED))
+    print()
+
+
 def _print_why(session: Session, all_levels: list) -> None:
     """`status --why`: what the game believes, what it does with it, and what
     it is not claiming (T4 W7).
@@ -870,6 +915,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"    {'vibe source':<15}"
         + UI.paint(session.vibe_source or "(not profiled)", MUTED)
     )
+
+    # Habits and mastery are shown in separate sections and never combined
+    # into one figure: exit criterion 8 forbids any screen presenting a single
+    # number blending what you write with what you score.
+    if session.vibe is not None:
+        _print_class(session.vibe)
 
     drill = choose_drill(all_levels, session.current_mastery())
     if drill is not None:

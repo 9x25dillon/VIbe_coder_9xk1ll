@@ -240,6 +240,16 @@ ever measured. **W1–W7 are done and exit criteria 1, 2, 4 and 5 are
 verified.** W8–W11 are the class, attribute and ability layers, which is where
 T4 stops being a difficulty model and starts being a character sheet.
 
+**W8 `LANDED`** ([S032](../../journal/2026-09-08-S032-classes.md)): six
+function classes derived from the Vibe Vector alone, with the measurements
+that earned them printed beside the name and every equally good fit named as
+well. **Exit criterion 6 is verified** — enforced by signature, since
+`derive_class` has no argument a score could arrive through. The first version
+classified an *empty* codebase as a Loopwright, on two "at most" signals it
+met by containing nothing; a class now needs at least one positive signal,
+because absence can corroborate a reading but never establish one. W9 and W10
+are next.
+
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being
 used as a set of open workstreams rather than a heading. What made it wrong

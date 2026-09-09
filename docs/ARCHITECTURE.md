@@ -294,6 +294,13 @@ for the reason `fight.py` is: this is a model *with rules* — a confidence
 threshold, an update step, a decay to come in W6 — and those rules have
 constants that need explaining. `models.py` holds shapes.
 
+Its counterpart is the **function class** in
+[`profiler.py`](../vibecoder/profiler.py), which reads the Vibe Vector and
+never the mastery model. The two live in different modules with no import
+between them, which is the cheapest enforcement of exit criteria 6 and 8
+available: habits and scores cannot be blended by accident when neither module
+can see the other.
+
 **It is not the Vibe Vector and the two must never be averaged.** The vector
 measures how you write, read statically from your code; mastery measures what
 you score, from runs you played. T4's exit criterion 8 forbids any screen
