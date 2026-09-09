@@ -107,6 +107,9 @@ class Fight:
     _healed: int = field(init=False, default=0, repr=False)
     _spent: int = field(init=False, default=0, repr=False)
     _pending: int = field(init=False, default=0, repr=False)
+    #: Set by an ability; the next repair heals the boss nothing. Consumed on
+    #: use rather than lingering, so "the next one" means exactly one.
+    _heal_waived: bool = field(init=False, default=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.steps < 1:
@@ -130,6 +133,16 @@ class Fight:
     @property
     def down(self) -> bool:
         return self.remaining == 0
+
+    @property
+    def dealt(self) -> int:
+        """Damage actually dealt so far.
+
+        Public because T4 W10's abilities are priced in it: the only thing a
+        player may buy extra attempts with is progress they have already made,
+        which is what stops the pool being refillable from nothing.
+        """
+        return self._dealt
 
     @property
     def cleared(self) -> int:
@@ -207,10 +220,65 @@ class Fight:
             return None
         self._spent += 1
         self._pending += 1
-        healed = self.heal_for(accuracy)
+        if self._heal_waived:
+            # Consumed here rather than at the ability's call site, so "the
+            # next repair" cannot quietly become "every repair from now on".
+            self._heal_waived = False
+            healed = 0
+        else:
+            healed = self.heal_for(accuracy)
         self._healed += healed
         return Repair(healed=healed, accuracy=accuracy,
                       remaining=self.repairs_left)
+
+    # -- what an ability may do (T4 W10) -----------------------------------
+    #
+    # These exist so `abilities.py` never reaches into the private fields
+    # above. Every one of them can *only* move the fight in a direction some
+    # cost has already paid for; the pricing lives with the abilities, and the
+    # arithmetic that must stay consistent lives here.
+
+    def refund(self, count: int = 1) -> int:
+        """Hand back spent repairs. Returns how many were actually returned.
+
+        Bounded by what was spent, because a pool that can be refilled past
+        its starting size is not a pool. This is the method the power-creep
+        hazard is about, which is why it cannot mint anything on its own.
+        """
+        count = max(0, min(count, self._spent))
+        self._spent -= count
+        return count
+
+    def concede(self, hp: int) -> int:
+        """Give the boss health back. Returns how much it actually took.
+
+        Capped at the damage dealt so far: you can only return what you took.
+        A fight that has dealt nothing cannot concede anything, which is
+        exactly the player -- failing the first step -- who would otherwise
+        buy their way out of ever losing.
+        """
+        hp = max(0, min(hp, self._dealt - self._healed))
+        self._healed += hp
+        return hp
+
+    def waive_next_heal(self) -> None:
+        """The next repair hands the boss nothing back."""
+        self._heal_waived = True
+
+    def bank_repairs(self, per_repair: int) -> tuple[int, int]:
+        """Spend every remaining repair as damage. Returns (spent, damage).
+
+        The pool is emptied, not reduced: this is the ability that trades the
+        whole rest of the fight for immediate progress, and leaving a repair
+        behind would make it a free bonus instead of a decision.
+        """
+        available = self.repairs_left
+        if available <= 0:
+            return (0, 0)
+        self._spent += available
+        damage = available * per_repair
+        self._dealt += damage
+        return (available, damage)
 
     def clear(self, index: int) -> int:
         """Mark a step passed and deal its damage. Returns what it dealt.

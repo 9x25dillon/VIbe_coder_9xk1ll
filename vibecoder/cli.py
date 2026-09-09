@@ -31,6 +31,7 @@ from typing import Sequence
 
 from . import levels as level_registry
 from . import sandbox
+from . import abilities as ability_model
 from . import fight as fight_model
 from . import repair
 from . import style, tips
@@ -1137,7 +1138,8 @@ class _Pacer:
 
 
 def _live_step(boss, index: int, code: str, seed: int, pacer: "_Pacer",
-               fight, fix: "Path | None" = None) -> tuple[bool, str, bool]:
+               fight, fix: "Path | None" = None,
+               equipped: "tuple[str, ...]" = ()) -> tuple[bool, str, bool]:
     """Play one boss step until it clears or the player stops.
 
     An *attempt* is one run of the step. A step can fail two ways and both
@@ -1171,7 +1173,7 @@ def _live_step(boss, index: int, code: str, seed: int, pacer: "_Pacer",
     first = True
     while True:
         cleared, code, again, crashed = _attempt(
-            step, tests, code, pacer, fight, fix
+            step, tests, code, pacer, fight, fix, equipped
         )
         if first:
             opened_badly = crashed
@@ -1188,7 +1190,8 @@ def _live_step(boss, index: int, code: str, seed: int, pacer: "_Pacer",
 
 
 def _attempt(step, tests, code: str, pacer: "_Pacer",
-             fight, fix: "Path | None") -> tuple[bool, str, bool, bool]:
+             fight, fix: "Path | None",
+             equipped: "tuple[str, ...]" = ()) -> tuple[bool, str, bool, bool]:
     """One run of one step.
 
     Returns ``(cleared, source, worth trying again, crashed)``. ``crashed``
@@ -1235,7 +1238,8 @@ def _attempt(step, tests, code: str, pacer: "_Pacer",
                     f"{UI.paint(UI.glyph('cross'), BAD, bold=True)} "
                     + UI.paint(event.error[:60], BAD)
                 )
-                if _repair_is_on_offer(fix) and not fight.can_repair:
+                if (_repair_is_on_offer(fix) and not fight.can_repair
+                        and not _spend_ability(fight, equipped)):
                     # Aborting rather than falling through: the child is
                     # blocked mid-run, and draining one that nobody has
                     # released waits forever.
@@ -1281,7 +1285,8 @@ def _attempt(step, tests, code: str, pacer: "_Pacer",
         print(f"    {UI.paint(f'{accuracy:.0%} of cases pass', BAD)}")
         _print_first_failure(verdict, tests)
 
-    if _repair_is_on_offer(fix) and not fight.can_repair:
+    if (_repair_is_on_offer(fix) and not fight.can_repair
+            and not _spend_ability(fight, equipped)):
         print(f"    {UI.paint('no repairs left', WARN, bold=True)}")
         return False, code, False, crashed
     edited = _offer_repair(
@@ -1312,6 +1317,28 @@ def _with_starter(code: str, step) -> str:
     if pattern.search(code):
         return code
     return code.rstrip("\n") + "\n\n\n" + step.starter.strip("\n") + "\n"
+
+
+def _spend_ability(fight, equipped: "tuple[str, ...]") -> bool:
+    """Try to buy another attempt when the pool is empty (T4 W10).
+
+    Called at exactly the moment a fight would otherwise end, because that is
+    the only moment an ability that returns a repair is worth anything -- and
+    it is the moment the power-creep hazard lives at. Whether it succeeds
+    depends on whether the fight can pay: `Refactor` is priced in damage
+    already dealt, so a player who has achieved nothing is offered nothing.
+    """
+    if not equipped:
+        return False
+    for ability in ability_model.usable(fight, equipped):
+        if ability.key != "refactor":
+            continue
+        told = ability.use(fight)
+        print(f"    {UI.badge(ability.name.upper(), VIOLET)} "
+              + UI.paint(told, WARN))
+        print(f"      {UI.paint('cost: ' + ability.cost, FAINT)}")
+        return fight.can_repair
+    return False
 
 
 def _repair_is_on_offer(fix: "Path | None") -> bool:
@@ -1606,6 +1633,16 @@ def cmd_boss(args: argparse.Namespace) -> int:
         ranked = elapsed_override is not None or not (
             args.reference or args.solution or fix
         )
+        equipped = tuple(getattr(args, "ability", None) or ())
+        if equipped:
+            print()
+            for key in equipped:
+                ability = ability_model.ALL.get(key)
+                if ability is None:
+                    continue
+                print(f"  {UI.badge(ability.name.upper(), VIOLET)} "
+                      + UI.paint(ability.blurb, MUTED)
+                      + UI.paint(f"   cost: {ability.cost}", FAINT))
         pacer = _Pacer(args.speed)
         started = time.perf_counter()
         crashed_first_run = False
@@ -1616,7 +1653,7 @@ def cmd_boss(args: argparse.Namespace) -> int:
             # what step three is judged on, because that is what the player
             # would submit.
             cleared, code, opened_badly = _live_step(
-                boss, index, code, seed, pacer, fight, fix
+                boss, index, code, seed, pacer, fight, fix, equipped
             )
             crashed_first_run = crashed_first_run or opened_badly
             if not cleared:
@@ -1999,6 +2036,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_boss.add_argument("boss_id")
     p_boss.add_argument("--seed", type=int, help="pick a variant")
     p_boss.add_argument("--solution", help="run a file instead of the starter")
+    p_boss.add_argument(
+        "--ability", action="append", choices=sorted(ability_model.ALL),
+        help="equip an ability for this fight; repeatable",
+    )
     p_boss.add_argument(
         "--elapsed", type=float,
         help="real solve time in seconds; makes the fight a ranked attempt",

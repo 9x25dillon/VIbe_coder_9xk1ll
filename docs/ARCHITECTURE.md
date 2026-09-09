@@ -34,6 +34,7 @@ vibecoder/
 ├── pulse.py       Keystroke rhythm. Behavioural data; never leaves the host.
 ├── vision.py      The machine view. Pure frames; the trace drives them.
 ├── fight.py       Boss hit points and the repair pool. Arithmetic only.
+├── abilities.py   What may spend or refill those resources, and what it costs.
 ├── mastery.py     Per-tag competency and its update rule. Imports nothing.
 ├── policy.py      How hard the next variant should be, and what to drill.
 ├── repair.py      The pane a player types a boss-fight fix into.

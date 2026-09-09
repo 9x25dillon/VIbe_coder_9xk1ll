@@ -7,6 +7,14 @@ everyday meaning and a specific meaning here, the specific one wins.
 Scoring axis: the fraction of hidden tests a submission passes. Weighted 50% on
 levels, 40% on boss fights. A fatal run scores zero.
 
+### Ability
+Something a player may do to a boss fight's resources, always at a stated cost
+paid in the fight's own currency. `Refactor` buys a spent repair back by
+giving the boss health, and is bounded by damage already dealt — you may buy
+attempts only with progress you have made. An ability with no cost is a
+difficulty setting wearing a costume, and a fight with a full loadout must
+still be losable.
+
 ### Attributes
 The per-tag [mastery](#mastery) vector shown on the character sheet: what you
 have scored, with the run count behind each number and how old the reading is.

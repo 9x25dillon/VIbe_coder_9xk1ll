@@ -20,7 +20,9 @@ from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
+from vibecoder import abilities as ability_model
 from vibecoder import cli
+from vibecoder import fight as fight_model
 from vibecoder.levels import all_bosses, get_boss, get_level
 from vibecoder.models import RunResult, TestCase, TestOutcome
 
@@ -932,6 +934,104 @@ class TestTheAttributesSheet(unittest.TestCase):
                 with everything_printed() as buffer:
                     cli.cmd_status(args)
         self.assertNotIn("\033", buffer.getvalue())
+
+
+class TestAbilitiesInAFight(unittest.TestCase):
+    """T4 W10, at the CLI. `--ability` equips one for a fight.
+
+    `_spend_ability` is exercised directly rather than through a played
+    fight: it only fires when a repair *mechanism* is available and the pool
+    is empty, and the mechanism needs a real terminal on both streams. That
+    is the same gap Q85 already names -- nothing drives the repair pane
+    through a pty -- rather than a new one, and the arithmetic it performs is
+    covered exhaustively in `tests/test_abilities.py`.
+    """
+
+    BOSS = "w1-boss-pipeline"
+
+    def fight_with(self, ability=None) -> str:
+        reference = get_boss(self.BOSS).reference_source()
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = Path(tmp) / "broken.py"
+            broken.write_text(
+                reference.replace('row["price"] >= floor', 'row["prise"] >= floor'),
+                encoding="utf-8",
+            )
+            args = argparse.Namespace(
+                boss_id=self.BOSS, seed=1, live=True, reference=False,
+                solution=str(broken), fix=None, speed=0.0, repairs=1,
+                elapsed=None, ability=ability,
+            )
+            with everything_printed() as buffer:
+                cli.cmd_boss(args)
+            return plain(buffer.getvalue())
+
+    def test_an_equipped_ability_is_announced_with_its_cost(self):
+        """Criterion 7's first half, where the player actually reads it."""
+        out = self.fight_with(["refactor"])
+        self.assertIn("REFACTOR", out)
+        self.assertIn("cost:", out)
+        self.assertIn("the boss recovers", out)
+
+    def test_every_ability_can_be_equipped_and_states_its_cost(self):
+        for key, ability in ability_model.ALL.items():
+            with self.subTest(ability=key):
+                out = self.fight_with([key])
+                self.assertIn(ability.name.upper(), out)
+                self.assertIn(ability.cost, out)
+
+    def test_no_banner_when_nothing_is_equipped(self):
+        out = self.fight_with(None)
+        self.assertNotIn("REFACTOR", out)
+
+    def test_an_unequipped_fight_still_plays(self):
+        self.assertIn("the fight stops here", self.fight_with(None))
+
+
+class TestSpendingAnAbilityToSurvive(unittest.TestCase):
+    """The wiring at the moment a fight would end (T4 W10).
+
+    Driven directly, because reaching it through `cmd_boss` needs a terminal.
+    """
+
+    def spent_fight(self, cleared: int = 2, repairs: int = 1):
+        fight = fight_model.Fight(steps=3, repairs=repairs)
+        for index in range(cleared):
+            fight.clear(index)
+        fight.repair(0.5)
+        return fight
+
+    def test_it_buys_another_attempt_when_the_fight_could_pay(self):
+        fight = self.spent_fight()
+        self.assertFalse(fight.can_repair)
+        self.assertTrue(captured(cli._spend_ability, fight, ("refactor",)))
+        self.assertTrue(fight.can_repair)
+
+    def test_it_says_what_the_purchase_cost(self):
+        out = captured(cli._spend_ability, self.spent_fight(), ("refactor",))
+        self.assertIn("REFACTOR", out)
+        self.assertIn("cost:", out)
+
+    def test_nothing_equipped_buys_nothing(self):
+        fight = self.spent_fight()
+        self.assertFalse(cli._spend_ability(fight, ()))
+        self.assertFalse(fight.can_repair)
+
+    def test_a_fight_with_no_progress_cannot_pay(self):
+        """The anti-creep rule reaching the CLI: a player who has achieved
+        nothing is offered nothing, which is exactly the player who would
+        otherwise never lose."""
+        fight = self.spent_fight(cleared=0)
+        self.assertFalse(captured(cli._spend_ability, fight, ("refactor",)))
+        self.assertFalse(fight.can_repair)
+
+    def test_an_ability_that_cannot_refill_the_pool_does_not_pretend_to(self):
+        """Only `refactor` returns a repair. Equipping the others must not
+        revive a fight."""
+        fight = self.spent_fight()
+        self.assertFalse(
+            captured(cli._spend_ability, fight, ("steady", "overclock"))
+        )
 
 
 class TestTheHintLadder(unittest.TestCase):

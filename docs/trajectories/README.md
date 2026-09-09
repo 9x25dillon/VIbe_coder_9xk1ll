@@ -254,8 +254,13 @@ per-tag mastery vector on the character sheet beside the class, sharing one
 renderer with `status --why` so the two screens cannot disagree. Displaying
 the numbers found a W6 bug the decay tests had missed — truncation sent a tag
 played *once* to zero observations after half a day, so it vanished overnight
-and reappeared under "never measured". **Only W10 and W11 remain**, and both
-are abilities.
+and reappeared under "never measured".
+
+**W10 `LANDED`** ([S034](../../journal/2026-09-08-S034-abilities.md)): three
+abilities, each priced in the fight's own currency, with `Refactor` bounded by
+damage already dealt so a player who has achieved nothing can buy nothing.
+**Exit criterion 7 is verified**, and the losability guard was checked by
+breaking it — with the cost removed, seven tests fail. **Only W11 remains.**
 
 The count was wrong for five sessions and the reason is worth keeping: T7 was
 opened while T2 was in flight and T3 while both were, so the board was being

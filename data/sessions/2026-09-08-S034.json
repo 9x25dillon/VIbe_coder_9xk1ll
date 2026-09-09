@@ -1,0 +1,131 @@
+{
+  "id": "S034",
+  "date": "2026-09-08",
+  "duration_minutes": 55,
+  "trajectory": "T4",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S034-abilities.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "A player can spend or refill a fight's resources, always at a stated cost", "result": "met", "note": "three abilities, each priced in the fight's own currency"},
+    {"id": 2, "statement": "A fight with a full loadout is still losable", "result": "met", "note": "an adversarial grind rather than an assertion"},
+    {"id": 3, "statement": "The losability guard is shown to be capable of failing", "result": "met", "note": "Refactor's cost removed: seven tests fail, including all four losability ones"},
+    {"id": 4, "statement": "The boss engine's cost model survives having abilities added to it", "result": "met", "note": "Refactor is priced in progress already made, which is finite"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/abilities.py", "kind": "module", "note": "new. Refactor, Steady Hand and Overclock, each with a stated cost and an availability rule"},
+    {"path": "vibecoder/fight.py", "kind": "module", "note": "dealt, refund, concede, waive_next_heal, bank_repairs -- every one clamped to what the fight can afford"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "--ability equips one for a fight; _spend_ability fires at the moment the pool empties"},
+    {"path": "tests/test_abilities.py", "kind": "test", "note": "new. 22 cases, including TestAFightIsStillLosable, an adversarial simulation"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestAbilitiesInAFight and TestSpendingAnAbilityToSurvive, 9 cases"},
+    {"path": "docs/trajectories/T4-adaptive.md", "kind": "doc", "note": "W10 LANDED; the three abilities, what makes a fight losable, and the guard being broken on purpose"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "W10 landed; criterion 7 verified; only W11 remains"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "abilities.py in the module map"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Ability entry"},
+    {"path": "README.md", "kind": "doc", "note": "--ability in the command table; test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S034-abilities.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Criterion 7a: every ability states a cost", "method": "test_every_ability_has_a_cost_in_words, plus the CLI banner", "result": "green", "verdict": "verified"},
+    {"claim": "No ability is actually free", "method": "test_no_ability_is_free: each must leave the fight worse on repairs or on boss health", "result": "green", "verdict": "verified"},
+    {"claim": "Criterion 7b: a full loadout still runs out", "method": "test_a_full_loadout_still_runs_out, an adversarial grind to a 500-attempt cap", "result": "the fight ends", "verdict": "verified"},
+    {"claim": "It runs out even after a flawless fight, the richest possible start", "method": "test_it_runs_out_even_after_a_nearly_perfect_fight", "result": "the fight ends", "verdict": "verified"},
+    {"claim": "The losability guard is capable of failing", "method": "Refactor's cost removed by hand, suite re-run, then restored", "result": "7 failures including all four losability tests; 22/22 after restoring", "verdict": "verified"},
+    {"claim": "Abilities buy more attempts than no abilities", "method": "test_abilities_buy_more_attempts_than_no_abilities, the paired positive", "result": "strictly more", "verdict": "verified"},
+    {"claim": "A player with no progress gets no reprieve at all", "method": "test_a_player_failing_the_first_step_gets_no_reprieve_at_all", "result": "identical outcome with and without a loadout", "verdict": "verified"},
+    {"claim": "Surviving costs every point of progress", "method": "test_the_boss_is_at_full_health_by_the_time_they_are_out", "result": "boss back at starting HP", "verdict": "verified"},
+    {"claim": "The pool can never exceed its starting size", "method": "test_the_pool_can_never_exceed_its_starting_size", "result": "green over 20 attempted refactors", "verdict": "verified"},
+    {"claim": "'The next repair' means exactly one", "method": "test_only_the_next_one", "result": "the second repair heals normally", "verdict": "verified"},
+    {"claim": "Overclock leaves nothing behind", "method": "test_it_leaves_nothing_behind", "result": "pool empty, can_repair false", "verdict": "verified"},
+    {"claim": "Every ability can be equipped and announces its cost", "method": "test_every_ability_can_be_equipped_and_states_its_cost", "result": "green for all three", "verdict": "verified"},
+    {"claim": "_spend_ability buys an attempt only when the fight can pay", "method": "TestSpendingAnAbilityToSurvive, 5 cases", "result": "green, including the no-progress case", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1312 tests OK in 208.158s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1288 tests OK in 141.650s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "Any of this is fun", "method": "nobody has played a fight with an ability", "result": "unknown", "verdict": "unverified"},
+    {"claim": "8 HP is the right price for a repair", "method": "chosen to sit just under a repair's own worst-case heal of 10", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [
+    {
+      "id": "M56",
+      "believed": "That the way to keep abilities from dissolving the boss engine was to make them cost hit points -- the boss heals, so abilities are self-limiting.",
+      "revealed_by": "Writing down how a fight is actually lost before writing the abilities, which the previous handoff told me to do first.",
+      "corrected_to": "Hit points cannot end a fight. cmd_boss returns 1 when a step fails and can_repair is false; the boss's health is never consulted, and a boss at full health is a poor win rather than a loss. An ability priced purely in HP is priced in a currency the player can spend without limit -- healing a boss that is already full costs nothing, because Fight.remaining clamps at hp. So 'the boss heals 8' would have been free after the boss returned to full, handing unlimited repairs to whoever needed them most. concede is now capped at dealt minus healed, and Refactor requires that much to exist: the cost is progress, which is finite.",
+      "cost_minutes": 0,
+      "caught_before_shipping": true,
+      "generalisable_lesson": "'This costs something' is not the same as 'this is bounded'. A cost only limits an action if the currency can run out and the thing being protected depends on that currency. I had the right instinct -- price it -- and picked a currency with no floor, in a system where the resource that matters is a different one. Worth asking of any cost: what happens when the player has spent all of it? If the answer is 'nothing changes', it was never a cost."
+    }
+  ],
+  "decisions": [
+    {"id": "D213", "decision": "Refactor is priced in damage already dealt, not in boss health", "alternatives": ["Price it in HP conceded", "A per-fight use cap", "A third resource"], "rationale": "M56. HP cannot end a fight and is unspendable past full, so it is not a bound. Progress is finite, and pricing in it makes the player who has achieved nothing exactly the one who cannot buy immunity.", "reversible": true, "seam": "vibecoder/abilities.py::Refactor"},
+    {"id": "D214", "decision": "The mutators live on Fight; the prices live on the abilities", "alternatives": ["Let abilities manipulate Fight's private fields directly"], "rationale": "The arithmetic that must stay consistent stays with the state it constrains, and every mutator clamps to what the fight can afford.", "reversible": true, "seam": "vibecoder/fight.py"},
+    {"id": "D215", "decision": "use reports the price actually paid", "alternatives": ["Report the price asked for"], "rationale": "Every mutator clamps, so the two can differ. An ability announcing a cost the fight could not meet would be lying on the screen.", "reversible": true, "seam": "vibecoder/abilities.py::Ability.use"},
+    {"id": "D216", "decision": "Steady Hand needs two repairs before it may be used", "alternatives": ["Allow it at one"], "rationale": "Spending your last repair to make a repair you can no longer afford free is a trap rather than a choice.", "reversible": true, "seam": "vibecoder/abilities.py::SteadyHand"},
+    {"id": "D217", "decision": "Overclock empties the pool rather than reducing it", "alternatives": ["Leave one behind", "Convert a chosen number"], "rationale": "A version that kept one is a free bonus. Emptying it makes the ability a decision about whether the fight is already over.", "reversible": true, "seam": "vibecoder/abilities.py::Overclock"},
+    {"id": "D218", "decision": "--ability follows --fix's precedent for scripting an interactive choice", "alternatives": ["An interactive menu in the repair pane"], "rationale": "A menu is W11's territory once there is an earned loadout to choose from, and building one now would invent W11's gate early.", "reversible": true, "seam": "vibecoder/cli.py"}
+  ],
+  "friction": [
+    {"description": "Wiring the abilities into the live fight and then finding the path unreachable from a test. _spend_ability fires when the pool empties and a repair mechanism is available, and the mechanism needs a real terminal on both streams -- so a piped fight ends for lack of a repair pane rather than for lack of repairs, and the ability correctly never gets a turn. Same gap Q85 already names rather than a new one, and the placement is right for real play, so the function is driven directly instead.", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T4 W1-W10 LANDED. Only W11 remains. Abilities act on a fight's resources at a stated cost, and a full loadout still loses -- checked by removing a cost and watching seven tests fail. Exit criteria 1, 2, 4, 5, 6, 7 and 8 verified; 3 verified for the two simulated players who can fail (Q89). 1312 tests green unpinned, 1288 pinned, verify clean on 54 reference runs.",
+    "next_action": "T4 W11, earning and equipping: which abilities a class unlocks and at what mastery. The trajectory calls it 'the only place the two layers are allowed to meet, and they meet as a gate, never as an average', which is the whole design constraint -- a class may decide which ability, mastery may decide whether, and nothing may combine them into a number. Criterion 8 is the one at risk and it is currently verified.",
+    "blockers": [
+      "None for T4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M56 before pricing anything: ask what happens when the player has spent all of the currency; if the answer is 'nothing changes', it was never a cost",
+      "M46 before writing a guard: break it and check that it fails"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve and pool size were chosen by argument, not playtest, and the ability prices now join them.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the whole editor through a pty, and now nothing drives an ability through one either.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q89", "question": "Exit criterion 3's band cannot hold for a player who always writes correct code.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q92", "question": "status --why lists every level, which will not scale past twelve.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q93", "question": "Three classes tie at 3/3 and the tie-break is margin. Should a tie be shown as a tie?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q94", "question": "The class is never stored, so a player cannot see that it changed.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q95", "question": "A number nobody renders is a number nobody has checked.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q96", "question": "Steady Hand and Overclock cannot be reached from the CLI at all. --ability equips them and the banner names them, but only Refactor is ever spent, because the sole automatic trigger is 'the pool emptied'. They need a choice, which is W11's menu or an interactive pane. Is a scripted trigger per ability worth building, or does this wait?", "owner": "T4", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1312,
+    "tests_passing": 1312,
+    "tests_added": 31,
+    "suite_seconds_unpinned": 208.158,
+    "suite_tests_pinned_bwrap": 1288,
+    "suite_seconds_pinned_bwrap": 141.65,
+    "reference_runs_clean": 54,
+    "abilities": 3,
+    "refactor_hp_cost": 8,
+    "overclock_damage_per_repair": 4,
+    "tests_failing_with_a_free_refactor": 7,
+    "t4_waypoints_landed": 10,
+    "t4_waypoints_total": 11,
+    "t4_exit_criteria_verified": 7,
+    "t4_exit_criteria_total": 8,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 5,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 29,
+    "dependencies": 0
+  }
+}

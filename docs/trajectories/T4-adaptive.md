@@ -93,7 +93,7 @@ this waited for W6 rather than being started when it was first raised.
 | W7 | Explanation surface: `vibecoder status --why` | `LANDED` (S031). Shows what was measured, what the game would give them for every level, and **what the model does not know** — the last generated from the content rather than written down. |
 | W8 | Derive a **function class** from the Vibe Vector, with the evidence attached | `LANDED` (S032). Six classes, three signals each, two required — **and at least one of them positive**, because absence must never earn an identity. `status` prints the measurements and the equally good fits. |
 | W9 | Surface **attributes** as the per-tag mastery vector already measured, in the same view | `LANDED` (S033). W1's numbers on the character sheet beside the class, each with its run count and how old it is. One renderer shared with `--why`, so the two screens cannot disagree. |
-| W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | Each has a cost. An ability with no cost is a difficulty setting in a costume. |
+| W10 | **Abilities** that act on a boss fight's resources (T3 W6's HP and repair pool) | `LANDED` (S034). Three, each priced in the fight's own currency. `Refactor` is bounded by damage already dealt, which is what keeps a fight losable. |
 | W11 | Earning and equipping: which abilities a class unlocks, and at what mastery | The only place the two layers are allowed to meet, and they meet as a *gate*, never as an average. |
 
 ## What W4 measured, and what it could not
@@ -338,6 +338,53 @@ cannot.
 
 The two sections sit adjacent and the sheet says out loud that they are not
 combined, which is exit criterion 8 stated on the screen it applies to.
+
+## Abilities (W10)
+
+Three, in [`abilities.py`](../../vibecoder/abilities.py), each priced in the
+fight's own currency so every one is a trade rather than a gift:
+
+| Ability | Does | Costs |
+| --- | --- | --- |
+| **Refactor** | takes a spent repair back | the boss recovers 8 |
+| **Steady Hand** | the next repair heals the boss nothing | one repair from the pool |
+| **Overclock** | every repair left becomes 4 damage | every repair you have; you cannot repair again |
+
+### What makes a fight losable, and what threatens it
+
+A fight is lost by failing a step with **no repairs left**. Hit points do not
+enter into it — a boss at full health is a poor win, not a loss. So the
+dangerous ability is not one that damages the boss; it is the one that *adds
+repairs*, and `Refactor` is exactly that.
+
+It is bounded by pricing it in **damage already dealt**. You may buy attempts
+only with progress you have already made, so a player failing the *first*
+step has dealt nothing and can buy nothing — which is precisely the player who
+would otherwise never lose. Every purchase moves the boss back toward full,
+and once it is there the supply is gone.
+
+### The guard, and proof that it is one
+
+`tests/test_abilities.py::TestAFightIsStillLosable` is an attempt rather than
+an assertion: a player who cannot solve the last step plays every ability as
+well as it can be played, and the question is whether the fight ever ends.
+
+**It was checked by breaking it.** With `Refactor`'s cost removed, seven tests
+fail including all four losability ones; restored, they pass. A guard that
+cannot fail is not a guard, and this one was run in both states rather than
+assumed to work.
+
+The measured cost of survival: by the time an abilities-equipped player runs
+out, **the boss is back at full health** — every point of progress sold back
+for attempts.
+
+### Reachability
+
+`--ability KEY` equips one, following `--fix`'s precedent for scripting an
+interactive choice. It fires at the moment the pool empties, which needs a
+repair mechanism to be available — and that needs a real terminal, so the
+CLI path is only exercisable interactively. The same gap Q85 already names for
+the repair pane; the arithmetic is covered exhaustively without one.
 
 ## Exit criteria
 
