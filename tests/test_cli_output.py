@@ -1116,6 +1116,118 @@ class TestTheAbilitySheet(unittest.TestCase):
         self.assertNotIn("\033", buffer.getvalue())
 
 
+class TestTheDailyCommand(unittest.TestCase):
+    """T5 W1 at the CLI. The same challenge for everyone, named as such."""
+
+    def show(self, when="2026-09-08") -> str:
+        args = argparse.Namespace(
+            date=when, show=True, solution=None, elapsed=None,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                return captured(cli.cmd_daily, args)
+
+    def test_it_names_the_level_and_the_variant(self):
+        from vibecoder.daily import choose
+        from vibecoder.levels import all_levels
+
+        expected = choose("2026-09-08", [l.id for l in all_levels()])
+        out = self.show()
+        self.assertIn(expected.level_id, out)
+        self.assertIn(str(expected.seed), out)
+
+    def test_it_says_the_challenge_is_shared(self):
+        out = self.show()
+        self.assertIn("same level and the same variant for everyone", out)
+
+    def test_it_says_it_is_not_adapted(self):
+        """The interaction with T4 that would otherwise be invisible: a daily
+        adapted to the player is a different puzzle per player."""
+        self.assertIn("not adapted to you", self.show())
+
+    def test_the_same_date_shows_the_same_thing(self):
+        self.assertEqual(self.show(), self.show())
+
+    def test_a_different_date_shows_something_else(self):
+        self.assertNotEqual(self.show("2026-09-08"), self.show("2026-09-09"))
+
+    def test_it_emits_no_escape_sequence_into_a_pipe(self):
+        args = argparse.Namespace(
+            date="2026-09-08", show=True, solution=None, elapsed=None,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": tmp}):
+                with everything_printed() as buffer:
+                    cli.cmd_daily(args)
+        self.assertNotIn("\033", buffer.getvalue())
+
+
+class TestADailyIsNotAdapted(unittest.TestCase):
+    """T5 exit criterion 1 through the play path, not just the selection.
+
+    A daily that ran at the player's adaptive difficulty would hand two
+    players different data for the same challenge, and the leaderboard T5 is
+    building toward would be comparing different puzzles.
+    """
+
+    LEVEL = "w2-l2-groupby"      # the one level that opts in to difficulty
+
+    def played(self, mastery) -> str:
+        from vibecoder.levels import get_level
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "profile.json").write_text(
+                json.dumps({"version": 1, "levels": {}, "mastery": mastery}),
+                encoding="utf-8",
+            )
+            solution = root / "solution.py"
+            solution.write_text(get_level(self.LEVEL).reference, encoding="utf-8")
+            args = argparse.Namespace(
+                level_id=self.LEVEL, seed=7, solution=str(solution),
+                elapsed=120.0, no_vision=True,
+                difficulty=0.5,
+            )
+            with mock.patch.dict(os.environ, {"VIBECODER_HOME": str(root)}):
+                return captured(cli.cmd_play, args)
+
+    def strong(self) -> dict:
+        return {tag: {"value": 0.95, "observations": 9, "updated_at": ""}
+                for tag in ("data", "tabular", "datastructures")}
+
+    def weak(self) -> dict:
+        return {tag: {"value": 0.05, "observations": 9, "updated_at": ""}
+                for tag in ("data", "tabular", "datastructures")}
+
+    def ops(self, out: str) -> str:
+        row = [l for l in out.splitlines() if "reference)" in l]
+        self.assertTrue(row, out)
+        return row[0].split("(")[1]
+
+    def test_two_opposite_players_get_the_same_variant(self):
+        self.assertEqual(self.ops(self.played(self.strong())),
+                         self.ops(self.played(self.weak())))
+
+    def test_the_screen_says_why_it_was_not_adapted(self):
+        self.assertIn("same for everyone", self.played(self.strong()))
+
+    def test_without_the_override_the_two_would_differ(self):
+        """The paired negative. Without it, the test above would also pass for
+        a difficulty dial that had stopped working."""
+        from vibecoder.mastery import Mastery
+        from vibecoder.models import Difficulty
+        from vibecoder.policy import choose_difficulty
+        from vibecoder.levels import get_level
+
+        level = get_level(self.LEVEL)
+        strong = Mastery.from_json(self.strong())
+        weak = Mastery.from_json(self.weak())
+        self.assertNotEqual(
+            choose_difficulty(level.tags, strong).difficulty.level,
+            choose_difficulty(level.tags, weak).difficulty.level,
+        )
+
+
 class TestTheHintLadder(unittest.TestCase):
     LEVEL = get_level("w1-l6-tally")
 

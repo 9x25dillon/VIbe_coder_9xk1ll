@@ -1,6 +1,7 @@
 # T5 — Daily challenges, leaderboards, level editor
 
-**Design phase:** 4 · **Status:** `PLOTTED` · **Target:** 2026-10-18 ·
+**Design phase:** 4 · **Status:** `IN FLIGHT` · **Target:** 2026-10-18 ·
+**Started:** 2026-09-08 ·
 **Depends on:** T2 (**hard** dependency — this trajectory executes untrusted code)
 
 ## Heading
@@ -18,13 +19,63 @@ This is stated here so that no one can reach the editor by accident.
 
 | ID | Waypoint | Notes |
 | --- | --- | --- |
-| W1 | Deterministic daily seed: `hash(date)` → variant, identical for everyone | No server needed for the puzzle itself. |
+| W1 | Deterministic daily seed: `hash(date)` → variant, identical for everyone | `LANDED` (S036). **Not `hash`** — it is randomised per process, so the same date differs between two runs on one machine. `hashlib.sha256`, and criterion 1 is checked by re-deriving in a separate interpreter. |
 | W2 | Local leaderboard and personal daily history | Playable and useful with no backend at all. |
 | W3 | Score submission API + server-side re-verification | A client-reported score is a claim, not a fact. Re-run the submission server-side. |
 | W4 | Vibe-filtered leaderboards | The design's "compare against similar coding style" — cosine similarity over Vibe Vectors. |
 | W5 | Level editor: author a level, validate it, export it | Validation runs the same contract tests as `tests/test_levels.py`. |
 | W6 | Level sharing with mandatory container execution | Untrusted code, no exceptions. |
 | W7 | Achievements and New Game+ | Cheap once the score history exists. |
+
+## The daily (W1)
+
+One level, one variant seed, from the date alone. Two people with no network
+between them get the same problem, which is what makes a shared challenge
+possible before any of this trajectory's backend exists.
+
+### The waypoint's own wording was the first bug
+
+W1 is written as `hash(date)` → variant, and that is precisely what it must
+not do. Python randomises `str` hashing per process unless `PYTHONHASHSEED` is
+pinned, so the same date gives a different answer on every **run** — exit
+criterion 1 asks two machines to agree, and `hash` cannot manage two
+invocations on one:
+
+```
+$ for i in 1 2 3; do python3 -c "print(hash('2026-09-08'))"; done
+-7723537222559262413
+-7920657940426615118
+ 1873428733625979326
+```
+
+`hashlib.sha256` is specified, stable across builds and platforms, and in the
+standard library (N1). `tests/test_daily.py` re-derives the daily in a
+**separate interpreter process** and compares, which is the closest a unit
+test gets to two machines — and it documents the `hash` failure as a test, so
+a future reader sees why rather than being asked to trust a comment.
+
+### A daily is not adapted, and that is a T4 decision reversed
+
+`Daily` carries no difficulty field. T4 spent eleven waypoints learning to
+give each player a variant matched to them, and a shared challenge needs
+exactly the opposite: **adapting a daily would hand two players different data
+for the same puzzle**, and the leaderboard W2–W4 are building toward would be
+comparing different problems.
+
+So `cmd_daily` imposes the standard difficulty and `cmd_play` honours it,
+saying so on screen — *"a daily challenge is the same for everyone, so this
+variant is not adapted to you"*. The absence of the field on `Daily` is the
+enforcement; the sentence is so the player is not left wondering why the
+adaptation they were promised stopped.
+
+### Scoped determinism
+
+A daily is determined by **the date and the set of levels in this build**.
+Adding a level changes which one a past date selects, and avoiding that would
+mean pinning a catalogue snapshot into the code, which would then rot against
+the levels that actually exist. The criterion is about two machines agreeing,
+and two machines on the same build do. Ids are sorted before indexing, so a
+registry ordering bug cannot silently move today's challenge.
 
 ## Exit criteria
 

@@ -33,7 +33,7 @@ Each trajectory document has the same five sections.
 | [T2](T2-sandbox.md) | Trusted execution & codebase ingestion | Phase 1 | `IN FLIGHT` | 2026-08-30 |
 | [T3](T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | Phase 2 | `LANDED` | 2026-09-20 |
 | [T4](T4-adaptive.md) | Adaptive difficulty | Phase 3 | `LANDED` | 2026-10-04 |
-| [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `PLOTTED` | 2026-10-18 |
+| [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `IN FLIGHT` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
 | [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `LANDED` | — |
 
@@ -197,9 +197,23 @@ says should be true. 2026-09-08 was an unusual day: it opened with three, went
 to one as T3 landed and T7 followed, back to two when T4 started, and closed
 at one when T4 landed as well.
 
-The remaining one is **T2**, and it is not in flight in any sense involving
-flying — one externally blocked waypoint from landing, and untouched since
-2026-09-03. That is the honest reading rather than a tidy one.
+**T5 then started the same day**, so it is two again — recorded rather than
+absorbed, per the rule. The other is **T2**, which is not in flight in any
+sense involving flying: one externally blocked waypoint from landing, and
+untouched since 2026-09-03. That is the honest reading rather than a tidy one.
+
+**T5 waypoint state:** W1 `LANDED`
+([S036](../../journal/2026-09-08-S036-daily.md)). The daily challenge is the
+same level and variant for everyone, derived from the date with `hashlib`
+rather than the `hash()` the waypoint names — `hash` is randomised per process
+and would have failed exit criterion 1 on a single machine. **Exit criterion 1
+is verified**, by re-deriving the daily in a separate interpreter.
+
+W6 remains behind the hard gate below, and the gate is necessary rather than
+sufficient: a level is an *importable module* whose `make_tests` runs in the
+parent process, so sharing one needs a data format before it needs a
+container. That is written into T5's hazard list and is the thing to solve
+before W5 ships anything exportable.
 
 **T4 waypoint state:** W1–W4 `LANDED`
 ([S027](../../journal/2026-09-08-S027-mastery.md),

@@ -37,6 +37,7 @@ vibecoder/
 ├── abilities.py   What may spend or refill those resources, what it costs,
 │                  and the gate between a class and reaching one.
 ├── mastery.py     Per-tag competency and its update rule. Imports nothing.
+├── daily.py       The date -> today's challenge. Imports nothing.
 ├── policy.py      How hard the next variant should be, and what to drill.
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.

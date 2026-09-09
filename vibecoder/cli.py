@@ -19,6 +19,7 @@ sequences; ``NO_COLOR=1`` does the same on a terminal.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import os
 import re
@@ -32,6 +33,7 @@ from typing import Sequence
 from . import levels as level_registry
 from . import sandbox
 from . import abilities as ability_model
+from . import daily as daily_model
 from . import fight as fight_model
 from . import repair
 from . import style, tips
@@ -53,7 +55,13 @@ from .runner import (
     run_code,
     run_submission,
 )
-from .policy import choose_difficulty, choose_drill, limits
+from .models import DEFAULT_DIFFICULTY, Difficulty
+from .policy import (
+    Decision,
+    choose_difficulty,
+    choose_drill,
+    limits,
+)
 from .scoring import (
     BOSS_WEIGHTS,
     LEVEL_WEIGHTS,
@@ -561,7 +569,23 @@ def cmd_play(args: argparse.Namespace) -> int:
     seed = args.seed if args.seed is not None else session.next_seed(level.id)
     # T4 W4: how hard this variant is, and why. The decision carries its own
     # reason so the two cannot drift apart -- see `policy.Decision`.
-    decision = choose_difficulty(level.tags, session.current_mastery(), session.vibe)
+    #
+    # A daily imposes its difficulty instead (T5 W1). Adapting a shared
+    # challenge to the player would give everyone a different puzzle, which
+    # is exit criterion 1 broken at the root rather than a tuning question.
+    imposed = getattr(args, "difficulty", None)
+    if imposed is None:
+        decision = choose_difficulty(
+            level.tags, session.current_mastery(), session.vibe
+        )
+    else:
+        decision = Decision(
+            difficulty=Difficulty(imposed),
+            source="fixed",
+            reason="a daily challenge is the same for everyone, so this "
+                   "variant is not adapted to you",
+            evidence={"imposed": imposed},
+        )
     tests = level.tests_for(seed, decision.difficulty)
 
     print()
@@ -994,6 +1018,45 @@ def _print_why(session: Session, all_levels: list) -> None:
                 marker = UI.paint("-", FAINT) if index == 0 else " "
                 print(f"    {marker} {line.lstrip()}" if index == 0 else line)
     print()
+
+
+def cmd_daily(args: argparse.Namespace) -> int:
+    """Today's challenge: the same level and variant for everybody (T5 W1).
+
+    Derived from the date and the level catalogue alone, so two people with no
+    network between them get the same problem. `--date` plays a past one,
+    which is also how the determinism is demonstrated rather than asserted.
+    """
+    when = getattr(args, "date", None) or date.today().isoformat()
+    catalogue = [level.id for level in level_registry.all_levels()]
+    today = daily_model.choose(when, catalogue)
+    if today is None:
+        raise SystemExit("no levels to draw a daily from")
+
+    level = level_registry.get_level(today.level_id)
+    print()
+    print(UI.rule(f"DAILY  {today.date}", width=76))
+    print(f"\n  {UI.paint(level.title, INK, bold=True)}  "
+          + UI.paint(f"({today.level_id}, variant {today.seed})", FAINT))
+    print("  " + UI.paint(
+        "the same level and the same variant for everyone playing today.",
+        MUTED))
+    print("  " + UI.paint(
+        "not adapted to you -- that is what makes it comparable.", FAINT))
+
+    if getattr(args, "show", False):
+        print(f"\n  {UI.paint('play it with', FAINT)} "
+              + UI.paint(f"vibecoder daily", MUTED) + "\n")
+        return 0
+
+    # Played through the ordinary path, at the imposed difficulty, so a daily
+    # is scored by exactly the same machinery as anything else.
+    play_args = argparse.Namespace(
+        level_id=today.level_id, seed=today.seed, solution=args.solution,
+        elapsed=args.elapsed, no_vision=getattr(args, "no_vision", False),
+        difficulty=DEFAULT_DIFFICULTY.level,
+    )
+    return cmd_play(play_args)
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -2054,6 +2117,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip the machine view in the reveal",
     )
     p_play.set_defaults(func=cmd_play)
+
+    p_daily = sub.add_parser("daily", help="today's challenge, same for everyone")
+    p_daily.add_argument("--date", help="play a past daily (YYYY-MM-DD)")
+    p_daily.add_argument("--show", action="store_true",
+                         help="name it without playing it")
+    p_daily.add_argument("--solution", help="score a file instead of editing")
+    p_daily.add_argument("--elapsed", type=float,
+                         help="real solve time in seconds")
+    p_daily.set_defaults(func=cmd_daily)
 
     p_status = sub.add_parser("status", help="show progression")
     p_status.add_argument(

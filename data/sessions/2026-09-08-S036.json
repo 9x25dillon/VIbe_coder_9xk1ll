@@ -1,0 +1,116 @@
+{
+  "id": "S036",
+  "date": "2026-09-08",
+  "duration_minutes": 45,
+  "trajectory": "T5",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-08-S036-daily.md",
+  "supersedes": null,
+  "objectives": [
+    {"id": 1, "statement": "Two people with no network between them get the same puzzle from the same date", "result": "met", "note": "hashlib.sha256 over the date, against a sorted catalogue"},
+    {"id": 2, "statement": "The determinism is demonstrated rather than asserted", "result": "met", "note": "re-derived in a separate interpreter process, which is the closest a unit test gets to two machines"},
+    {"id": 3, "statement": "A shared challenge is not quietly adapted per player", "result": "met", "note": "Daily carries no difficulty field; cmd_play honours an imposed one and says so"}
+  ],
+  "artifacts": [
+    {"path": "vibecoder/daily.py", "kind": "module", "note": "new. Date to challenge, importing nothing; handed the level ids rather than reaching for the registry"},
+    {"path": "vibecoder/cli.py", "kind": "module", "note": "cmd_daily; cmd_play honours an imposed difficulty and explains it"},
+    {"path": "tests/test_daily.py", "kind": "test", "note": "new. 15 cases including criterion 1 via subprocess and the hash() failure documented as a test"},
+    {"path": "tests/test_cli_output.py", "kind": "test", "note": "TestTheDailyCommand and TestADailyIsNotAdapted, 9 cases with a paired negative"},
+    {"path": "docs/trajectories/T5-community.md", "kind": "doc", "note": "IN FLIGHT; W1 LANDED; the hash trap, the not-adapted decision and the scoped determinism"},
+    {"path": "docs/trajectories/README.md", "kind": "doc", "note": "T5 in flight; W1 landed; the W6 gate restated as necessary but not sufficient"},
+    {"path": "docs/ARCHITECTURE.md", "kind": "doc", "note": "daily.py in the module map"},
+    {"path": "docs/GLOSSARY.md", "kind": "doc", "note": "Daily challenge entry"},
+    {"path": "README.md", "kind": "doc", "note": "daily in the command table; test count"},
+    {"path": "CLAUDE.md", "kind": "doc", "note": "test count"},
+    {"path": "Hand_off.md", "kind": "doc", "note": "gate counts"},
+    {"path": "journal/2026-09-08-S036-daily.md", "kind": "doc", "note": "This session"}
+  ],
+  "evidence": [
+    {"claim": "Criterion 1: a second process derives the identical daily", "method": "test_a_second_process_derives_the_same_daily, a real subprocess", "result": "identical date, level and seed", "verdict": "verified"},
+    {"claim": "The digest itself is stable across processes", "method": "test_the_digest_is_the_same_in_another_process", "result": "identical hex", "verdict": "verified"},
+    {"claim": "hash() would not have satisfied criterion 1", "method": "test_builtin_hash_would_not_have_been: four subprocesses", "result": "more than one distinct answer for the same string", "verdict": "verified"},
+    {"claim": "Registry ordering cannot move today's challenge", "method": "test_registry_order_cannot_change_what_everyone_plays", "result": "identical against a reversed id list", "verdict": "verified"},
+    {"claim": "The level and the seed are drawn independently", "method": "test_the_level_and_the_seed_are_independent", "result": "dates sharing a level differ in seed", "verdict": "verified"},
+    {"claim": "Consecutive days rarely repeat", "method": "test_consecutive_days_usually_differ over 48 dates", "result": "above 90% distinct", "verdict": "verified"},
+    {"claim": "Every level comes up eventually", "method": "test_every_level_comes_up_eventually", "result": "more than half the catalogue across 48 dates", "verdict": "verified"},
+    {"claim": "An empty catalogue returns nothing rather than raising", "method": "test_an_empty_catalogue_gives_nothing_rather_than_raising", "result": "None", "verdict": "verified"},
+    {"claim": "A daily carries no difficulty", "method": "test_a_daily_carries_no_difficulty, asserting the dataclass field set", "result": "absent", "verdict": "verified"},
+    {"claim": "Two opposite profiles get the same variant", "method": "test_two_opposite_players_get_the_same_variant, comparing reference op counts through the play path", "result": "identical", "verdict": "verified"},
+    {"claim": "They would differ without the override", "method": "test_without_the_override_the_two_would_differ, the paired negative", "result": "different difficulties from the adaptive policy", "verdict": "verified"},
+    {"claim": "No escape sequence reaches a pipe", "method": "test_it_emits_no_escape_sequence_into_a_pipe", "result": "0", "verdict": "verified"},
+    {"claim": "The suite is green unpinned", "method": "python3.11 -m unittest discover -s tests", "result": "1362 tests OK in 220.600s", "verdict": "verified"},
+    {"claim": "The suite is green pinned to bubblewrap", "method": "VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests", "result": "1338 tests OK in 141.274s", "verdict": "verified"},
+    {"claim": "The references still pass every variant", "method": "python3.11 -m vibecoder.cli verify --seeds 3", "result": "54/54", "verdict": "verified"},
+    {"claim": "A daily is a thing anyone wants", "method": "nobody has played one", "result": "unknown", "verdict": "unverified"}
+  ],
+  "misconceptions": [],
+  "decisions": [
+    {"id": "D225", "decision": "hashlib.sha256, not hash()", "alternatives": ["The waypoint's literal wording", "Pinning PYTHONHASHSEED"], "rationale": "hash is randomised per process, so the same date differs between two runs on one machine, let alone two machines. Pinning the environment variable would make correctness depend on how the game is launched.", "reversible": false, "seam": "vibecoder/daily.py::digest"},
+    {"id": "D226", "decision": "daily.py imports nothing and is handed the level ids", "alternatives": ["Reach for level_registry inside the module"], "rationale": "Same discipline as fight.py and mastery.py: the selection becomes testable against any catalogue, including the empty one and a hand-built pair.", "reversible": true, "seam": "vibecoder/daily.py::choose"},
+    {"id": "D227", "decision": "A daily has no difficulty field, and cmd_play accepts an imposed one", "alternatives": ["Let the daily adapt like any other level", "A separate play path for dailies"], "rationale": "Adapting a shared challenge gives two players different data for the same puzzle, which is exit criterion 1 broken at the root. The absent field is the enforcement, and a separate play path would mean a daily was scored by different machinery.", "reversible": false, "seam": "vibecoder/daily.py::Daily"},
+    {"id": "D228", "decision": "Ids are sorted before indexing", "alternatives": ["Use whatever order the registry returns"], "rationale": "Otherwise an ordering bug elsewhere silently changes what everyone plays today.", "reversible": true, "seam": "vibecoder/daily.py::choose"},
+    {"id": "D229", "decision": "Determinism is scoped to the date and the build's level set", "alternatives": ["Pin a catalogue snapshot into the code"], "rationale": "A pinned snapshot rots against the levels that actually exist. Two machines on the same build agree, which is what the criterion asks for.", "reversible": true, "seam": "docs/trajectories/T5-community.md"}
+  ],
+  "friction": [
+    {"description": "none", "impact": "low", "resolved": true}
+  ],
+  "handoff": {
+    "state": "T5 is IN FLIGHT; W1 LANDED and exit criterion 1 verified. The daily is the same level and variant for everyone, derived with hashlib rather than the hash() the waypoint names, and deliberately not adapted to the player. 1362 tests green unpinned, 1338 pinned, verify clean on 54 reference runs.",
+    "next_action": "T5 W2, the local leaderboard and personal daily history. The trajectory is explicit that it should be playable and useful with no backend at all, so it is a Session concern rather than a network one, and Session already stores per-level history a daily record can sit beside. Note M47 before adding the field. After that W3 needs a server, the first thing in this project that does: read T5's hazards first, because client-reported scores are claims and Speed cannot be verified at all. Do not go near W5 or W6: the hard gate is satisfied and T5's own hazard says it is necessary and not sufficient, because a level is an importable module whose make_tests runs in the parent process.",
+    "blockers": [
+      "None for T5 W2-W4",
+      "T2 W4 remains blocked on a registered OAuth application"
+    ],
+    "context_required": [
+      "Use Python 3.11 on this machine; see M5 in S003",
+      "M12 in S006 before touching level loading",
+      "M47 before adding a field to a persisted structure",
+      "Q97 is still the largest gap: T4's eleven waypoints have never been played by a person, and T5 W1 now joins them"
+    ]
+  },
+  "open_questions": [
+    {"id": "Q68", "question": "Two events land on one line when it raises. Should the display merge them?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q69", "question": "Timeline holds Step objects for a live run and dicts for a recorded one.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q70", "question": "An edit past step 400 fast-forwards against a truncated original.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q71", "question": "Divergence rate over real play is measurable and uncollected.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q73", "question": "Should the crash path show the expected value?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q75", "question": "Which of the remaining non-negotiables can be given a test?", "owner": "T6", "status": "open", "answer": null},
+    {"id": "Q76", "question": "The heal curve, the pool size and the ability prices were chosen by argument, not playtest.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q78", "question": "Should the pane have a 'replace this function' affordance?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q81", "question": "score_submission stores a computed speed for practice runs.", "owner": "T1", "status": "open", "answer": null},
+    {"id": "Q82", "question": "The score cannot see how wrong the code was before it was repaired.", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q83", "question": "Should 'a starter fails the case the player watches' be a test?", "owner": "T3", "status": "open", "answer": null},
+    {"id": "Q84", "question": "Is a boss part of world progression, or a side attraction?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q85", "question": "Nothing drives the editor, the repair pane or an ability through a pty.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q86", "question": "No frame-timing histogram is recorded per session.", "owner": "T7", "status": "open", "answer": null},
+    {"id": "Q89", "question": "The success band cannot hold for a player who always writes correct code, against T4's instrument check rather than criterion 3.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q92", "question": "status --why lists every level, which will not scale past twelve.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q93", "question": "Three classes tie at 3/3 and the tie-break is margin. Should a tie be shown as a tie?", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q94", "question": "The class is never stored, so a player cannot see that it changed.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q95", "question": "A number nobody renders is a number nobody has checked.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q96", "question": "Steady Hand and Overclock cannot be spent from the CLI.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q97", "question": "Eleven T4 waypoints and now T5 W1, none of them played by a person.", "owner": "T4", "status": "open", "answer": null},
+    {"id": "Q98", "question": "Does a daily bank into mastery? It does today, because it goes through cmd_play and Session.submit. Arguably right -- it is a real run at a known difficulty -- but it means a fixed-difficulty run feeds a model built on adaptive ones, and everybody's daily observation is drawn from the same puzzle rather than one chosen for them. Harmless at one player; worth deciding before leaderboards.", "owner": "T5", "status": "open", "answer": null},
+    {"id": "Q99", "question": "A daily changes retroactively when a level is added, because determinism is scoped to the date and the build's level set. Fine for a single player; a leaderboard comparing two builds would be comparing two puzzles. Does W2 need to record which level and seed were actually played rather than re-deriving them?", "owner": "T5", "status": "open", "answer": null}
+  ],
+  "metrics": {
+    "tests_total": 1362,
+    "tests_passing": 1362,
+    "tests_added": 24,
+    "suite_seconds_unpinned": 220.6,
+    "suite_tests_pinned_bwrap": 1338,
+    "suite_seconds_pinned_bwrap": 141.274,
+    "reference_runs_clean": 54,
+    "t5_waypoints_landed": 1,
+    "t5_waypoints_total": 7,
+    "t5_exit_criteria_verified": 1,
+    "t5_exit_criteria_total": 5,
+    "trajectories_in_flight": 2,
+    "trajectories_landed": 6,
+    "levels": 12,
+    "worlds": 3,
+    "bosses": 2,
+    "modules": 30,
+    "dependencies": 0
+  }
+}

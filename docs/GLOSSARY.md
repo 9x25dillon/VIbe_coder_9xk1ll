@@ -51,6 +51,13 @@ Bloom-style classification of a working session's dominant activity — `Recall`
 journal entry so that a project spending every session at `Apply` becomes
 visible as executing rather than designing.
 
+### Daily challenge
+One level and one variant seed derived from the date alone, so everyone
+playing on a given day gets the same puzzle. Deliberately **not** adapted to
+the player: [difficulty](#difficulty) is imposed rather than chosen, because a
+shared challenge that varied per person would not be shared. Derived with
+`hashlib`, never `hash`, which Python randomises per process.
+
 ### Decay
 Mastery loses half its force every three weeks — the value drifting toward the
 middle and the observation count eroding with it, so a stale estimate stops

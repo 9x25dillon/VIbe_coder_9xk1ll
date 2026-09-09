@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 1338 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 1362 tests, **zero third-party
 dependencies**. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
 that raised, and lets you **type a fix into the paused fight** and carry on —
@@ -209,6 +209,7 @@ deliberate: it validated the trace format the live engine now emits.
 | `status` | Progression, stars, streak, global score |
 | `replay [run-id]` | Slow-motion playback (`--step` to advance manually) |
 | `vision [run-id]` | Your function drawn as a machine, animated by its own run |
+| `daily` | Today's challenge — the same level and variant for everyone, not adapted to you (`--date` for a past one, `--show` to name it) |
 | `status --why` | Explain what the game believes about you, what it would give you on every level, and what the model does **not** know |
 | `boss <id> --ability <key>` | Equip an ability for the fight — each has a stated cost, and a full loadout still loses |
 | `boss <id>` | Run a multi-step boss fight — **[walkthrough](docs/PLAYING.md)** (`--live` to watch it execute line by line; when a step breaks, fix the line and resume, spending one of your repairs — `--repairs` sets the pool, `--fix <file>` scripts the edit) |
@@ -242,7 +243,7 @@ vibecoder/            The game. 25 modules, no dependencies.
 ├── timeline.py       A cursor over execution history; nothing is re-run
 └── levels/           One file per level, auto-discovered
 
-tests/                1338 tests, stdlib unittest
+tests/                1362 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs
