@@ -36,6 +36,7 @@ from . import abilities as ability_model
 from . import daily as daily_model
 from . import fight as fight_model
 from . import repair
+from .encounter import Encounter
 from . import style, tips
 from .ingest import ArchiveRejected
 from .models import Level, RunResult, Source, TestCase, VibeVector
@@ -263,6 +264,28 @@ def cmd_levels(args: argparse.Namespace) -> int:
     session = Session.load()
     all_levels = list(level_registry.all_levels())
 
+    if getattr(args, "browse", False):
+        from . import campaign, editor
+
+        selected = None
+        while True:
+            try:
+                choice, selected = campaign.choose(
+                    all_levels, level_registry.all_bosses(), session, selected
+                )
+            except RuntimeError as exc:
+                print(str(exc))
+                return 1
+            if choice is None:
+                return 0
+            kind, item = choice
+            if kind == "level":
+                editor.play(item, seed=session.next_seed(item.id), session=session)
+            else:
+                boss_args = build_parser().parse_args(["boss", item.id, "--live"])
+                cmd_boss(boss_args)
+            session = Session.load()
+
     if args.map:
         print()
         entries = [
@@ -281,7 +304,7 @@ def cmd_levels(args: argparse.Namespace) -> int:
             {"world": boss.world, "id": boss.id, "title": boss.title}
             for boss in level_registry.all_bosses()
         ]
-        for line in UI.level_map(entries, bosses=bosses):
+        for line in UI.level_map(entries, bosses=bosses, width=min(UI.caps.width, 96)):
             print(line)
         print()
         return 0
@@ -721,7 +744,14 @@ def cmd_play(args: argparse.Namespace) -> int:
     _play_vision(code, result, enabled=not args.no_vision)
 
     print()
-    print(UI.rule("SCORE", width=76))
+    print(UI.rule("SCORE", width=min(UI.caps.width, 96)))
+    verdict = "ALL TESTS PASSED" if result.all_passed else "TESTS NEED ATTENTION"
+    if result.fatal:
+        verdict = "RUN STOPPED"
+    print("    " + UI.paint(verdict, GOOD if result.all_passed else WARN, bold=True)
+          + UI.paint(f"  {result.passed_count}/{result.total_count} passed", MUTED))
+    print(f"    {UI.paint('TOTAL', INK, bold=True)}  "
+          + UI.paint(f"{score.total:.1f}", GOLD, bold=True) + "  " + UI.stars(score.stars))
     print()
 
     # Each axis animates in as it is revealed; on a pipe these collapse to the
@@ -749,10 +779,6 @@ def cmd_play(args: argparse.Namespace) -> int:
     print(f"\n    {UI.paint('subtotal', MUTED)}    {score.subtotal:.1f}")
     for name, rate in score.bonuses.items():
         print(f"    {UI.badge(f'+{rate:.0%}', GOOD)} {UI.paint(name, GOOD)}")
-
-    print(f"\n    {UI.paint('TOTAL', INK, bold=True)}       "
-          f"{UI.paint(f'{score.total:.1f}', heat_for(score.total), bold=True)}")
-    UI.star_burst(score.stars)
 
     if practice:
         print(
@@ -1133,10 +1159,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     total_stars = len(all_levels) * 3
 
     print()
-    for line in UI.banner():
-        print("  " + line)
-    print()
-    print(UI.rule("PROGRESSION", width=76))
+    print(UI.rule("VIBECODER / PROGRESSION", width=min(UI.caps.width, 96)))
     print()
     print(f"    {'global score':<15}{UI.paint(f'{session.total_score:.1f}', GOLD, bold=True)}")
     print(
@@ -1385,7 +1408,8 @@ def _attempt(step, tests, code: str, pacer: "_Pacer",
     previous: dict[str, str] = {}
     last_failure: tuple[int, str] | None = None
     crashed = False
-    with LiveRun(code, step.func_name, tests[0], source=Source.PLAYER) as live:
+    with Encounter(step.title, step.func_name, fight) as display, \
+            LiveRun(code, step.func_name, tests[0], source=Source.PLAYER) as live:
         while True:
             event = live.step()
             if event is None:
@@ -1405,6 +1429,7 @@ def _attempt(step, tests, code: str, pacer: "_Pacer",
                 # it per frame reads as two different problems.
                 continue
             if event.failed:
+                display.close()
                 last_failure = (event.line, event.error)
                 crashed = True
                 # Criterion 2: the run is paused *on* the line that raised,
@@ -1434,6 +1459,11 @@ def _attempt(step, tests, code: str, pacer: "_Pacer",
                     previous = dict(live.steps[-1].locals) if live.steps else {}
                     last_failure = None
                     continue
+            elif display.enabled:
+                display.show(code, live.steps)
+                if display.cancelled:
+                    live.abort()
+                    return False, code, False, crashed
             else:
                 print(
                     f"    {UI.paint(f'{event.line:>3}', FAINT)} "
@@ -1547,7 +1577,8 @@ def _offer_repair(code: str, step, tests, fight, fix: "Path | None", *,
         # thinking is free.
         edited = repair.offer(code, line=line, error=error,
                               func=step.func_name, values=values,
-                              title=step.title)
+                              title=step.title, brief=step.brief,
+                              resources=f"BOSS {fight.remaining}/{fight.hp} HP / repairs {fight.repairs_left}")
     if edited is None:
         return None
     # Spent only when an edit is actually applied: a player who opens the pane
@@ -1709,6 +1740,8 @@ def _print_fight_score(score, weights, steps, *, elapsed: float,
     """
     print()
     print(UI.rule("FIGHT SCORE", width=76))
+    print(f"    {UI.paint('TOTAL', INK, bold=True)}  "
+          + UI.paint(f"{score.total:.1f}", GOLD, bold=True) + "  " + UI.stars(score.stars))
     print()
     UI.reveal_gauge("accuracy", score.accuracy, weights.accuracy,
                     f"({sum(s.passed for s in steps)}/"
@@ -1731,9 +1764,6 @@ def _print_fight_score(score, weights, steps, *, elapsed: float,
     print(f"\n    {UI.paint('subtotal', MUTED)}    {score.subtotal:.1f}")
     for name, rate in score.bonuses.items():
         print(f"    {UI.badge(f'+{rate:.0%}', GOOD)} {UI.paint(name, GOOD)}")
-    print(f"\n    {UI.paint('TOTAL', INK, bold=True)}       "
-          f"{UI.paint(f'{score.total:.1f}', heat_for(score.total), bold=True)}")
-    UI.star_burst(score.stars)
     if not ranked:
         print("    " + UI.paint(
             "practice fight - not banked. Pass --elapsed <seconds> to score "
@@ -2164,6 +2194,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_levels.add_argument(
         "--map", action="store_true", help="draw the world map instead of a list"
     )
+    p_levels.add_argument("--browse", action="store_true", help="open the keyboard campaign browser")
     p_levels.set_defaults(func=cmd_levels)
 
     p_play = sub.add_parser("play", help="play a level")

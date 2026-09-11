@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 1396 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 1420 tests, **zero third-party
 dependencies**. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
 that raised, and lets you **type a fix into the paused fight** and carry on —
@@ -117,6 +117,16 @@ Details, including the normalisation bug that shaped the design:
 [`docs/VIBE_PROFILER.md`](docs/VIBE_PROFILER.md).
 
 ## Visuals
+
+Open the campaign cockpit with `python3.11 -m vibecoder.cli levels --browse`.
+Use arrows and Enter to choose a level or boss. The editor pairs code with an
+objective inspector on wide terminals and a `ctrl-o` objective view on compact
+ones. Test verdicts, failures, and scores stay visible below the code; `ctrl-g`
+opens help and `ctrl-p` toggles typing rhythm. Live bosses show the execution
+machine with health and repair resources.
+
+[Visual preview](docs/visual-overhaul.svg) · [Layouts and controls](docs/UI.md)
+
 
 All output is drawn through [`vibecoder/ui.py`](vibecoder/ui.py), which detects
 what it is talking to. A truecolor terminal gets gradients and an animated score
@@ -244,7 +254,7 @@ vibecoder/            The game. 25 modules, no dependencies.
 ├── timeline.py       A cursor over execution history; nothing is re-run
 └── levels/           One file per level, auto-discovered
 
-tests/                1396 tests, stdlib unittest
+tests/                1420 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary
 └── trajectories/     Forward plan — T1..T7
 journal/              Chronological session reviews, with handoffs

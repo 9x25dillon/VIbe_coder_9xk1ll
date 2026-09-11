@@ -334,3 +334,17 @@ reasoning attached, so changing one means changing the argument for it too.
   the repair pane actually work
 - [`SCORING.md`](SCORING.md) — every number, with the reason it was chosen
 - [`T3`](trajectories/T3-boss-engine.md) — the trajectory this fight belongs to
+
+## Updated terminal controls (S038)
+
+`vibecoder levels --browse` opens the keyboard campaign browser. Select a boss
+with the arrow keys and Enter; returning from a challenge reopens the browser.
+On an animated terminal, `boss --live` now draws the machine with persistent HP,
+repair count, and step progress. Press `q` to stop. The examples above remain
+the transcript path used by pipes and `VIBECODER_NO_ANIM=1`.
+
+The repair pane keeps resume and quit visible while errors are shown. On wide
+terminals it includes a failure/values inspector; `ctrl-o` opens the full
+inspector at any size. PgUp/PgDn scroll it, Escape returns to the source, and
+`ctrl-r` still applies the fix. All repair costs and scoring rules above remain
+the same.

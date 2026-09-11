@@ -154,6 +154,7 @@ class TestTheVisualiserDegrades(unittest.TestCase):
 
     def typed(self, caps) -> Editor:
         ed = Editor(get_level("w2-l1-revenue"), seed=1, caps=caps)
+        ed.show_rhythm = True
         for index, character in enumerate("hello world"):
             ed.handle(Key("char", character), now=NOW + index * 0.08)
         return ed

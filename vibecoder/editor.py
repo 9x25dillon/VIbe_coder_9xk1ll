@@ -25,15 +25,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from . import levels as level_registry
-from . import style
-from .keymap import KEYMAP, binding, describe_keys
+from . import style, tips, cockpit
+from .keymap import KEYMAP, binding
 from .editing import Buffer
 from .highlight import highlight_window
 from .keys import Key, KeyDecoder
 from .models import Level, RunResult, ScoreBreakdown, Source
 from .pulse import Pulse
 from .runner import reference_benchmark, run_submission
-from .screen import Screen
+from .screen import Screen, text_width
 from .scoring import LEVEL_WEIGHTS, score_submission
 from .session import Session
 from .term import MIN_HEIGHT, MIN_WIDTH, TerminalSession, supported
@@ -41,7 +41,6 @@ from .ui import (
     ACCENT,
     BAD,
     Capabilities,
-    Depth,
     FAINT,
     GOLD,
     GOOD,
@@ -53,7 +52,7 @@ from .ui import (
     VIOLET,
     WARN,
     detect,
-    sgr,
+    Renderer,
 )
 
 #: Redraw cadence when nothing is being typed, so the rhythm trail keeps
@@ -151,6 +150,7 @@ class Editor:
         self.decoder = KeyDecoder()
         self.tests = self.level.tests_for(self.seed)
         self.scroll = 0
+        self.horizontal_scroll = 0
         self.running = True
         self.outcome: RunOutcome | None = None
         self.status = ""
@@ -163,6 +163,14 @@ class Editor:
         self._frame_times: list[float] = []
         self._damage: list[tuple[int, int]] = []
         self._ref: tuple[int, int] | None = None
+        self.objective_open = False
+        self.help_open = False
+        self.show_rhythm = False
+        self.panel_scroll = 0
+        self.advice = "Read the objective, then run your code with ctrl-r."
+        self.previous_total: float | None = None
+        self.score_delta: float | None = None
+        self.earned_hint = ""
 
     # -- painting ----------------------------------------------------------
 
@@ -176,17 +184,10 @@ class Editor:
               reverse: bool = False) -> str:
         """SGR prefix for a cell, honouring the terminal's colour depth.
 
-        Returns an empty string at ``Depth.NONE``, which is what makes the
-        editor legible on a terminal with no colour at all -- exit criterion 2.
+        Color is suppressed at ``Depth.NONE``; reverse video remains available
+        so the block cursor is visible without color.
         """
-        parts = ""
-        if bold:
-            parts += "\033[1m"
-        if reverse:
-            parts += "\033[7m"
-        if rgb is not None and self._caps.depth > Depth.NONE:
-            parts += sgr(rgb, self._caps.depth)
-        return parts
+        return Renderer(self._caps).style(rgb, bold=bold, reverse=reverse)
 
     def glyph(self, name: str) -> str:
         from .ui import GLYPHS
@@ -205,20 +206,88 @@ class Editor:
             self._draw_too_small(screen, rows, columns)
             return screen
 
-        code_top = 1
-        status_row = rows - 1
-        score_row = rows - 2
-        pulse_row = rows - 4
-        code_bottom = pulse_row - 1  # exclusive
-
+        ui = Renderer(self._caps)
+        code_bottom = rows - 6
         self._draw_title(screen, columns)
-        self._draw_code(screen, code_top, code_bottom, columns)
-        self._draw_separator(screen, pulse_row - 1, columns)
-        self._draw_pulse(screen, pulse_row, columns, now)
-        self._draw_separator(screen, score_row - 1, columns)
-        self._draw_score(screen, score_row, columns, now)
-        self._draw_status(screen, status_row, columns)
+        if self.objective_open or self.help_open:
+            width = columns - 4
+            lines = self._help_lines(width) if self.help_open else self._objective_lines(width)
+            self.panel_scroll = cockpit.document(
+                screen, ui, lines, top=2, left=2, height=code_bottom - 2,
+                width=width, offset=self.panel_scroll,
+            )
+        else:
+            code_width = columns if columns < cockpit.WIDE else columns - 38
+            self._draw_code(screen, 1, code_bottom, code_width)
+            if code_width < columns:
+                for row in range(1, code_bottom):
+                    screen.put(row, code_width, self.glyph("v"), self.style(FAINT))
+                cockpit.document(screen, ui, self._objective_lines(34),
+                                 top=2, left=code_width + 2,
+                                 height=code_bottom - 2, width=34, more="ctrl-o expand")
+        cockpit.divider(screen, ui, rows - 6)
+        self._draw_verdict(screen, rows - 5, columns)
+        if self.show_rhythm:
+            self._draw_pulse(screen, rows - 4, columns, now)
+        else:
+            cockpit.put(screen, rows - 4, 1, self._failure_detail(), columns - 2,
+                        self.style(INK))
+        cockpit.put(screen, rows - 3, 1, self.status or self.earned_hint or self.advice,
+                    columns - 2, self.style(WARN if self.status or self.earned_hint else MUTED))
+        self._draw_score(screen, rows - 2, columns, now)
+        self._draw_status(screen, rows - 1, columns)
         return screen
+
+    def _objective_lines(self, width: int) -> list[tuple[str, tuple]]:
+        """Use the authored brief; never expose hidden test inputs as examples."""
+        lines = cockpit.section("OBJECTIVE / " + self.level.title, self.level.brief, width)
+        lines += cockpit.section("FUNCTION", self.level.func_name + "()", width)
+        lines += cockpit.section("CONCEPTS", ", ".join(self.level.tags), width)
+        lines += cockpit.section("SOLVE TIME", f"Par {self.level.par_seconds:.0f}s. Speed measures your solve time.", width)
+        if self.earned_hint:
+            lines += cockpit.section("EARNED HINT", self.earned_hint, width)
+        if self.outcome is not None:
+            lines += cockpit.section("LAST RUN", self._failure_detail(), width)
+        lines += cockpit.section("NEXT ACTION", self.advice, width)
+        return lines
+
+    def _help_lines(self, width: int) -> list[tuple[str, tuple]]:
+        text = ("ctrl-r  Run tests\nctrl-o  Objective / return to code\n"
+                "ctrl-p  Show or hide typing rhythm\nctrl-g  Help / return to code\n"
+                "ctrl-x  Quit\nctrl-z / ctrl-y  Undo / redo\n"
+                "ctrl-k  Kill line\nctrl-a / ctrl-e  Start / end of line\n"
+                "ctrl-l  Redraw\nPgUp / PgDn  Scroll this view\n"
+                "Escape  Return to code")
+        return cockpit.section("KEYBOARD", text, width)
+
+    def _draw_verdict(self, screen: Screen, row: int, columns: int) -> None:
+        if self.busy:
+            text, tone = "RUNNING  /  testing your code", WARN
+        elif self.outcome is None:
+            text, tone = "READY  /  " + self.level.title, ACCENT
+        elif self.outcome.result.fatal:
+            text, tone = "RUN STOPPED  /  " + self.outcome.result.error_type, BAD
+        else:
+            result = self.outcome.result
+            label = "ALL TESTS PASSED" if result.all_passed else "TESTS NEED ATTENTION"
+            text = f"{label}  /  {result.passed_count}/{result.total_count} passed"
+            if self.outcome.banked:
+                text += "  /  banked"
+            tone = GOOD if result.all_passed else WARN
+        cockpit.put(screen, row, 1, text, columns - 2, self.style(tone, bold=True))
+
+    def _failure_detail(self) -> str:
+        if self.outcome is None:
+            return "ctrl-o objective   ctrl-g help   ctrl-p rhythm"
+        result = self.outcome.result
+        if result.fatal:
+            return self.outcome.message or result.error
+        failed = next((case for case in result.outcomes if not case.passed), None)
+        if failed:
+            detail = failed.error or f"expected {failed.expected} | got {failed.got}"
+            return f"FAIL {failed.name}: {detail}"
+        delta = "" if self.score_delta is None else f"  /  {self.score_delta:+.1f} vs previous run"
+        return f"{result.ops:,} operations  /  {result.peak_bytes / 1024:.1f} KiB peak" + delta
 
     def _draw_too_small(self, screen: Screen, rows: int, columns: int) -> None:
         """Exit criterion 9: say so, rather than draw a corrupted frame."""
@@ -229,15 +298,9 @@ class Editor:
             screen.put(rows // 2, 0, needed[:columns], self.style(MUTED))
 
     def _draw_title(self, screen: Screen, columns: int) -> None:
-        left = f" {self.level.id} "
-        title = f"{self.level.title} "
-        screen.fill(0, 0, columns, self.glyph("h"), self.style(FAINT))
-        screen.put(0, 1, left, self.style(ACCENT, bold=True))
-        screen.put(0, 1 + len(left), title, self.style(INK))
-        dot = self.glyph("pause")
-        right = f" variant {self.seed} {dot} attempt {self.attempt} "
-        if len(right) + 2 < columns:
-            screen.put(0, columns - len(right) - 1, right, self.style(FAINT))
+        title = f"{self.level.id} / {self.level.title}"
+        meta = f"variant {self.seed} / attempt {self.attempt}"
+        cockpit.header(screen, Renderer(self._caps), title, meta)
 
     def _gutter_width(self) -> int:
         return max(GUTTER_MIN, len(str(len(self.buffer))) + 2)
@@ -245,6 +308,10 @@ class Editor:
     def _draw_code(self, screen: Screen, top: int, bottom: int,
                    columns: int) -> None:
         height = bottom - top
+        cursor_column = text_width(self.buffer.line[:self.buffer.column])
+        available = max(1, columns - self._gutter_width() - 1)
+        self.horizontal_scroll = min(self.horizontal_scroll, cursor_column)
+        self.horizontal_scroll = max(self.horizontal_scroll, cursor_column - available)
         self._follow_cursor(height)
         gutter = self._gutter_width()
         # Only the visible slice is tokenised: highlighting the whole buffer
@@ -263,11 +330,16 @@ class Editor:
                 row, 0, f" {number} ",
                 self.style(ACCENT if current else FAINT, bold=current),
             )
-            column = gutter
+            source_column = 0
             for span in coloured[offset]:
-                if column >= columns:
+                span_width = text_width(span.text)
+                start = max(0, self.horizontal_scroll - source_column)
+                target = gutter + max(0, source_column - self.horizontal_scroll)
+                if target >= columns:
                     break
-                column = screen.put(row, column, span.text, self.style(span.rgb))
+                visible = cockpit.viewport(span.text, start, columns - target)
+                cockpit.put(screen, row, target, visible, columns - target, self.style(span.rgb))
+                source_column += span_width
 
             if current:
                 self._draw_cursor(screen, row, gutter, columns)
@@ -275,7 +347,7 @@ class Editor:
     def _draw_cursor(self, screen: Screen, row: int, gutter: int,
                      columns: int) -> None:
         """A block cursor drawn into the frame, since the real one is hidden."""
-        column = gutter + self.buffer.column
+        column = gutter + text_width(self.buffer.line[:self.buffer.column]) - self.horizontal_scroll
         if not (gutter <= column < columns):
             return
         under = screen.grid[row][column]
@@ -374,22 +446,18 @@ class Editor:
             screen.put(row, 1, outcome.message[: columns - 2], self.style(BAD))
             return
 
+        score = outcome.score
+        labels = ("Accuracy", "Solve time", "Efficiency") if columns >= 76 else ("Acc", "Time", "Eff")
+        values = (score.accuracy, score.speed, score.functional)
         column = 1
-        for label, value, rgb in (
-            ("acc", outcome.score.accuracy, GOOD),
-            ("spd", outcome.score.speed, ACCENT),
-            ("fn", outcome.score.functional, VIOLET),
-        ):
-            column = self._draw_axis(
-                screen, row, column, label, value * progress, rgb, columns
-            )
-        total = f"{outcome.score.total * progress:5.1f}"
-        stars = self.glyph("star_full") * outcome.score.stars
-        stars += self.glyph("star_empty") * (3 - outcome.score.stars)
-        tail = f"{total}  {stars}"
-        if column + len(tail) + 1 < columns:
-            screen.put(row, columns - len(tail) - 1, tail,
-                       self.style(GOLD, bold=True))
+        for label, value in zip(labels, values):
+            text = f"{label} {value * progress:.0f}  "
+            column = cockpit.put(screen, row, column, text, columns - column - 1,
+                                 self.style(INK))
+        tail = f"TOTAL {score.total * progress:.1f} {self.glyph('star_full') * score.stars}"
+        if column + len(tail) < columns:
+            cockpit.put(screen, row, columns - len(tail) - 1, tail, len(tail),
+                        self.style(GOLD, bold=True))
 
     def _draw_live(self, screen: Screen, row: int, columns: int) -> None:
         """A run in flight: ticks landing, and Accuracy filling as they do."""
@@ -435,10 +503,11 @@ class Editor:
         return screen.put(row, column, "  ", "")
 
     def _draw_status(self, screen: Screen, row: int, columns: int) -> None:
-        if self.status:
-            screen.put(row, 1, self.status[: columns - 2], self.style(WARN))
-            return
-        screen.put(row, 1, describe_keys()[: columns - 2], self.style(FAINT))
+        # Controls stay visible even when a warning or a hint is present.
+        keys = "ctrl-r run  ctrl-o objective  ctrl-g help  ctrl-x quit"
+        if columns < 60:
+            keys = "^R run  ^O brief  ^G help  ^X quit"
+        cockpit.put(screen, row, 1, keys, columns - 2, self.style(ACCENT))
 
     def _follow_cursor(self, height: int) -> None:
         if height <= 0:
@@ -454,6 +523,31 @@ class Editor:
     def handle(self, key: Key, now: float | None = None) -> None:
         """Apply one key. Unknown keys are ignored, never inserted."""
         now = time.monotonic() if now is None else now
+        command = binding(key)
+        if command in ("ctrl-o", "ctrl-g", "ctrl-p"):
+            if command == "ctrl-p":
+                self.show_rhythm = not self.show_rhythm
+            elif command == "ctrl-o":
+                self.objective_open = not self.objective_open
+                self.help_open = False
+            else:
+                self.help_open = not self.help_open
+                self.objective_open = False
+            self.panel_scroll = 0
+            return
+        if self.objective_open or self.help_open:
+            if command == "escape":
+                self.objective_open = self.help_open = False
+            elif command in ("down", "pgdn"):
+                self.panel_scroll += 1 if command == "down" else 8
+            elif command in ("up", "pgup"):
+                self.panel_scroll = max(0, self.panel_scroll - (1 if command == "up" else 8))
+            elif command in ("ctrl-x", "ctrl-c"):
+                self.running = False
+            elif command == "ctrl-r":
+                self.objective_open = self.help_open = False
+                self.execute()
+            return
         self.status = ""
 
         if key.name == "paste":
@@ -475,6 +569,7 @@ class Editor:
     def execute(self) -> None:
         """Run the buffer against the level's tests and score the attempt."""
         self.busy = True
+        self.status = ""
         started = self.started
         self.attempt += 1
         self.live = LiveRun(total=len(self.tests))
@@ -488,6 +583,7 @@ class Editor:
         elapsed = time.monotonic() - started
 
         if result.fatal:
+            self.advice = "Fix the error above, then run again. ctrl-o shows full details."
             self.outcome = RunOutcome(
                 result, None, time.monotonic(), elapsed,
                 message=f"{result.error_type}: {result.error}",
@@ -514,6 +610,12 @@ class Editor:
             first_run_clean=self.first_run_clean,
             weights=LEVEL_WEIGHTS,
         )
+        self.score_delta = None if self.previous_total is None else score.total - self.previous_total
+        self.previous_total = score.total
+        advice = tips.generate(self.buffer.text, self.level.func_name, result,
+                               ref_ops=ref_ops, vibe=self.session.vibe if self.session else None,
+                               style_results=style_results)
+        self.advice = advice[0] if advice else "All clear. Refine your solution or choose another level."
         passed = f"{result.passed_count}/{result.total_count} tests"
         self.outcome = RunOutcome(
             result, score, time.monotonic(), elapsed, message=passed
@@ -529,6 +631,7 @@ class Editor:
             # one is silent until the second failed run -- see Level.hints.
             earned = self.level.hints_after(self.attempt)
             if earned:
+                self.earned_hint = earned[-1]
                 self.status = f"{self.glyph('hint')} {earned[-1]}"
 
     def _on_test(self, index: int, total: int, name: str, passed: bool) -> None:
