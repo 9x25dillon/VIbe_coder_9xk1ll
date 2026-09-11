@@ -8,7 +8,7 @@ half of this rule which is checked.
 The full-screen stack is the documented exception, and has been since T7:
 `term.py` owns the terminal mode, `screen.py` diffs a cell grid, and the
 applications that compose into a `Screen` — [`editor.py`](../vibecoder/editor.py)
-and [`repair.py`](../vibecoder/repair.py) — build their own SGR prefixes,
+and [`repair.py`](../vibecoder/repair.py) — request cell styles through `Renderer.style()`,
 because a grid painted by cell damage cannot be routed through a line
 renderer. They pay the same price in return: composition is pure, frames are
 asserted as plain text, and `Depth.NONE` yields no escapes at all. This
@@ -138,12 +138,52 @@ python3 -m vibecoder.cli edit w2-l1-revenue    # needs a real terminal
 - The renderer is a module-level singleton in `cli.py`. Fine today; a web
   front-end or an output-capturing test would rather inject one (Q8 in
   [S002](../journal/2026-08-08-S002-presentation.md#open-questions)).
-- The editor builds its own SGR prefixes through `Editor.style()` rather than
-  going through `Renderer`, because `Renderer` methods return finished strings
-  and the grid needs a style and a character separately. Two places now know
-  how to turn an RGB into an escape code (Q16 in
-  [S004](../journal/2026-09-03-S004-interactive.md#open-questions)).
 - Animation timing is fixed at roughly 0.35s per axis, unvalidated against a
   real player over many levels (Q9).
 - No `curses`. The game prints; it does not own the terminal. That keeps the
   same code path working when output is a pipe, which `curses` could not do.
+
+## Terminal cockpit (S038)
+
+The shared [cockpit helpers](../vibecoder/cockpit.py) own bounded text regions,
+column-aware clipping, prose wrapping, headers, and scrollable inspectors.
+Editor and repair styles now delegate to `Renderer.style()`. The palette uses
+cool cyan for focus, neutral text and rules, green for success, amber for
+attention, red for failure, and gold for rewards. Background and font remain
+the terminal user's choice.
+
+- **Campaign:** `vibecoder levels --browse`. Up/down selects, Enter opens the
+  level editor or live boss, and quitting the challenge returns to the browser.
+  `ctrl-o` opens full details; Escape returns or leaves the browser. `NEXT`
+  means the first uncleared campaign level, not an adaptive recommendation.
+  `levels --map` remains a plain transcript, with every level named and commands
+  for the next level and each boss.
+- **Editor:** code stays primary. At 110 columns the objective sits alongside
+  it; smaller terminals use `ctrl-o` for a full-width objective. `ctrl-g` opens
+  help. Arrow keys and PgUp/PgDn scroll these views without editing source;
+  Escape returns to code. Examples remain in authored briefs rather than
+  exposing hidden test inputs. The source scrolls horizontally with the cursor.
+- **Feedback:** verdict, first failure, advice, and score occupy stable bottom
+  rows. Run and quit controls remain visible when a hint or error arrives.
+  `ctrl-p` toggles the optional rhythm display. Successful runs show the score
+  change from the preceding scored run in the current editor session.
+  Accuracy, Solve time, and Efficiency are presentation labels for Accuracy,
+  Speed, and Functional; no weights or measurements changed.
+- **Bosses:** animated live fights use the machine view with persistent HP,
+  repairs, encounter progress, and recorded values. `q` stops the fight.
+  A live event count never claims to know the final trace length. The terminal
+  is released before the repair pane opens; repair receives the current
+  resources and authored objective. `ctrl-o` expands the error and values.
+  Piped and reduced-motion fights keep their line transcript.
+- **Results:** the verdict and total precede detailed axes. Status uses a
+  compact wordmark, with the block logo retained in the showcase.
+
+Supported geometry remains 48 columns by 12 rows. Color depths share identical
+text and layout; ASCII fallbacks and `NO_COLOR` remain supported. Read-only
+inspectors display a position and scroll affordance when content exceeds the
+viewport; sidebar previews explicitly say `ctrl-o expand`.
+
+[View the rendered preview](visual-overhaul.svg). These are illustrative sample
+states, generated through the actual application composers. Regenerate with
+`python3.11 tools/preview_ui.py` from the repository root. The sample terminal
+background is for the preview only.

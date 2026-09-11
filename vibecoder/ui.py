@@ -162,13 +162,13 @@ def lerp(start: RGB, end: RGB, t: float) -> RGB:
 
 
 # Palette. Named roles rather than colour names, so a theme change is one edit.
-INK = (218, 218, 224)
-MUTED = (128, 128, 140)
-FAINT = (78, 78, 88)
-ACCENT = (122, 162, 247)
-GOOD = (126, 209, 128)
+INK = (226, 232, 240)
+MUTED = (148, 163, 184)
+FAINT = (100, 116, 139)
+ACCENT = (103, 196, 215)
+GOOD = (134, 211, 156)
 WARN = (231, 179, 96)
-BAD = (224, 108, 117)
+BAD = (244, 128, 135)
 GOLD = (240, 198, 90)
 VIOLET = (187, 154, 247)
 
@@ -469,6 +469,9 @@ class Renderer:
         thing a player actually lacks is the *id*, since `boss` takes one and
         no listing was printing it. A node they cannot name is not a way in.
         """
+        from .cockpit import clip, prose
+
+        width = max(32, width)
         rows: list[str] = []
         worlds: dict[int, list[dict]] = {}
         for entry in entries:
@@ -486,7 +489,7 @@ class Renderer:
             tally = f"{self.glyph('star_full')} {earned}/{possible}"
             heading = (
                 f"  {self.paint(f'WORLD {world}', ACCENT, bold=True)}  "
-                f"{self.paint(title, INK)}"
+                f"{self.paint(clip(title, width - len(tally) - 14), INK)}"
             )
             pad = max(1, width - visible_width(heading) - len(tally) - 2)
             rows.append(
@@ -529,17 +532,31 @@ class Renderer:
             else:
                 level = levels[nxt]
                 label = f"{self.glyph('arrow')} next  {level['title']}"
-                rows.append(" " * (5 + nxt * 6) + self.paint(label, ACCENT))
+                indent = min(5 + nxt * 6, max(5, width - len(label)))
+                rows.append(" " * indent + self.paint(clip(label, width - indent), ACCENT))
+
+            rows.append("")
+            for index, level in enumerate(levels):
+                stars = level.get("stars", 0)
+                state = "DONE" if stars else ("NEXT" if index == nxt else "OPEN")
+                tone = GOOD if stars else (ACCENT if index == nxt else MUTED)
+                prefix = f"     {state:<4}  "
+                rows.append(self.paint(prefix, tone) + self.paint(
+                    clip(level["title"], width - len(prefix) - 5), INK)
+                    + "  " + self.stars(stars))
+            if nxt is not None:
+                command = f"vibecoder edit {levels[nxt]['id']}"
+                rows.extend("     " + self.paint(line, ACCENT)
+                            for line in prose(command, width - 5))
 
             for boss in bosses:
                 if boss["world"] != world:
                     continue
-                rows.append(
-                    "     "
-                    + self.paint(f"{self.glyph('node_boss')} boss  ", BAD)
-                    + self.paint(f"{boss['title']:<22}", INK)
-                    + self.paint(f"vibecoder boss {boss['id']}", FAINT)
-                )
+                rows.append("")
+                label = f"{self.glyph('node_boss')} boss  {boss['title']}"
+                rows.append("     " + self.paint(clip(label, width - 5), BAD))
+                rows.extend("     " + self.paint(line, MUTED) for line in
+                            prose(f"vibecoder boss {boss['id']} --live", width - 5))
         return rows
 
     def bar_chart(

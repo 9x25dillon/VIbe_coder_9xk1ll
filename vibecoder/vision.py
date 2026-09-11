@@ -648,7 +648,7 @@ def play(
         rows, columns = session.size()
         previous: Screen | None = None
         for frame in built:
-            if session.resized():
+            if session.resized:
                 rows, columns = session.size()
                 previous = None
             screen = render(

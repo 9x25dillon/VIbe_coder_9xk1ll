@@ -29,17 +29,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from . import cockpit
 from .editing import Buffer
 from .highlight import highlight_window
-from .keymap import KEYMAP, REPAIR_HELP, binding, describe_keys
+from .keymap import KEYMAP, binding
 from .keys import Key, KeyDecoder
-from .screen import Screen
+from .screen import Screen, text_width
 from .term import MIN_HEIGHT, MIN_WIDTH, TerminalSession, supported
 from .ui import (
     ACCENT,
     BAD,
     Capabilities,
-    Depth,
     FAINT,
     GLYPHS,
     INK,
@@ -47,7 +47,7 @@ from .ui import (
     RGB,
     WARN,
     detect,
-    sgr,
+    Renderer,
 )
 
 #: How long the loop waits for input before redrawing. Nothing here animates,
@@ -76,6 +76,8 @@ class Repair:
     title: str = ""
     caps: Capabilities | None = None
     term: TerminalSession | None = None
+    resources: str = ""
+    brief: str = ""
 
     def __post_init__(self) -> None:
         self.buffer = Buffer(self.code.rstrip("\n"))
@@ -85,10 +87,13 @@ class Repair:
         self.buffer.goto(row, len(text) - len(text.lstrip()))
         self.decoder = KeyDecoder()
         self.scroll = 0
+        self.horizontal_scroll = 0
         self.running = True
         #: Whether the player asked to resume, as opposed to giving up.
         self.applied = False
         self.status = ""
+        self.inspector_open = False
+        self.panel_scroll = 0
         self._previous: Screen | None = None
 
     # -- painting ----------------------------------------------------------
@@ -101,14 +106,7 @@ class Repair:
 
     def style(self, rgb: RGB | None = None, *, bold: bool = False,
               reverse: bool = False) -> str:
-        parts = ""
-        if bold:
-            parts += "\033[1m"
-        if reverse:
-            parts += "\033[7m"
-        if rgb is not None and self._caps.depth > Depth.NONE:
-            parts += sgr(rgb, self._caps.depth)
-        return parts
+        return Renderer(self._caps).style(rgb, bold=bold, reverse=reverse)
 
     def glyph(self, name: str) -> str:
         unicode_glyph, ascii_glyph = GLYPHS[name]
@@ -123,17 +121,41 @@ class Repair:
             self._draw_too_small(screen, rows, columns)
             return screen
 
-        status_row = rows - 1
-        code_bottom = status_row - 1  # exclusive; the separator sits on it
-
+        ui = Renderer(self._caps)
         self._draw_title(screen, columns)
-        self._draw_failure(screen, 1, columns)
-        self._draw_values(screen, 2, columns)
-        self._draw_separator(screen, 3, columns)
-        self._draw_code(screen, 4, code_bottom, columns)
-        self._draw_separator(screen, code_bottom, columns)
-        self._draw_status(screen, status_row, columns)
+        code_bottom = rows - 3
+        if self.inspector_open:
+            self.panel_scroll = cockpit.document(
+                screen, ui, self._inspector_lines(columns - 4), top=2, left=2,
+                height=code_bottom - 2, width=columns - 4, offset=self.panel_scroll,
+            )
+        else:
+            code_width = columns if columns < cockpit.WIDE else columns - 38
+            self._draw_failure(screen, 1, code_width)
+            self._draw_values(screen, 2, code_width)
+            self._draw_separator(screen, 3, code_width)
+            self._draw_code(screen, 4, code_bottom, code_width)
+            if code_width < columns:
+                for row in range(1, code_bottom):
+                    screen.put(row, code_width, self.glyph("v"), self.style(FAINT))
+                cockpit.document(screen, ui, self._inspector_lines(34),
+                                 top=2, left=code_width + 2, height=code_bottom - 2, width=34, more="ctrl-o expand")
+        cockpit.divider(screen, ui, rows - 3)
+        cockpit.put(screen, rows - 2, 1, self.status or self.resources or "PAUSED / Edit the failing line, then resume.",
+                    columns - 2, self.style(BAD if self.status else WARN))
+        self._draw_status(screen, rows - 1, columns)
         return screen
+
+    def _inspector_lines(self, width: int) -> list[tuple[str, tuple]]:
+        lines = cockpit.section("FAILURE / line " + str(self.line), self.error, width)
+        if self.resources:
+            lines += cockpit.section("ENCOUNTER", self.resources, width)
+        if self.brief:
+            lines += cockpit.section("OBJECTIVE", self.brief, width)
+        text = "\n".join(f"{name} = {value}" for name, value in self.values.items())
+        lines += cockpit.section("VALUES AT FAILURE", text or "No local values recorded.", width)
+        lines += cockpit.section("REPAIR", "ctrl-r resumes. Syntax errors cost no repair. ctrl-x gives up.", width)
+        return lines
 
     def _draw_too_small(self, screen: Screen, rows: int, columns: int) -> None:
         message = f"{columns}x{rows} too small"
@@ -143,13 +165,8 @@ class Repair:
             screen.put(rows // 2, 0, needed[:columns], self.style(MUTED))
 
     def _draw_title(self, screen: Screen, columns: int) -> None:
-        screen.fill(0, 0, columns, self.glyph("h"), self.style(FAINT))
-        left = " FIX "
-        screen.put(0, 1, left, self.style(WARN, bold=True))
-        label = f"{self.title} " if self.title else ""
-        column = screen.put(0, 1 + len(left), label, self.style(INK))
-        if self.func:
-            screen.put(0, column, f"{self.func}() ", self.style(MUTED))
+        cockpit.header(screen, Renderer(self._caps), "FIX / " + self.title,
+                       self.func + "()" if self.func else "PAUSED")
 
     def _draw_failure(self, screen: Screen, row: int, columns: int) -> None:
         mark = self.glyph("cross")
@@ -179,6 +196,10 @@ class Repair:
     def _draw_code(self, screen: Screen, top: int, bottom: int,
                    columns: int) -> None:
         height = bottom - top
+        cursor_column = text_width(self.buffer.line[:self.buffer.column])
+        available = max(1, columns - self._gutter_width() - 1)
+        self.horizontal_scroll = min(self.horizontal_scroll, cursor_column)
+        self.horizontal_scroll = max(self.horizontal_scroll, cursor_column - available)
         self._follow_cursor(height)
         gutter = self._gutter_width()
         # Only the visible slice is tokenised, for the reason T7 found the
@@ -199,18 +220,23 @@ class Repair:
             colour = BAD if broke else (ACCENT if current else FAINT)
             screen.put(row, 0, f" {mark} {number} ",
                        self.style(colour, bold=broke or current))
-            column = gutter
+            source_column = 0
             for span in coloured[offset]:
-                if column >= columns:
+                span_width = text_width(span.text)
+                start = max(0, self.horizontal_scroll - source_column)
+                target = gutter + max(0, source_column - self.horizontal_scroll)
+                if target >= columns:
                     break
-                column = screen.put(row, column, span.text, self.style(span.rgb))
+                visible = cockpit.viewport(span.text, start, columns - target)
+                cockpit.put(screen, row, target, visible, columns - target, self.style(span.rgb))
+                source_column += span_width
             if current:
                 self._draw_cursor(screen, row, gutter, columns)
 
     def _draw_cursor(self, screen: Screen, row: int, gutter: int,
                      columns: int) -> None:
         """A block cursor drawn into the frame, since the real one is hidden."""
-        column = gutter + self.buffer.column
+        column = gutter + text_width(self.buffer.line[:self.buffer.column]) - self.horizontal_scroll
         if not (gutter <= column < columns):
             return
         under = screen.grid[row][column]
@@ -218,11 +244,8 @@ class Repair:
         screen.put(row, column, char, self.style(reverse=True))
 
     def _draw_status(self, screen: Screen, row: int, columns: int) -> None:
-        if self.status:
-            screen.put(row, 1, self.status[: columns - 2], self.style(BAD))
-            return
-        keys = describe_keys(REPAIR_HELP)
-        screen.put(row, 1, keys[: columns - 2], self.style(FAINT))
+        keys = "ctrl-r resume  ctrl-o inspect  ctrl-x give up"
+        cockpit.put(screen, row, 1, keys, columns - 2, self.style(ACCENT))
 
     def _follow_cursor(self, height: int) -> None:
         if height <= 0:
@@ -237,6 +260,24 @@ class Repair:
 
     def handle(self, key: Key) -> None:
         """Apply one key. Unknown keys are ignored, never inserted."""
+        command = binding(key)
+        if command == "ctrl-o":
+            self.inspector_open = not self.inspector_open
+            self.panel_scroll = 0
+            return
+        if self.inspector_open:
+            if command == "escape":
+                self.inspector_open = False
+            elif command in ("down", "pgdn"):
+                self.panel_scroll += 1 if command == "down" else 8
+            elif command in ("up", "pgup"):
+                self.panel_scroll = max(0, self.panel_scroll - (1 if command == "up" else 8))
+            elif command in ("ctrl-x", "ctrl-c"):
+                self.running = False
+            elif command == "ctrl-r":
+                self.inspector_open = False
+                self.execute()
+            return
         self.status = ""
         if key.name == "paste":
             self.buffer.insert(key.text)
@@ -305,7 +346,8 @@ def available() -> bool:
 
 
 def offer(code: str, *, line: int, error: str = "", func: str = "",
-          values: dict[str, str] | None = None, title: str = "") -> str | None:
+          values: dict[str, str] | None = None, title: str = "",
+          resources: str = "", brief: str = "") -> str | None:
     """Let the player fix the paused line. The edited source, or ``None``.
 
     ``None`` means they gave up rather than that nothing changed: a player who
@@ -316,6 +358,7 @@ def offer(code: str, *, line: int, error: str = "", func: str = "",
         pane = Repair(
             code=code, line=line, error=error, func=func,
             values=dict(values or {}), title=title,
+            resources=resources, brief=brief,
             caps=detect(), term=term,
         )
         applied = pane.loop()

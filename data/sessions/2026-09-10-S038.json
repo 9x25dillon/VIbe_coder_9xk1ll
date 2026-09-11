@@ -1,0 +1,226 @@
+{
+  "id": "S038",
+  "date": "2026-09-10",
+  "duration_minutes": null,
+  "trajectory": "T6",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-10-S038-cockpit.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "Code, feedback, objectives, and controls have stable visual hierarchy",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "Players can select and enter levels and bosses from the campaign",
+      "result": "met"
+    },
+    {
+      "id": 3,
+      "statement": "Live fights and repairs keep resources and interpreter evidence visible",
+      "result": "met"
+    },
+    {
+      "id": 4,
+      "statement": "Compact, ASCII, no-color, and reduced-motion paths remain usable",
+      "result": "met"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/cockpit.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/campaign.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/encounter.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/editor.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/repair.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/ui.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module"
+    },
+    {
+      "path": "vibecoder/vision.py",
+      "kind": "module"
+    },
+    {
+      "path": "tests/test_cockpit.py",
+      "kind": "test"
+    },
+    {
+      "path": "tests/test_editor.py",
+      "kind": "test"
+    },
+    {
+      "path": "docs/UI.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/PLAYING.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/visual-overhaul.svg",
+      "kind": "doc"
+    },
+    {
+      "path": "tools/preview_ui.py",
+      "kind": "module"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Original Python 3.11 baseline is green",
+      "method": "python3.11 -m unittest discover -s tests outside restricted sandbox",
+      "result": "1396 tests OK in 59.512s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Responsive UI interaction contracts hold",
+      "method": "python3.11 -m unittest discover -s tests -p test_cockpit.py",
+      "result": "24 tests OK",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Real terminal interactions restore terminal settings",
+      "method": "/tmp/vibecoder-pty-smoke.py",
+      "result": "campaign to solved level and back; inspect and resume repair; live boss reference; all restore termios",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Pipes remain escape-free",
+      "method": "capture showcase and levels --map via subprocess; assert no ESC bytes",
+      "result": "both clean",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Final complete test suite passes",
+      "method": "python3.11 -m unittest discover -s tests",
+      "result": "1420 tests OK in 62.732s, unpinned with host isolation backends",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Reference solutions remain correct",
+      "method": "python3.11 -m vibecoder.cli verify --seeds 3",
+      "result": "54/54 reference runs clean",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The visual feel is better in sustained human play",
+      "method": "not yet human-playtested",
+      "result": "unknown",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M58",
+      "believed": "TerminalSession.resized was a method, following vision.play",
+      "revealed_by": "real PTY campaign launch raised TypeError",
+      "corrected_to": "It is a consuming boolean property; all affected call sites now read it",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Pure composition cannot verify terminal lifecycle contracts"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D235",
+      "decision": "Reuse dependency-free cell grid and central style renderer",
+      "alternatives": [
+        "UI framework rewrite"
+      ],
+      "rationale": "Preserve capability and transcript guarantees",
+      "reversible": true
+    },
+    {
+      "id": "D236",
+      "decision": "Wide inspectors plus scrollable full-width views",
+      "alternatives": [
+        "Permanent sidebars"
+      ],
+      "rationale": "Preserve 48-column editing and access to long evidence",
+      "reversible": true
+    },
+    {
+      "id": "D237",
+      "decision": "Typing rhythm is opt-in",
+      "alternatives": [
+        "Always reserve its row"
+      ],
+      "rationale": "Failures and next actions take priority",
+      "reversible": true
+    },
+    {
+      "id": "D238",
+      "decision": "Release terminal ownership between views",
+      "alternatives": [
+        "Nested alternate-screen sessions"
+      ],
+      "rationale": "Avoid stale caches and restoration errors",
+      "reversible": true
+    }
+  ],
+  "friction": [
+    {
+      "description": "System Python 3.14 and restricted sandbox prevented a usable initial baseline; Python 3.11 with host backend access passed",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "Visual overhaul implemented; not committed or pushed",
+    "next_action": "Human playtest levels --browse at 80 and 120 columns; T5 W3 remains the community next step",
+    "blockers": [],
+    "context_required": [
+      "Use Python 3.11",
+      "Full isolation suite requires host backend access",
+      "Preview states are illustrative",
+      "Scoring and persistence rules unchanged"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q101",
+      "question": "How does inspector width and feedback density feel in sustained human play?",
+      "owner": "T6",
+      "status": "open",
+      "answer": null
+    }
+  ],
+  "metrics": {
+    "tests_total": 1420,
+    "tests_passing": 1420,
+    "levels": 12,
+    "worlds": 3,
+    "dependencies": 0
+  }
+}

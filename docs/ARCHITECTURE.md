@@ -25,6 +25,9 @@ vibecoder/
 ├── replay.py      Slow-motion playback of a recorded trace.
 ├── cli.py         Command line.
 ├── editor.py      Full-screen play. Layout and dispatch only.
+├── cockpit.py     Shared bounded regions, headers, wrapping, inspectors.
+├── campaign.py    Keyboard campaign selection; returns a choice to cli.
+├── encounter.py   Live boss machine and resources; releases terminal for repair.
 ├── keymap.py      What each key does. A table, kept separate.
 ├── term.py        Raw mode and the alternate screen. Restores three ways.
 ├── keys.py        Byte stream to key events. A state machine, not a table.
@@ -509,3 +512,17 @@ Run artifacts (code, score, full result including trace) are written to
 | Add a coaching rule | Decorate a function with `@tips.rule` |
 | Change the scoring curves | `scoring.py` — read [SCORING.md](SCORING.md) first |
 | Add a profiler signal | `profiler._analyse_tree`, plus a tag mapping |
+
+## Shared terminal presentation
+
+`campaign`, `editor`, `repair`, and `encounter` compose through `cockpit` and
+`Screen`; their pure frames are tested across terminal sizes and color depths.
+`cockpit` uses `Renderer.style` and the existing palette, so there is no second
+color conversion implementation. Campaign selection returns before `cli`
+launches a challenge. Similarly, `Encounter.close` restores terminal ownership
+before repair is offered. Neither path nests alternate-screen sessions.
+
+The live boss composer reuses `vision` over `Step.to_trace()` values. It never
+executes source or changes the trace protocol. The CLI keeps its transcript path
+for pipes and reduced-motion terminals. The visual overhaul changes no scoring,
+persistence, sandbox provenance, or progression rules.
