@@ -29,8 +29,11 @@ import os
 import select
 import signal
 import sys
-import termios
-import tty
+try:
+    import termios
+    import tty
+except ImportError:  # Windows still supports the line-oriented CLI.
+    termios = tty = None
 
 # Private-mode sequences. Paired so that every enable has a disable.
 ALT_SCREEN_ON = "\033[?1049h"
@@ -47,6 +50,8 @@ MIN_HEIGHT = 12
 
 def supported(stream=None, input_stream=None) -> bool:
     """Whether a full-screen session can run against these streams."""
+    if termios is None:
+        return False
     stream = stream or sys.stdout
     input_stream = input_stream or sys.stdin
     if os.environ.get("TERM", "") in ("", "dumb"):
@@ -86,6 +91,8 @@ class TerminalSession:
     def start(self) -> None:
         if self._active:
             return
+        if termios is None:
+            raise RuntimeError("full-screen terminal play requires a POSIX terminal; use the desktop or line-oriented CLI")
         self._saved = termios.tcgetattr(self._fd)
         # Registered *before* the mode changes, so a failure between here and
         # the end of this method still restores.

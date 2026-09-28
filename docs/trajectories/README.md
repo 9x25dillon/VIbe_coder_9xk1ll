@@ -308,6 +308,13 @@ left open is not a neutral state; it is an unchecked claim.**
 Scheduling for these lives in [`SCHEDULE.md`](../../SCHEDULE.md). Progress
 against them is recorded chronologically in [`journal/`](../../journal/).
 
+## Desktop implementation — 2026-09-28
+
+[T8 — Native desktop product](T8-desktop.md) is `IN FLIGHT` following user
+approval of ADR-001. W1 is the packaged runtime and native portability gate.
+This is an explicitly recorded additional workstream while T2 remains externally
+blocked and T5 incomplete; neither historical scope nor deadlines are rewritten.
+
 ## Rules
 
 1. A waypoint that cannot be shipped alone is not a waypoint — split it.

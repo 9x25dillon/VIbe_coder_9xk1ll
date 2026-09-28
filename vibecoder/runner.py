@@ -14,8 +14,6 @@ anything else in the codebase noticing.
 from __future__ import annotations
 
 import json
-import os
-import select
 import subprocess
 import time
 from dataclasses import dataclass
@@ -23,6 +21,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from . import sandbox
+from ._process import OutputLimit, Process
 from .timeline import Divergence, Timeline, compare
 from .models import (
     BossLevel,
@@ -90,7 +89,7 @@ def run_code(
         "filename": filename,
     }
 
-    backend = sandbox.select(untrusted=source.requires_isolation)
+    backend = _backend_for(source)
 
     # A fork bomb is only contained by the wall clock unless the child caps
     # its own process count, and RLIMIT_NPROC counts every process owned by
@@ -102,27 +101,18 @@ def run_code(
 
     try:
         with backend.launch(HARNESS, mem_limit_mb=mem_limit_mb) as launch:
-            if on_progress is None:
-                completed = subprocess.run(
-                    launch.argv,
-                    input=json.dumps(payload),
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    pass_fds=launch.pass_fds,
-                )
-                code, out, err = (
-                    completed.returncode, completed.stdout, completed.stderr
-                )
-            else:
-                code, out, err = _stream(
-                    launch, json.dumps(payload), timeout, on_progress
-                )
+            code, out, err = _stream(
+                launch, json.dumps(payload), timeout, on_progress,
+                mem_limit_mb=mem_limit_mb,
+            )
     except subprocess.TimeoutExpired:
         return RunResult(
             error=f"execution exceeded {timeout:g}s - check for an infinite loop",
             error_type="Timeout",
         )
+
+    except OutputLimit as exc:
+        return RunResult(error=str(exc), error_type="OutputLimit")
 
     if code != 0 or not out.strip():
         detail = (err or "").strip().splitlines()
@@ -177,68 +167,44 @@ def _final_event(out: str) -> dict | None:
     return None
 
 
-def _stream(launch, payload: str, timeout: float,
-            on_progress: ProgressHook) -> tuple[int, str, str]:
-    """Spawn, feed stdin, and read the reply as it arrives.
+def _backend_for(source: Source):
+    """Keep provenance authoritative even when legacy selection is pinned.
 
-    The parent enforces the wall clock itself here, because ``communicate``
-    would block until the child is finished and there would be nothing left to
-    stream. Reading is a ``select`` loop over the raw descriptor rather than
-    ``readline``, which can block past the deadline.
+    `sandbox.select` retains its documented low-level override for diagnostics.
+    Execution never permits that override to put THIRD_PARTY code on the host.
     """
-    process = subprocess.Popen(
-        launch.argv,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        pass_fds=launch.pass_fds,
-    )
-    try:
-        process.stdin.write(payload.encode())
-        process.stdin.close()
-    except BrokenPipeError:
-        pass  # the child died early; the exit code will say so
+    backend = sandbox.select(untrusted=source.requires_isolation)
+    if source.requires_isolation and not backend.isolating:
+        raise sandbox.SandboxUnavailable(
+            "third-party code requires an isolating backend; "
+            "the pinned subprocess backend cannot execute it"
+        )
+    return backend
 
+
+def _stream(launch, payload: str, timeout: float,
+            on_progress: ProgressHook | None, *,
+            mem_limit_mb: int = DEFAULT_MEM_LIMIT_MB) -> tuple[int, str, str]:
+    """Read bounded event lines on every OS, with or without progress UI.
+
+    Keeping only the final result avoids collecting every progress line twice.
+    Both pipes are drained concurrently and input writing shares the deadline.
+    No callback runs on an I/O reader thread.
+    """
     deadline = time.monotonic() + timeout
-    out = bytearray()
-    pending = ""
-    stream = process.stdout
-
-    try:
+    final = ""
+    with Process(launch, mem_limit_mb=mem_limit_mb, timeout=timeout) as child:
+        child.send((payload + "\n").encode("utf-8"), eof=True)
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                process.kill()
-                process.wait()
-                raise subprocess.TimeoutExpired(launch.argv, timeout)
-            try:
-                ready, _, _ = select.select([stream], [], [], min(0.05, remaining))
-            except (OSError, ValueError):
+            line = child.readline(deadline - time.monotonic())
+            if line is None:
                 break
-            if not ready:
-                if process.poll() is not None:
-                    break
-                continue
-            chunk = os.read(stream.fileno(), 65536)
-            if not chunk:
-                break
-            out += chunk
-            pending += chunk.decode("utf-8", "replace")
-            while "\n" in pending:
-                line, pending = pending.split("\n", 1)
+            if on_progress is not None:
                 _dispatch(line, on_progress)
-
-        stderr = process.stderr.read().decode("utf-8", "replace")
-        process.wait()
-        return process.returncode, out.decode("utf-8", "replace"), stderr
-    finally:
-        # The timeout path leaves by exception, and both pipes are ours to
-        # close either way.
-        for pipe in (process.stdout, process.stderr):
-            try:
-                pipe.close()
-            except OSError:
-                pass
+            if _final_event(line) is not None:
+                final = line
+        status = child.wait(deadline - time.monotonic())
+        return status, final, child.stderr
 
 
 def _dispatch(line: str, on_progress: ProgressHook) -> None:
@@ -455,6 +421,8 @@ class LiveRun:
         self._mem_limit_mb = mem_limit_mb
         self._context = None
         self._process = None
+        self._transport: Process | None = None
+        self._read_budget = timeout
         self._pending = ""
         self._result: dict | None = None
         self._steps: list[Step] = []
@@ -483,18 +451,23 @@ class LiveRun:
         return False
 
     def start(self) -> None:
-        backend = sandbox.select(untrusted=self._source.requires_isolation)
+        if self._transport is not None:
+            raise RuntimeError("live run has already started")
+        backend = _backend_for(self._source)
         if backend.isolating:
             self._payload["proc_limit"] = PROC_LIMIT
         self._context = backend.launch(HARNESS, mem_limit_mb=self._mem_limit_mb)
         launch = self._context.__enter__()
-        self._process = subprocess.Popen(
-            launch.argv,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            pass_fds=launch.pass_fds,
-        )
+        try:
+            self._transport = Process(
+                launch, mem_limit_mb=self._mem_limit_mb,
+                timeout=self._payload["timeout"],
+            )
+            self._process = self._transport.process
+        except BaseException:
+            self._context.__exit__(None, None, None)
+            self._context = None
+            raise
         # One line, and stdin stays open: the payload and the control channel
         # share the pipe, which is what makes this steerable at all.
         self._write(json.dumps(self._payload))
@@ -511,17 +484,9 @@ class LiveRun:
         Split out of `close` because an edit needs exactly this and then a
         fresh child, while `close` also means "and never again".
         """
-        if self._process is not None:
-            for pipe in (self._process.stdin, self._process.stdout,
-                         self._process.stderr):
-                try:
-                    if pipe is not None:
-                        pipe.close()
-                except OSError:
-                    pass
-            if self._process.poll() is None:
-                self._process.kill()
-            self._process.wait()
+        if self._transport is not None:
+            self._transport.close()
+            self._transport = None
         if self._context is not None:
             self._context.__exit__(None, None, None)
         self._process = None
@@ -632,6 +597,7 @@ class LiveRun:
         after an edit they are driving again, from the edit point.
         """
         self._pending = ""
+        self._read_budget = self._payload["timeout"]
         self._result = None
         self._steps = []
         self._history = Timeline()
@@ -652,10 +618,16 @@ class LiveRun:
         """Stop the run where it stands."""
         if self._result is not None:
             return
-        if self._awaiting:
-            self._write('{"cmd": "abort"}')
-            self._awaiting = False
-        self.drain()
+        # Do not wait for a child to cooperate: it may be inside a C call,
+        # or not have reported its first step yet. Preserve the watched prefix.
+        self._stop("stopped by the player", "Aborted")
+
+    def _stop(self, message: str, kind: str) -> None:
+        self._result = {
+            "error": message, "error_type": kind,
+            "trace": [step.to_trace() for step in self._steps[:400]],
+        }
+        self._teardown()
 
     def drain(self) -> RunResult:
         """Read to the end and return the result, whatever is left to happen."""
@@ -710,12 +682,8 @@ class LiveRun:
             self._awaiting = False
 
     def _write(self, line: str) -> None:
-        try:
-            self._process.stdin.write((line + "\n").encode())
-            self._process.stdin.flush()
-        except (BrokenPipeError, OSError, AttributeError, ValueError):
-            # The child is gone. `_read_step` will see EOF and settle it.
-            pass
+        if self._transport is not None:
+            self._transport.send((line + "\n").encode("utf-8"))
 
     def _read_step(self) -> Step | None:
         while True:
@@ -729,6 +697,9 @@ class LiveRun:
             if not isinstance(event, dict):
                 continue
             if event.get("event") == "step":
+                if len(self._steps) >= 20000:
+                    self._stop("live history budget of 20000 steps exceeded", "Aborted")
+                    return None
                 step = Step(
                     index=int(event.get("index", len(self._steps) + 1)),
                     line=int(event.get("line", 0)),
@@ -747,17 +718,22 @@ class LiveRun:
                 return None
 
     def _readline(self) -> str | None:
-        if "\n" in self._pending:
-            line, self._pending = self._pending.split("\n", 1)
+        if self._transport is None:
+            return None
+        started = time.monotonic()
+        try:
+            line = self._transport.readline(self._read_budget)
+            if line is None and self._result is None:
+                error = self._transport.stderr.strip()[-1000:]
+                self._stop(error or "the child closed without a result", "SandboxCrash")
             return line
-        while True:
-            try:
-                chunk = self._process.stdout.readline()
-            except (OSError, ValueError, AttributeError):
-                return None
-            if not chunk:
-                return None
-            self._pending += chunk.decode("utf-8", "replace")
-            if "\n" in self._pending:
-                line, self._pending = self._pending.split("\n", 1)
-                return line
+        except subprocess.TimeoutExpired:
+            self._stop("execution budget exceeded while waiting for the child", "Aborted")
+            return None
+        except OutputLimit as exc:
+            self._stop(str(exc), "OutputLimit")
+            return None
+        finally:
+            # Time the parent spends inspecting or editing never consumes the
+            # watchdog. A silent native call does, even without trace events.
+            self._read_budget -= time.monotonic() - started

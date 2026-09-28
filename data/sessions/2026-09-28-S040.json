@@ -1,0 +1,140 @@
+{
+  "id": "S040",
+  "date": "2026-09-28",
+  "trajectory": "T6",
+  "competency_band": "Analyse",
+  "journal": "journal/2026-09-28-S040-desktop-discovery.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "Engine boundaries and baseline are evidenced",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "Desktop architecture is reviewable before implementation",
+      "result": "met"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "docs/desktop/ADR-001-desktop.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/desktop/ENGINE_API.md",
+      "kind": "doc"
+    },
+    {
+      "path": "journal/2026-09-28-S040-desktop-discovery.md",
+      "kind": "doc"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Full host baseline passes",
+      "method": "python3.11 -m unittest discover -s tests (host access)",
+      "result": "1420 tests OK in 82.864s, no skips reported",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Reference gate passes",
+      "method": "python3.11 -m vibecoder.cli verify --seeds 3",
+      "result": "54/54 reference runs clean",
+      "verdict": "verified"
+    },
+    {
+      "claim": "CLI and real PTY workflows function",
+      "method": "Scratch-home subprocess smoke and temporary /tmp/vibecoder-phase0-pty.py driver",
+      "result": "Practice/replay/profile/status/map/daily/live boss; 80x24 and 120x30 second-attempt solve scores 110 and restores terminal",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Explicit subprocess pin overrides untrusted provenance",
+      "method": "sandbox.select(untrusted=True) with VIBECODER_SANDBOX=subprocess; source inspection",
+      "result": "Returns subprocess, isolating=False; tests document this exception",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Production desktop works on macOS and Windows",
+      "method": "Native packaged runtime, GUI and installer checks after implementation",
+      "result": "No implementation yet; proposal awaits review",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "Documentation schemas and links pass",
+      "method": "python3.11 -m unittest discover -s tests -p test_records.py (host access)",
+      "result": "21 tests OK in 4.652s",
+      "verdict": "verified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M59",
+      "believed": "Public engine functions alone provide identical frontend lifecycle mechanics",
+      "revealed_by": "Inspection of cmd_play, Editor.execute/_bank and cmd_boss",
+      "corrected_to": "Scoring is shared but orchestration differs; service extraction must resolve policies explicitly",
+      "caught_before_shipping": true
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D239",
+      "decision": "Propose Tauri/React/Monaco plus a real CPython sidecar, awaiting approval",
+      "alternatives": [
+        "Electron",
+        "PyQt6",
+        "Dear ImGui",
+        "PyO3",
+        "frozen single executable"
+      ],
+      "rationale": "Preserve stdlib engine and fresh standalone harness interpreter; test portability first",
+      "reversible": true,
+      "seam": "Outer application service/client protocol"
+    }
+  ],
+  "friction": [
+    {
+      "description": "Restricted baseline had unavailable isolation backends; host run passed unchanged",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "Smoke invocations corrected for missing configured external editor and unsupported replay option",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "Phase 0 evidenced; docs-only architecture proposal ready",
+    "next_action": "User review, then desktop trajectory and native runtime portability spike",
+    "blockers": [
+      "User explicitly requires architecture review before implementation"
+    ],
+    "context_required": [
+      "Python 3.11",
+      "Host full-suite gate",
+      "CLI/editor policy gaps",
+      "Boss persistence absent",
+      "Native signing prerequisites unverified"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q102",
+      "question": "Accept desktop stack, session policy and staged portability/service gates?",
+      "owner": "T6",
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "tests_total": 1420,
+    "tests_passing": 1420,
+    "dependencies": 0,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 34,
+    "bosses": 2,
+    "reference_runs_clean": 54
+  }
+}
