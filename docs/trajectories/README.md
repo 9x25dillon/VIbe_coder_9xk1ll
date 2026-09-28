@@ -326,9 +326,12 @@ counts toward them, although `vibecoder.service` is a first draft of the
 use-case layer T8 W2 asks for. The browser and Android builds bundle Pyodide,
 a third-party runtime, under an N1 exception the user approved for those
 builds only (D242); the Python package is still dependency-free. W1–W4 landed
-in [S042](../../journal/2026-09-28-S042-phone-and-browser.md). W5 — serving
-the build from the user's domain — is prepared but not done: the server
-refused connections from the build host, and a live site is not changed blind.
+in [S042](../../journal/2026-09-28-S042-phone-and-browser.md). **W5 landed in
+[S043](../../journal/2026-09-28-S043-going-live.md)**: the build is live at
+https://vibecoder.astra-arcana.com, on its own origin rather than the
+`/vibecoder/` path first chosen — the site's own header gate would otherwise
+have had to loosen its landing page for it. W6, a person playing it through on
+a phone, is what remains.
 
 ## Rules
 

@@ -25,7 +25,7 @@ user's request while it waits. Recorded here rather than absorbed.
 | W2 | A static browser build runs that engine in Pyodide, executes submissions in a fresh sandbox worker per run, and persists progress locally | landed (S042) |
 | W3 | An acid-punk touch-first client: campaign, level editor with a symbol row, scoring, replay, boss fight, stats, settings | landed (S042) |
 | W4 | A signed Android APK with no network permission, installable from a GitHub release | landed (S042) |
-| W5 | The browser build is served from the user's domain with the headers it needs, and works offline after the first visit | pending: server unreachable from the build host |
+| W5 | The browser build is served from the user's domain with the headers it needs, and works offline after the first visit | landed (S043): https://vibecoder.astra-arcana.com |
 | W6 | Human play on a phone: every level cleared by typing, and a boss fought to the end, recorded with observations | pending |
 
 ## Exit criteria

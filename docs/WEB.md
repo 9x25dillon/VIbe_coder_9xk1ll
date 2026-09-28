@@ -70,67 +70,80 @@ player's progress.
 
 ## Hosting the browser build
 
-Every URL the page makes is relative, so the build works from any path
-(`smoke.py --prefix` proves it). A host must send:
+The live build is at **https://vibecoder.astra-arcana.com**
+([S043](../journal/2026-09-28-S043-going-live.md)).
+
+Every URL the page makes is relative, so the build *can* run from a subpath
+(`smoke.py --prefix` proves it). **Prefer its own origin anyway.** A host
+whose other pages have a strict policy, or a service worker scoped to `/`,
+would have to loosen the one or share its scope with the other; a subdomain
+needs neither. That is what astra-arcana.com turned out to require (M65).
+
+A host must send:
 
 | Requirement | Why |
 | --- | --- |
 | `script-src 'self' 'wasm-unsafe-eval'` | compiling WebAssembly counts as eval under CSP; without it Python never starts |
 | `worker-src 'self'` | the engine and every sandbox are module workers |
 | `Content-Type: application/wasm` for `.wasm` | streaming compilation refuses anything else |
-| `Content-Type: text/javascript` for `.mjs` | module workers refuse anything else |
+| a JavaScript type for `.mjs` | module workers refuse anything else, and nginx's `mime.types` has no `.mjs` |
+| `Cache-Control: no-cache` | file names are not content-hashed, so a cached `app.js` from the last build would meet this build's HTML; revalidation is a 304, and the offline worker makes repeat visits fast |
 
 The full policy is `serve.CSP` in [`tools/web/serve.py`](../tools/web/serve.py);
 `tests/test_web.py` asserts that the page, the local server and the Android
 shell send the same one.
 
-### nginx
+### nginx (as deployed)
 
 ```nginx
-location ^~ /vibecoder/ {
-    alias /var/www/vibecoder/;
-    types {
-        text/html html; text/css css; text/javascript js mjs;
-        application/json json; application/manifest+json webmanifest;
-        application/wasm wasm; application/zip zip; font/woff2 woff2;
-        image/svg+xml svg; image/png png; text/plain py txt;
-    }
-    # add_header here replaces any the server block sets, which is the point:
-    # this path needs its own CSP.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy no-referrer always;
+server {
+    listen 443 ssl;
+    server_name vibecoder.example.com;
+    # ssl_certificate ... as for the rest of the site
+
+    root /usr/share/nginx/vibecoder/current;   # a link the deploy tool swaps
+    index index.html;
+
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
     add_header Cache-Control "no-cache" always;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml application/wasm text/plain;
+
+    # No add_header in these, so they inherit the set above.
+    location ~ \.mjs$         { types { } default_type application/javascript;    try_files $uri =404; }
+    location ~ \.webmanifest$ { types { } default_type application/manifest+json; try_files $uri =404; }
+    location /                { try_files $uri $uri/ =404; }
 }
 ```
 
-### Caddy
-
-```caddy
-handle_path /vibecoder/* {
-    root * /var/www/vibecoder
-    header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
-    header X-Content-Type-Options nosniff
-    file_server
-}
-```
-
-If a CDN in front of the site adds its own CSP (a Cloudflare transform rule,
-for instance), exempt `/vibecoder/*` there too, and turn off anything that
-rewrites scripts (Rocket Loader). Check what is really served:
-
-```bash
-curl -sI https://example.com/vibecoder/ | grep -i content-security
-curl -sI https://example.com/vibecoder/vendor/pyodide/pyodide.asm.wasm | grep -i content-type
-```
+On astra-arcana.com this block lives in the site's own repository
+(`astro_caster`, `frontend/nginx.conf`), where `test_edge_headers.py` polices
+it with the rest, and the build directory is bind-mounted read-only into the
+frontend container from `~/astro-aae/vibecoder-web`.
 
 ### Uploading
 
 ```bash
-python3.11 tools/web/deploy.py user@host:/var/www/vibecoder --key ~/.ssh/key
+python3.11 tools/web/build.py
+python3.11 tools/web/deploy.py astra@<host>:/home/astra/astro-aae/vibecoder-web \
+    --key ~/.ssh/astra_hetzner
 ```
 
-`deploy.py` copies `build/web` into a new versioned directory beside the
-target and then swaps a symlink, so a visitor never loads half of one build and
-half of another. The offline worker (`sw.js`) is stamped with the build id,
-so a new deploy replaces the cached copy on the next visit.
+`deploy.py` unpacks each build into its own directory inside the target and
+swaps a relative `current` link to it with one `rename`. The swap is *inside*
+the directory because the directory is a container bind mount, and Docker
+resolves a mount's source once, at container start: a link replaced at the
+mount point itself would go unseen until a restart (M66). nginx resolves
+`current` per request, so a deploy needs no restart, a visitor never loads
+half of one build, and a rollback is pointing `current` back. The offline
+worker (`sw.js`) is stamped with the build id, so browsers pick up a new build
+on their next visit. Check what is really served, not what the config says:
+
+```bash
+curl -sI https://vibecoder.astra-arcana.com/ | grep -i content-security
+curl -s -o /dev/null -w '%{content_type}\n' https://vibecoder.astra-arcana.com/vendor/pyodide/pyodide.asm.wasm
+python3.11 tools/web/smoke.py --url https://vibecoder.astra-arcana.com/
+```

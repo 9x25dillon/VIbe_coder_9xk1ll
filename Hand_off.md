@@ -1,6 +1,6 @@
 # Hand_off.md — orientation for the next session
 
-**Composed:** 2026-09-28, at the close of S042 · **Trajectories in flight:** T9
+**Composed:** 2026-09-28, at the close of S043 · **Trajectories in flight:** T9
 (phone and browser) and T8 (desktop, paused on Q103) · **Consult after** the
 newest [`journal/`](journal/) entry and
 [`docs/trajectories/T9-mobile-web.md`](docs/trajectories/T9-mobile-web.md).
@@ -30,7 +30,8 @@ python3.11 -m vibecoder.cli verify --seeds 3                       # 54/54
 ## 2. Present state
 
 - **Released 0.2.0**: the CLI package (wheel + sdist, uploaded to PyPI by the
-  user), a signed Android APK and a browser build, all from one engine. See
+  user), a signed Android APK on the GitHub release, and the browser build
+  **live at https://vibecoder.astra-arcana.com** (S043), all one engine. See
   [`docs/WEB.md`](docs/WEB.md) for the whole path.
 - **`vibecoder/service.py`** is the game as async use cases (levels, bosses,
   daily, stats, reset) with an injected executor. It is the only surface the
@@ -39,34 +40,31 @@ python3.11 -m vibecoder.cli verify --seeds 3                       # 54/54
 - **Android**: `com.astraarcana.vibecoder`, no INTERNET permission, no cloud
   backup. The release key is `~/.config/vibecoder/android-release.jks` with its
   password file beside it — **it must be backed up**; a different key cannot
-  update an installed app. The debug build (`--debug`) is a separate app id with
-  WebView debugging on, which `tools/android/device_smoke.py` needs.
-- **Verified on a Pixel 10a (Android 17)**: engine boot, 143 ms level open,
-  153 ms warm run, runaway loop killed at 12 s, keyboard never covers the
-  editor's symbol row, progress survives a force-stop.
+  update an installed app.
+- **Hosting**: the site's repository is `9x25dillon/astro_caster`
+  (`~/astro-aae` locally and on the box). The game has its own server block in
+  its `frontend/nginx.conf`, policed by that repo's `test_edge_headers.py`,
+  and its files live in `~/astro-aae/vibecoder-web` on the server, mounted
+  read-only. SSH is `astra@178.104.120.219` with `~/.ssh/astra_hetzner`,
+  allowed only from an allow-listed source address.
 
 ## 3. What remains unproven (do not assert these)
 
-- Hosting on astra-arcana.com (T9 W5): **not done.** Every port on
-  178.104.120.219 timed out from this host; the site is run as user `astra`
-  in a Docker Compose stack (`~/astro-aae`), not as root.
 - Human play on the phone (T9 W6), Firefox, Safari and iOS.
-- The unpinned multi-backend escape sweep was run this session under the
-  unpinned gate; Docker availability decided which backends it covered.
+- First-visit load time on a phone network (10.3 s measured on a desktop
+  connection; after that the offline worker serves everything locally).
 
-## 4. The single next action (T9 W5)
+## 4. The single next action (T9 W6)
 
-When SSH works again:
+Play the phone build as a person: clear a level by typing and fight a boss to
+the end, then record what was found. To ship a new web build:
 
 ```bash
 python3.11 tools/web/build.py
-python3.11 tools/web/deploy.py astra@<host>:/var/www/vibecoder --key ~/.ssh/astra_hetzner
+python3.11 tools/web/deploy.py astra@178.104.120.219:/home/astra/astro-aae/vibecoder-web \
+    --key ~/.ssh/astra_hetzner
+python3.11 tools/web/smoke.py --url https://vibecoder.astra-arcana.com/
 ```
-
-then add the `location ^~ /vibecoder/` block from `docs/WEB.md` wherever the
-site's proxy lives (on the host or inside the Compose stack — Q104), reload it,
-and check what is actually served with `curl -I` for the CSP and the `.wasm`
-content type. Do not edit the live stack without showing the user the diff.
 
 ## 5. Invariants most directly in play
 
@@ -81,7 +79,7 @@ content type. Do not edit the live stack without showing the user the diff.
 
 ## 6. Open questions carried forward
 
-- **Q104** — how the site is served and from where SSH is allowed.
+- **Q107** — content-hashed file names, so the CDN can cache the build.
 - **Q105** — should the pip package ship `vibecoder web`?
 - **Q106** — Google Play, or sideload-only?
 - **Q103** (T8) — native Windows/macOS runners and signing identity.

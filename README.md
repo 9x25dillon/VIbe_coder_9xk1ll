@@ -34,7 +34,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
 
 **Play it anywhere:** in your terminal (`pipx install vibecoder`), on an
 Android phone (the APK on the [releases page](https://github.com/9x25dillon/VIbe_coder_9xk1ll/releases)),
-or in a browser. The phone and browser builds run the *same* Python engine,
+or in a browser at **https://vibecoder.astra-arcana.com**. The phone and browser builds run the *same* Python engine,
 compiled to WebAssembly, entirely on your device — see [Phone and browser](#phone-and-browser).
 
 **Status:** Phase 0 complete. Playable, scored, 1487 tests, **zero third-party
@@ -102,8 +102,8 @@ reference measured in the same interpreter.
   app asks for **no network permission at all**: the interpreter, the game and
   your code never leave the phone. The editor has a symbol row for the
   characters a phone keyboard hides.
-- **Browser:** any recent Chromium, Firefox or Safari. After the first visit it
-  works offline.
+- **Browser:** https://vibecoder.astra-arcana.com, in a recent Chromium-based
+  browser (the one verified so far). After the first visit it works offline.
 - **Build either yourself:** `python3.11 tools/web/build.py` and
   `python3.11 tools/android/build_apk.py`. Details, and the headers a host must
   send, in [`docs/WEB.md`](docs/WEB.md).

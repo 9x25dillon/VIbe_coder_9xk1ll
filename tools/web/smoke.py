@@ -61,10 +61,10 @@ class WebDriver:
             raise RuntimeError(json.dumps(reply.get("value"), indent=1)[:2000]) from None
         return reply.get("value")
 
-    def start(self, *, mobile: bool) -> None:
+    def start(self, *, mobile: bool, extra: tuple[str, ...] = ()) -> None:
         options = {
             "args": ["--headless=new", "--disable-gpu", "--no-first-run",
-                     "--hide-scrollbars", "--force-device-scale-factor=1"],
+                     "--hide-scrollbars", "--force-device-scale-factor=1", *extra],
         }
         chromium = shutil.which("chromium") or shutil.which("chromium-browser")
         if chromium:
@@ -268,6 +268,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prefix", default="",
                         help="serve under a subpath (e.g. vibecoder), as a real host would")
     parser.add_argument("--shots", type=Path, help="tour the UI, saving screenshots here")
+    parser.add_argument("--chrome-arg", action="append", default=[],
+                        help="extra Chromium flag, e.g. --host-resolver-rules=...")
+    parser.add_argument("--url", help="check an already-running site (e.g. production) "
+                        "instead of serving --dir")
     args = parser.parse_args(argv)
 
     site_port, driver_port = free_port(), free_port()
@@ -278,7 +282,7 @@ def main(argv: list[str] | None = None) -> int:
         import tempfile
         served = Path(tempfile.mkdtemp(prefix="vibecoder-host-"))
         (served / args.prefix).symlink_to(args.dir.resolve(), target_is_directory=True)
-    server = serve(served, site_port)
+    server = serve(served, site_port) if not args.url else None
     chromedriver = subprocess.Popen(
         ["chromedriver", f"--port={driver_port}"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -291,8 +295,10 @@ def main(argv: list[str] | None = None) -> int:
                 break
             except OSError:
                 time.sleep(0.1)
-        driver.start(mobile=not args.desktop)
+        driver.start(mobile=not args.desktop, extra=tuple(args.chrome_arg))
         site = f"http://127.0.0.1:{site_port}/" + (f"{args.prefix}/" if args.prefix else "")
+        if args.url:
+            site = args.url.rstrip("/") + "/"
         if args.shots:
             ui_tour(driver, site, args.shots)
             for entry in driver.logs():
@@ -316,7 +322,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         driver.quit()
         chromedriver.terminate()
-        server.shutdown()
+        if server is not None:
+            server.shutdown()
 
 
 if __name__ == "__main__":

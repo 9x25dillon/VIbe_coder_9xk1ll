@@ -1,0 +1,219 @@
+{
+  "id": "S043",
+  "date": "2026-09-28",
+  "trajectory": "T9",
+  "competency_band": "Apply",
+  "journal": "journal/2026-09-28-S043-going-live.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "The browser build is served from the user's domain with the headers it needs",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "It works offline after the first visit",
+      "result": "met"
+    },
+    {
+      "id": 3,
+      "statement": "The existing site on that domain is unaffected and its own header gate passes unweakened",
+      "result": "met"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "tools/web/deploy.py",
+      "kind": "config",
+      "note": "versioned builds inside the target, relative current link renamed atomically"
+    },
+    {
+      "path": "tools/web/smoke.py",
+      "kind": "config",
+      "note": "--url for a running site, --chrome-arg"
+    },
+    {
+      "path": "docs/WEB.md",
+      "kind": "doc",
+      "note": "hosting rewritten around an origin of its own, block as deployed"
+    },
+    {
+      "path": "docs/trajectories/T9-mobile-web.md",
+      "kind": "doc",
+      "note": "W5 landed"
+    },
+    {
+      "path": "docs/trajectories/README.md",
+      "kind": "doc"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": "live URL"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "The site's header gate passes with the new server block",
+      "method": "astro_caster: backend/.venv/bin/pytest -q backend/tests/test_edge_headers.py",
+      "result": "7 passed (6 existing + 1 new)",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The new config is valid and serves the right types before touching production",
+      "method": "nginx:1.27-alpine locally with the new nginx.conf and the build mounted; nginx -t; curl; smoke.py --url",
+      "result": "syntax ok; wasm application/wasm, mjs application/javascript, manifest application/manifest+json, missing file 404; SMOKE OK",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Only the frontend container changed on the server",
+      "method": "ops/deploy_frontend.sh on the box; docker compose ps",
+      "result": "box f9c463c -> 4ecf721; frontend healthy; backend Up 12 days",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The DNS change added one record and altered nothing else",
+      "method": "Cloudflare API reads before apply; cloudflare_dns.sh --apply",
+      "result": "existing apex/www/app records and three settings already equal to the written values; CREATE A vibecoder ok",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The live site sends the needed headers",
+      "method": "curl -I https://vibecoder.astra-arcana.com/ and asset URLs",
+      "result": "HTTP/2 200 via cloudflare; CSP with wasm-unsafe-eval; application/wasm 9598218 B; application/javascript for .mjs; no-cache; build fa8cb29f13036270",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The engine plays on the live site",
+      "method": "python3.11 tools/web/smoke.py --url https://vibecoder.astra-arcana.com/",
+      "result": "boot 10313 ms cold, open 138 ms, run 127 ms, 5/5, ops 1364 = ref 1364, runaway -> Timeout",
+      "verdict": "verified"
+    },
+    {
+      "claim": "It works offline after one visit",
+      "method": "headless Chromium: visit, wait for the service worker's cache, set network offline, reload",
+      "result": "32 entries cached; campaign rendered offline in 3.7 s",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The existing site is unaffected",
+      "method": "curl https://astra-arcana.com/ and https://app.astra-arcana.com/ after the deploy",
+      "result": "200 and 200; landing CSP still without wasm-unsafe-eval",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A first visit on a phone network loads acceptably",
+      "method": "none",
+      "result": "cold boot measured only on a desktop connection (10.3 s)",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M65",
+      "believed": "Serving at /vibecoder/ on the apex or at a subdomain were interchangeable",
+      "revealed_by": "The site's nginx config documents a /-scoped service worker hazard, and its test_edge_headers demands verbatim header sets per server block, which a wasm-enabled location on the apex cannot meet without loosening the landing page",
+      "corrected_to": "A subdomain, chosen by the user with that information",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Read the host's own invariants before offering a URL shape."
+    },
+    {
+      "id": "M66",
+      "believed": "Replacing the target path with a new symlink would redirect the running web server",
+      "revealed_by": "Reading the compose file before the first deploy: the target is a Docker bind mount, resolved once at container start",
+      "corrected_to": "Versioned builds inside the mount and a current link inside it, renamed atomically and resolved by nginx per request",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "An atomic swap is only atomic for whoever resolves the name after it; find out who that is."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D248",
+      "decision": "Serve the game at vibecoder.astra-arcana.com",
+      "alternatives": [
+        "/vibecoder/ with the landing CSP loosened",
+        "/vibecoder/ with an exception in test_edge_headers"
+      ],
+      "rationale": "Passes the site's header gate unchanged and keeps the marketing page strict; the user approved",
+      "reversible": true,
+      "seam": "astro_caster frontend/nginx.conf third server block"
+    },
+    {
+      "id": "D249",
+      "decision": "Mount the build read-only into the existing frontend container, released by VibeCoder's own tool",
+      "alternatives": [
+        "Bake the files into the astra-frontend image",
+        "A separate container"
+      ],
+      "rationale": "Releases the game without rebuilding the site while the site's config and tests still govern how it is served",
+      "reversible": true,
+      "seam": "docker-compose.yml ./vibecoder-web mount"
+    },
+    {
+      "id": "D250",
+      "decision": "Cache-Control no-cache for the whole game host",
+      "alternatives": [
+        "Long-lived caching with content-hashed file names"
+      ],
+      "rationale": "File names are stable; the offline worker already makes repeat visits local",
+      "reversible": true,
+      "seam": null
+    }
+  ],
+  "friction": [
+    {
+      "description": "The first firewall change allowed the server's own address instead of the build host's",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "The build host's resolver cached NXDOMAIN for the new name; checks pinned the Cloudflare address",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "zsh does not word-split an unquoted variable holding two curl flags",
+      "impact": "low",
+      "resolved": true
+    }
+  ],
+  "handoff": {
+    "state": "T9 W1-W5 landed; the game is live at https://vibecoder.astra-arcana.com, the APK is on the v0.2.0 release, the wheel awaits the user's PyPI upload.",
+    "next_action": "A person plays the phone build: a level cleared by typing and a boss fought to the end, observations recorded (T9 W6).",
+    "blockers": [],
+    "context_required": [
+      "docs/WEB.md hosting as deployed",
+      "astro_caster frontend/nginx.conf third server block",
+      "tools/web/deploy.py"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q104",
+      "question": "How is astra-arcana.com served, and from where is SSH allowed?",
+      "owner": "T9",
+      "status": "answered",
+      "answer": "nginx inside the site's frontend container, config in astro_caster; SSH from an allow-listed source address"
+    },
+    {
+      "id": "Q107",
+      "question": "Should the web build content-hash its file names so the CDN can cache them for long?",
+      "owner": "T9",
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "tests_total": 1487,
+    "tests_passing": 1487,
+    "dependencies": 0,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 37,
+    "bosses": 2,
+    "reference_runs_clean": 54
+  }
+}
