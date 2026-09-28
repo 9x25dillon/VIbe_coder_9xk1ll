@@ -36,6 +36,8 @@ Each trajectory document has the same five sections.
 | [T5](T5-community.md) | Daily challenges, leaderboards, level editor | Phase 4 | `IN FLIGHT` | 2026-10-18 |
 | [T6](T6-presentation.md) | Presentation layer: capability-aware terminal rendering | cross-cutting | `LANDED` | 2026-08-08 |
 | [T7](T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | cross-cutting | `LANDED` | — |
+| [T8](T8-desktop.md) | Native desktop product (Tauri client over the Python engine) | product | `IN FLIGHT` (paused: Q103) | evidence-gated |
+| [T9](T9-mobile-web.md) | Phone and browser play: Pyodide engine, Android app | product | `IN FLIGHT` | 2026-10-18 |
 
 T6 is cross-cutting rather than tied to a design phase: it presents whatever the
 other trajectories build, and it landed early because T1's output was already
@@ -314,6 +316,19 @@ against them is recorded chronologically in [`journal/`](../../journal/).
 approval of ADR-001. W1 is the packaged runtime and native portability gate.
 This is an explicitly recorded additional workstream while T2 remains externally
 blocked and T5 incomplete; neither historical scope nor deadlines are rewritten.
+
+## Phone and browser — 2026-09-28
+
+[T9 — Phone and browser play](T9-mobile-web.md) started the same day at the
+user's request, with T8 blocked on native Windows/macOS runners (Q103). T8 is
+**paused, not landed**: none of its criteria moved, and nothing T9 built
+counts toward them, although `vibecoder.service` is a first draft of the
+use-case layer T8 W2 asks for. The browser and Android builds bundle Pyodide,
+a third-party runtime, under an N1 exception the user approved for those
+builds only (D242); the Python package is still dependency-free. W1–W4 landed
+in [S042](../../journal/2026-09-28-S042-phone-and-browser.md). W5 — serving
+the build from the user's domain — is prepared but not done: the server
+refused connections from the build host, and a live site is not changed blind.
 
 ## Rules
 

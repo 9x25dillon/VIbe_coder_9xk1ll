@@ -45,8 +45,20 @@ vibecoder/
 ├── repair.py      The pane a player types a boss-fight fix into.
 ├── timeline.py    A cursor over history, and whether a re-run matches it.
 │                  No re-execution, imports nothing.
+├── service.py     The game as async use cases for clients with no terminal:
+│                  open/run/finish a level, attempt/repair/finish a fight.
+│                  Execution is injected; the browser injects a worker.
 └── levels/        One module per level; auto-discovered.
+
+web/               The browser client (T9). Talks only to service.py, through
+                   boot.py's allow-list, from a Pyodide engine worker. Every
+                   submission runs _harness.py in a fresh Pyodide worker.
+android/           A WebView over web/, served from APK assets, no network.
 ```
+
+The browser and Android builds are described end to end in
+[WEB.md](WEB.md), including why a WebAssembly worker is the browser's
+equivalent of a fresh child process and what a host has to send for it.
 
 ## Dependency direction
 
@@ -507,7 +519,8 @@ Run artifacts (code, score, full result including trace) are written to
 | You want to | Touch |
 | --- | --- |
 | Add a level | One new file in `vibecoder/levels/` — see [LEVEL_AUTHORING.md](LEVEL_AUTHORING.md) |
-| Change how code is executed | `runner.run_code` — the seam; nothing above it should change |
+| Change how code is executed | `runner.run_code` — the seam; nothing above it should change. A transport that cannot spawn processes implements `service.Executor` and reuses `runner.build_payload`/`parse_reply` |
+| Add a screen to the phone/browser client | `web/js/app.js`; anything it needs from the game is a `Service` method, added to `web/boot.py`'s `METHODS` |
 | Add a style goal | `style.CHECKERS` and `style.DESCRIPTIONS` |
 | Add a coaching rule | Decorate a function with `@tips.rule` |
 | Change the scoring curves | `scoring.py` — read [SCORING.md](SCORING.md) first |

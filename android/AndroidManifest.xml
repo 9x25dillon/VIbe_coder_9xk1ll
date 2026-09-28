@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  VibeCoder for Android: a WebView over the browser build, served from the
+  APK's own assets. There is deliberately no INTERNET permission: the game,
+  the Python interpreter and the player's code never need the network, and an
+  app that cannot open a socket cannot be argued with about what it sends.
+
+  allowBackup is off because run artifacts are code the player wrote, and the
+  privacy promise is that nothing they write leaves the device.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.astraarcana.vibecoder">
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.VibeCoder"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true"
+        android:supportsRtl="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

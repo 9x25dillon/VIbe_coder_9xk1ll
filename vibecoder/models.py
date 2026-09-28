@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import inspect
 import random
+import re
 from dataclasses import dataclass, field, asdict
 from functools import lru_cache
 from enum import Enum
@@ -255,6 +256,26 @@ class BossStep:
                   difficulty: "Difficulty | None" = None) -> list[TestCase]:
         """The variant for ``seed``, at ``difficulty`` if the step opted in."""
         return generate_tests(self.make_tests, seed, difficulty)
+
+    def with_stub(self, code: str) -> str:
+        """Add this step's stub to what the player has written so far.
+
+        A boss is one shared file and each step brings a new function, so the
+        buffer has to grow as the fight does. Without this a player reaches
+        step two holding code that never mentions its function, and the fight
+        asks them to write a signature it never showed them -- which is the
+        difference between a puzzle and a guessing game.
+
+        Their earlier work is kept exactly as they wrote it; only the missing
+        stub is appended. Already defining the function means they solved
+        ahead, and nothing is added. Lives here rather than in a front-end
+        because the terminal fight and the browser fight must grow the file
+        identically.
+        """
+        pattern = re.compile(rf"^\s*def {re.escape(self.func_name)}\b", re.MULTILINE)
+        if pattern.search(code):
+            return code
+        return code.rstrip("\n") + "\n\n\n" + self.starter.strip("\n") + "\n"
 
 
 @dataclass

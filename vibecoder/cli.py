@@ -1518,12 +1518,10 @@ def _with_starter(code: str, step) -> str:
 
     Their earlier work is kept exactly as they wrote it; only the missing stub
     is appended. Already defining the function means they solved ahead, and
-    nothing is added.
+    nothing is added. The rule itself is `BossStep.with_stub`, shared with the
+    browser fight so the two cannot grow the file differently.
     """
-    pattern = re.compile(rf"^\s*def {re.escape(step.func_name)}\b", re.MULTILINE)
-    if pattern.search(code):
-        return code
-    return code.rstrip("\n") + "\n\n\n" + step.starter.strip("\n") + "\n"
+    return step.with_stub(code)
 
 
 def _spend_ability(fight, equipped: "tuple[str, ...]") -> bool:

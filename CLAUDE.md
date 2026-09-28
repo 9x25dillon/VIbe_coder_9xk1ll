@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 1437 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 1487 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -51,7 +51,7 @@ scar. Breaking one requires the user's explicit say-so **and** a journal entry.
 
 | # | Rule | Why |
 | --- | --- | --- |
-| N1 | **No third-party dependencies.** Not in `vibecoder/`, not in `tests/`. | Every metric stays inspectable rather than borrowed, and the game runs anywhere a Python 3.10+ interpreter does. Adding one needs a journal entry justifying it. |
+| N1 | **No third-party dependencies.** Not in `vibecoder/`, not in `tests/`. | Every metric stays inspectable rather than borrowed, and the game runs anywhere a Python 3.10+ interpreter does. Adding one needs a journal entry justifying it. The one exception: the browser and Android builds bundle Pyodide, pinned by hash in `tools/web/assets.lock.json` (D242, S042). Nothing in `vibecoder/` imports it. |
 | N2 | **`_harness.py` never imports the `vibecoder` package.** | It runs as a standalone script in a separate interpreter. A broken game module must not be able to corrupt a submission run. |
 | N3 | **The profiler never executes analysed code and never persists source.** | Its input is other people's repositories. Pure `ast` walking is a security property, not a style choice. |
 | N4 | **Phase 0's sandbox is an isolation boundary, never described as a security one.** | It contains a learner's infinite loop. It does not contain an attacker. Do not run other people's submissions through it. |
@@ -99,6 +99,15 @@ VIBECODER_SANDBOX=docker python3 -m unittest discover -s tests   # ~7 min, cold 
 
 # The T2 W2 gate. Every escape attempt must fail; it runs in CI, not by hand.
 python3 -m unittest tests.test_sandbox_escape
+
+# Phone and browser (T9). docs/WEB.md explains the whole path. The browser
+# build is the real package in Pyodide; its op counts are not the 3.11
+# baselines' and must never be recorded as baselines.
+python3.11 tools/web/build.py                     # -> build/web
+python3.11 tools/web/smoke.py                     # engine checks, headless Chromium
+python3.11 tools/web/smoke.py --shots /tmp/shots  # screenshot every screen
+python3.11 tools/android/build_apk.py --debug --install   # phone, debuggable
+python3.11 tools/android/device_smoke.py          # engine checks on the phone
 
 # Presentation. The last one must print 0 -- escape codes in a pipe are a bug.
 python3 -m vibecoder.cli showcase                 # every element + detected caps
@@ -162,6 +171,10 @@ Full map in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
   in T2. Nothing above `runner.py` should need to change — keep the signature
   stable and resist leaking execution details upward.
 - **`models.py` depends on nothing.** Keep it that way.
+- **`service.py` is the only thing a non-terminal client talks to.** The
+  browser reaches it through `web/boot.py`'s `METHODS` allow-list; a client
+  sends intents and renders facts, and never computes a score, a clock or a
+  seed itself. `tests/test_web.py` checks every call the page makes exists.
 - **Nothing imports `cli.py`.**
 - **Two-pass execution is deliberate.** Untraced for timing and memory, traced
   for op counting, because `sys.settrace` roughly doubles runtime. Do not

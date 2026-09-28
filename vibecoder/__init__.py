@@ -41,7 +41,7 @@ from .scoring import (
 from .session import Session
 from .levels import all_levels, get_level, worlds
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "Difficulty",

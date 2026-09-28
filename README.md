@@ -32,8 +32,13 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Status:** Phase 0 complete. Playable, scored, 1437 tests, **zero third-party
-dependencies**. Phase 2's boss engine is five waypoints in and playable: a
+**Play it anywhere:** in your terminal (`pipx install vibecoder`), on an
+Android phone (the APK on the [releases page](https://github.com/9x25dillon/VIbe_coder_9xk1ll/releases)),
+or in a browser. The phone and browser builds run the *same* Python engine,
+compiled to WebAssembly, entirely on your device — see [Phone and browser](#phone-and-browser).
+
+**Status:** Phase 0 complete. Playable, scored, 1487 tests, **zero third-party
+dependencies** in the Python package. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
 that raised, and lets you **type a fix into the paused fight** and carry on —
 telling you if the resumed run stopped matching the one you watched. The boss
@@ -51,6 +56,14 @@ World 2, where the example above lives.
 ## Quick start
 
 Requires Python 3.10+. Nothing else.
+
+```bash
+pipx install vibecoder          # or: pip install vibecoder
+vibecoder levels --browse       # the campaign cockpit
+vibecoder play w1-l1-greet      # opens $EDITOR, scores on save
+```
+
+Or from a clone:
 
 ```bash
 git clone https://github.com/9x25dillon/vibe_coder_9xk1ll
@@ -73,6 +86,31 @@ Optionally install as a command:
 ```bash
 pip install -e .      # then: vibecoder levels
 ```
+
+## Phone and browser
+
+The Android app and the browser build are the same static site: an acid-punk
+touch client over the real `vibecoder` package running in
+[Pyodide](https://pyodide.org) (CPython 3.14 compiled to WebAssembly). Every
+submission runs the unchanged `_harness.py` in a fresh WebAssembly worker, and
+the scores come from the same `scoring.py` as the terminal, against a
+reference measured in the same interpreter.
+
+- **Android:** download `vibecoder-<version>.apk` from the
+  [releases page](https://github.com/9x25dillon/VIbe_coder_9xk1ll/releases) and
+  install it (allow installs from your browser or file manager when asked). The
+  app asks for **no network permission at all**: the interpreter, the game and
+  your code never leave the phone. The editor has a symbol row for the
+  characters a phone keyboard hides.
+- **Browser:** any recent Chromium, Firefox or Safari. After the first visit it
+  works offline.
+- **Build either yourself:** `python3.11 tools/web/build.py` and
+  `python3.11 tools/android/build_apk.py`. Details, and the headers a host must
+  send, in [`docs/WEB.md`](docs/WEB.md).
+
+Pyodide is a third-party runtime, bundled only in these two builds by an
+explicit exception to the project's no-dependency rule (D242); `pip install
+vibecoder` still installs nothing but VibeCoder.
 
 ## How scoring works
 
@@ -233,7 +271,7 @@ State lives in `$VIBECODER_HOME` (default `~/.vibecoder`) as inspectable JSON.
 ## Repository layout
 
 ```
-vibecoder/            The game. 25 modules, no dependencies.
+vibecoder/            The game. No dependencies.
 ├── _harness.py       Sandbox child process; stdlib only, never imports the package
 ├── runner.py         Parent driver — builds payloads, parses replies
 ├── sandbox.py        Backend selection: subprocess / bubblewrap / docker
@@ -252,11 +290,16 @@ vibecoder/            The game. 25 modules, no dependencies.
 ├── pulse.py          Keystroke rhythm; stays on this machine
 ├── vision.py         Your function drawn as a machine, run by its own trace
 ├── timeline.py       A cursor over execution history; nothing is re-run
+├── service.py        The game as async use cases, for clients with no terminal
 └── levels/           One file per level, auto-discovered
 
-tests/                1437 tests, stdlib unittest
-docs/                 Architecture, scoring, profiler, level authoring, glossary
-└── trajectories/     Forward plan — T1..T7
+web/                  Browser client: no framework, no build step, no CDN
+android/              The Android shell: one Java activity, no network permission
+tools/web/            Build (pinned Pyodide), serve, smoke-test and deploy the browser build
+tools/android/        Build and sign the APK; run the engine checks on a device
+tests/                1487 tests, stdlib unittest
+docs/                 Architecture, scoring, profiler, level authoring, glossary, web
+└── trajectories/     Forward plan — T1..T9
 journal/              Chronological session reviews, with handoffs
 data/                 Machine-readable records: session data, measurement baselines
 SCHEDULE.md           Calendar plan through 18 Oct 2026
@@ -279,11 +322,13 @@ destination is committed, the path is expected to bend.
 | --- | --- | --- | --- |
 | [T1](docs/trajectories/T1-core-loop.md) | Core loop: levels, sandbox, three-axis scoring | `LANDED` | 2026-08-08 |
 | [T2](docs/trajectories/T2-sandbox.md) | Trusted execution & codebase ingestion | `IN FLIGHT` | 2026-08-30 |
-| [T3](docs/trajectories/T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | `IN FLIGHT` | 2026-09-20 |
-| [T4](docs/trajectories/T4-adaptive.md) | Adaptive difficulty | `PLOTTED` | 2026-10-04 |
-| [T5](docs/trajectories/T5-community.md) | Daily challenges, leaderboards, level editor | `PLOTTED` | 2026-10-18 |
+| [T3](docs/trajectories/T3-boss-engine.md) | Boss engine: interactive slow-motion debugger | `LANDED` | 2026-09-20 |
+| [T4](docs/trajectories/T4-adaptive.md) | Adaptive difficulty | `LANDED` | 2026-10-04 |
+| [T5](docs/trajectories/T5-community.md) | Daily challenges, leaderboards, level editor | `IN FLIGHT` | 2026-10-18 |
 | [T6](docs/trajectories/T6-presentation.md) | Presentation layer: capability-aware terminal rendering | `LANDED` | 2026-08-08 |
-| [T7](docs/trajectories/T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | `IN FLIGHT` | — |
+| [T7](docs/trajectories/T7-interactive.md) | Interactive full-screen play: editor, motion, visualiser | `LANDED` | — |
+| [T8](docs/trajectories/T8-desktop.md) | Native desktop product | `IN FLIGHT` (paused) | evidence-gated |
+| [T9](docs/trajectories/T9-mobile-web.md) | Phone and browser play | `IN FLIGHT` | 2026-10-18 |
 
 Week-by-week dates: [`SCHEDULE.md`](SCHEDULE.md).
 

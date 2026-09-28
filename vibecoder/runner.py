@@ -79,15 +79,10 @@ def run_code(
     source that requires isolation and finds none available raises rather than
     downgrading, because rlimits are not a fence against someone who meant it.
     """
-    payload = {
-        "code": code,
-        "func_name": func_name,
-        "tests": [t.to_json() for t in tests],
-        "timeout": timeout,
-        "mem_limit_mb": mem_limit_mb,
-        "record_trace": record_trace,
-        "filename": filename,
-    }
+    payload = build_payload(
+        code, func_name, tests, timeout=timeout, mem_limit_mb=mem_limit_mb,
+        record_trace=record_trace, filename=filename,
+    )
 
     backend = _backend_for(source)
 
@@ -120,12 +115,54 @@ def run_code(
         label = "sandbox" if backend.name == "subprocess" else f"{backend.name} sandbox"
         return RunResult(error=f"{label} crashed: {tail}", error_type="SandboxCrash")
 
+    return parse_reply(out)
+
+
+def build_payload(
+    code: str,
+    func_name: str,
+    tests: Sequence[TestCase],
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+    mem_limit_mb: int = DEFAULT_MEM_LIMIT_MB,
+    record_trace: bool = False,
+    filename: str = SUBMISSION_FILENAME,
+    mode: str = "",
+) -> dict:
+    """The harness's input, exactly as `run_code` would send it.
+
+    Public so that a transport which cannot spawn a process -- the browser
+    build runs `_harness.py` in a WebAssembly worker -- hands the child the
+    same object rather than a hand-copied lookalike that drifts. ``mode`` is
+    ``"step"`` for a stepped run and omitted otherwise, because the harness
+    reads its absence as an ordinary run.
+    """
+    payload = {
+        "code": code,
+        "func_name": func_name,
+        "tests": [t.to_json() for t in tests],
+        "timeout": timeout,
+        "mem_limit_mb": mem_limit_mb,
+        "record_trace": record_trace,
+        "filename": filename,
+    }
+    if mode:
+        payload["mode"] = mode
+    return payload
+
+
+def parse_reply(out: str) -> RunResult:
+    """Interpret a finished child's stdout, the way `run_code` does.
+
+    The other half of `build_payload`: a transport that gets the reply stream
+    some other way still has to find the one ``result`` line in it and treat
+    its absence as a crash, not as an empty pass.
+    """
     raw = _final_event(out)
     if raw is None:
         return RunResult(
             error="sandbox returned malformed output", error_type="SandboxCrash"
         )
-
     return _result_from(raw)
 
 
@@ -407,16 +444,10 @@ class LiveRun:
         mem_limit_mb: int = DEFAULT_MEM_LIMIT_MB,
         filename: str = SUBMISSION_FILENAME,
     ) -> None:
-        self._payload = {
-            "code": code,
-            "func_name": func_name,
-            "tests": [test.to_json()],
-            "timeout": timeout,
-            "mem_limit_mb": mem_limit_mb,
-            "record_trace": False,
-            "filename": filename,
-            "mode": "step",
-        }
+        self._payload = build_payload(
+            code, func_name, [test], timeout=timeout,
+            mem_limit_mb=mem_limit_mb, filename=filename, mode="step",
+        )
         self._source = source
         self._mem_limit_mb = mem_limit_mb
         self._context = None

@@ -125,6 +125,18 @@ What Phase 0's sandbox provides: protection from a learner's own mistakes
 (infinite loops, memory exhaustion, `sys.exit`). Explicitly **not** a security
 boundary. See *Security boundary*.
 
+### Engine worker
+The Web Worker in the browser build that runs Pyodide with the real `vibecoder`
+package and `service.py`. It owns the game's rules, clock and save file, and
+never executes a submission itself: it asks the page to, and the page uses a
+sandbox worker.
+
+### Executor
+What `service.Service` runs code through: one call, one run of `_harness.py`,
+stdout back. The browser's executor is a sandbox worker; the tests' is a
+subprocess. Declares whether it isolates, so provenance (N9) can be enforced
+without knowing how.
+
 ### Level
 One playable puzzle: a brief, a starter template, a hidden test generator, and a
 reference solution. One file in `vibecoder/levels/`, auto-discovered.
@@ -156,6 +168,11 @@ renormalises the other two, and does not bank the result. Exists because a
 scored axis that cannot be measured honestly is an exploit — see
 [M1 in S001](../journal/2026-08-08-S001-core-loop.md).
 
+### Pyodide
+CPython compiled to WebAssembly. The browser and Android builds run the game
+on it, pinned by hash; it is the one third-party runtime in the project, and it
+is not in the Python package (D242).
+
 ### Ranked run
 A run with an honest solve time, scored on all three axes and banked to the
 profile. The opposite of a practice run.
@@ -169,6 +186,11 @@ satisfy the level's own style goals.
 What Phase 0 does **not** have. Defending against deliberately hostile code
 requires container-backed execution, which is [T2](trajectories/T2-sandbox.md)
 and gates every multiplayer feature in [T5](trajectories/T5-community.md).
+
+### Sandbox worker
+A Web Worker holding a fresh Pyodide that runs exactly one submission through
+`_harness.py`, then is terminated. The browser's version of a fresh child
+process, and likewise an **isolation boundary**, not a security one.
 
 ### Seed
 The integer that generates a level variant. `level.tests_for(seed)` is

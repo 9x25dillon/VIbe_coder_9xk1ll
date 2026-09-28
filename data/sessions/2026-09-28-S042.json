@@ -1,0 +1,401 @@
+{
+  "id": "S042",
+  "date": "2026-09-28",
+  "trajectory": "T9",
+  "competency_band": "Create",
+  "journal": "journal/2026-09-28-S042-phone-and-browser.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "A level and a boss fight can be played through an async use-case layer, with CLI-equivalent scoring, by a client that owns no terminal",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "The unmodified vibecoder package and _harness.py run in a browser, one fresh interpreter per submission, and a runaway loop is stopped",
+      "result": "met"
+    },
+    {
+      "id": 3,
+      "statement": "A signed Android APK with no network permission runs the game on a real phone, keyboard included",
+      "result": "met"
+    },
+    {
+      "id": 4,
+      "statement": "The Python package is releasable to PyPI with no new dependency",
+      "result": "met"
+    },
+    {
+      "id": 5,
+      "statement": "The browser build is served from astra-arcana.com/vibecoder/",
+      "result": "missed",
+      "note": "Every port on 178.104.120.219 timed out from the build host; build, server config and deploy tool prepared instead (Q104)."
+    },
+    {
+      "id": 6,
+      "statement": "A person plays the phone build end to end",
+      "result": "deferred",
+      "note": "Only automated taps, DevTools checks and screenshots so far (T9 W6)."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "vibecoder/service.py",
+      "kind": "module",
+      "note": "async use cases for clients with no terminal; injected executor; N9 on _execute"
+    },
+    {
+      "path": "vibecoder/runner.py",
+      "kind": "module",
+      "note": "build_payload/parse_reply split out of run_code; signature unchanged"
+    },
+    {
+      "path": "vibecoder/models.py",
+      "kind": "module",
+      "note": "BossStep.with_stub shared by terminal and browser fights"
+    },
+    {
+      "path": "vibecoder/cli.py",
+      "kind": "module",
+      "note": "_with_starter delegates to BossStep.with_stub"
+    },
+    {
+      "path": "vibecoder/__init__.py",
+      "kind": "module",
+      "note": "version 0.2.0"
+    },
+    {
+      "path": "tests/test_service.py",
+      "kind": "test",
+      "note": "31 tests with a real subprocess executor, bad solutions included"
+    },
+    {
+      "path": "tests/test_web.py",
+      "kind": "test",
+      "note": "19 tests: one CSP in three places, no network, engine surface, bundle"
+    },
+    {
+      "path": "web/",
+      "kind": "module",
+      "note": "browser client: engine worker, sandbox worker, acid-punk UI, editor, offline worker"
+    },
+    {
+      "path": "android/",
+      "kind": "module",
+      "note": "WebView shell, no INTERNET permission, allowBackup false"
+    },
+    {
+      "path": "tools/web/build.py",
+      "kind": "config",
+      "note": "hash-pinned Pyodide and fonts; reproducible engine archive"
+    },
+    {
+      "path": "tools/web/assets.lock.json",
+      "kind": "config"
+    },
+    {
+      "path": "tools/web/serve.py",
+      "kind": "config"
+    },
+    {
+      "path": "tools/web/smoke.py",
+      "kind": "config",
+      "note": "stdlib WebDriver client; engine checks, screenshot tour, subpath hosting"
+    },
+    {
+      "path": "tools/web/deploy.py",
+      "kind": "config",
+      "note": "atomic symlink swap; unexercised against the real host"
+    },
+    {
+      "path": "tools/web/icon.py",
+      "kind": "config"
+    },
+    {
+      "path": "tools/android/build_apk.py",
+      "kind": "config",
+      "note": "aapt2/javac/d8/zipalign/apksigner, no Gradle"
+    },
+    {
+      "path": "tools/android/device_smoke.py",
+      "kind": "config",
+      "note": "stdlib DevTools client for the phone's WebView"
+    },
+    {
+      "path": "docs/WEB.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/trajectories/T9-mobile-web.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/trajectories/README.md",
+      "kind": "doc",
+      "note": "T8 and T9 on the board; T8 paused"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "kind": "doc"
+    },
+    {
+      "path": "docs/GLOSSARY.md",
+      "kind": "doc"
+    },
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": "install, phone and browser, layout, trajectory table synced, count 1487"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "doc",
+      "note": "N1 exception D242, T9 commands, service rule, count 1487"
+    },
+    {
+      "path": "pyproject.toml",
+      "kind": "config",
+      "note": "version 0.2.0"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "The service scores a level exactly as the CLI path does",
+      "method": "python3.11 -m unittest tests.test_service",
+      "result": "31 OK; reference solve: ops equal to runner.run_submission, score equal to score_submission on the measured values",
+      "verdict": "verified"
+    },
+    {
+      "claim": "A correct but naive solution is penalised on Functional (M1)",
+      "method": "test_a_naive_solution_is_correct_and_costs_functional",
+      "result": "accuracy 100, functional below 60, ops above reference",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The web and Android builds make the promises their docs make",
+      "method": "python3.11 -m unittest tests.test_web",
+      "result": "19 OK: one CSP in page, server and APK; no external URL; no INTERNET permission; allowBackup false; every page call exposed",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The engine runs in a browser under the production CSP, and a runaway loop is stopped",
+      "method": "python3.11 tools/web/smoke.py (headless Chromium)",
+      "result": "boot 3617 ms, open 164 ms, run 170 ms; w2-l3-join 5/5 scoring 120.0 with ops 1364 = reference 1364; while True -> Timeout; boss starter -> wrong",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The build works from a subpath",
+      "method": "python3.11 tools/web/smoke.py --prefix vibecoder",
+      "result": "SMOKE OK",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The engine runs inside the app on a real phone",
+      "method": "python3.11 tools/android/device_smoke.py (Pixel 10a, Android 17, WebView 153)",
+      "result": "boot 4368 ms (concurrent with the app's own engine), open 143 ms, run 153 ms, runaway stopped at 12007 ms, ops 1364 = reference 1364",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The soft keyboard does not cover the editor controls on the device",
+      "method": "adb tap into the editor, DevTools read of layout",
+      "result": "key row bottom 435 px < 498 px visible height with Gboard open; symbol key inserted a pair; Enter auto-indented; focus kept",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The release APK is signed and requests no network access",
+      "method": "apksigner verify --print-certs; aapt2 dump badging",
+      "result": "v2+v3 verified, CN=VibeCoder O=Astra Arcana SHA-256 502ebc8f...0d48; com.astraarcana.vibecoder 0.2.0 (200); VIBRATE only",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The wheel and sdist are valid and the installed CLI plays",
+      "method": "python -m build; twine check; clean venv vibecoder play w1-l1-greet --solution",
+      "result": "PASSED, PASSED; 8/8 passed",
+      "verdict": "verified"
+    },
+    {
+      "claim": "Both original gates are green",
+      "method": "python3.11 -m unittest discover -s tests; python3.11 -m vibecoder.cli verify --seeds 3",
+      "result": "1487 tests: only failure was the flight board linking to this entry before it existed; 54/54 reference runs clean. Re-run after the records are written, before commit.",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The browser build is served from astra-arcana.com/vibecoder/",
+      "method": "ssh -i ~/.ssh/astra_hetzner root@178.104.120.219; TCP probes of 22/80/443",
+      "result": "Connection timed out on every port from the build host",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "A person has played the phone build end to end",
+      "method": "human play",
+      "result": "not done; automated taps and screenshots only",
+      "verdict": "unverified"
+    },
+    {
+      "claim": "Firefox, Safari and iOS run the browser build",
+      "method": "none run",
+      "result": "only Chromium and Android WebView exercised",
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M62",
+      "believed": "A skipTest guarding the naive-solution test would only fire if the level's contract changed later",
+      "revealed_by": "It fired on the first run because the fixture returned the wrong dict shape; the test written because of M1 reported as a green skip",
+      "corrected_to": "The fixture matches the level and the test asserts its precondition",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "A test that skips on its own precondition can hide exactly the thing it exists for; assert the precondition."
+    },
+    {
+      "id": "M63",
+      "believed": "Headless Chromium at the phone's viewport and pixel ratio previews the app faithfully",
+      "revealed_by": "On the Pixel the ASCII logo overflowed; DevTools showed the block glyph at 0.708 em and the ExtraBold face never requested, because <pre> takes the platform monospace from the UA stylesheet",
+      "corrected_to": "pre and textarea inherit the bundled font; every grid is JetBrains Mono on every platform",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Emulating a viewport emulates the viewport, not the fonts; look at the real device before calling a character grid done."
+    },
+    {
+      "id": "M64",
+      "believed": "Returning the whole payload from Pyodide's stdin callback delivers the whole line",
+      "revealed_by": "JSONDecodeError at char 8190 on the first production-sized payload",
+      "corrected_to": "The byte-level read(buffer) stdin, drained like a pipe",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Probe a new transport with a production-sized payload, not a toy one."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D242",
+      "decision": "Run the real engine on phones and in browsers via Pyodide, bundled in those builds only (user-approved N1 exception)",
+      "alternatives": [
+        "Termux-only CLI, no APK",
+        "Chaquopy or BeeWare native Python",
+        "Re-implement scoring in JavaScript"
+      ],
+      "rationale": "Keeps one engine: scores come from scoring.py, not a copy; the Python package stays dependency-free",
+      "reversible": true,
+      "seam": "web/workers/engine.js loads vendor/pyodide"
+    },
+    {
+      "id": "D243",
+      "decision": "An async Service with an injected executor, not synchronous run_code inside Pyodide",
+      "alternatives": [
+        "Block the engine worker on a sandbox with SharedArrayBuffer and Atomics"
+      ],
+      "rationale": "Avoids requiring cross-origin isolation on static hosts; the executor seam makes the layer testable with real subprocesses",
+      "reversible": true,
+      "seam": "vibecoder.service.Executor"
+    },
+    {
+      "id": "D244",
+      "decision": "Boss steps run free and the page replays them at the CLI's pace",
+      "alternatives": [
+        "Live stepping over a blocking stdin with SharedArrayBuffer"
+      ],
+      "rationale": "Same visible behaviour and scoring: pause on the raising line, strategy-A divergence, heal on the failing code, animation off the clock",
+      "reversible": true,
+      "seam": "Service.boss_attempt / boss_repair"
+    },
+    {
+      "id": "D245",
+      "decision": "Hand-built Android shell with SDK tools only, no INTERNET permission, no cloud backup",
+      "alternatives": [
+        "Gradle with AndroidX WebViewAssetLoader",
+        "Capacitor or Cordova"
+      ],
+      "rationale": "Nothing downloaded at build time, nothing third-party in the APK but Pyodide, and a privacy promise the OS enforces",
+      "reversible": true,
+      "seam": "android/ and tools/android/build_apk.py"
+    },
+    {
+      "id": "D246",
+      "decision": "The phone's reset also deletes saved runs",
+      "alternatives": [
+        "Match vibecoder reset, which removes only the profile"
+      ],
+      "rationale": "A run artifact is the player's code and a phone offers no terminal to find it afterwards",
+      "reversible": true,
+      "seam": "Service.reset"
+    },
+    {
+      "id": "D247",
+      "decision": "A boss attempt runs the watched step and the full verdict concurrently",
+      "alternatives": [
+        "Sequentially, as the CLI does"
+      ],
+      "rationale": "The CLI waits because its child is blocked on a person; here neither waits on anyone",
+      "reversible": true,
+      "seam": "Service._attempt"
+    }
+  ],
+  "friction": [
+    {
+      "description": "XML comments cannot contain --; the first manifest failed to link on a prose dash",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "apksigner reads a second line for --key-pass when it names the same file as --ks-pass",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "The permission classifier gave no verdict for several minutes early in the session",
+      "impact": "low",
+      "resolved": true
+    },
+    {
+      "description": "The deploy target timed out on every port from the build host, and the site is administered as astra in a Compose stack rather than as root",
+      "impact": "high",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "T9 W1-W4 landed: vibecoder.service, the browser build, the acid-punk client and a signed 0.2.0 APK installed on the user's Pixel. Wheel and sdist built and checked for the user to upload. W5 (astra-arcana.com/vibecoder/) prepared, not done; W6 (human play) not done.",
+    "next_action": "When the server is reachable: python3.11 tools/web/deploy.py astra@<host>:<path> --key ~/.ssh/astra_hetzner, add the location ^~ /vibecoder/ block from docs/WEB.md to the site's proxy, and confirm the headers with curl -I (T9 W5).",
+    "blockers": [
+      "SSH to 178.104.120.219 times out from the build host (Q104)"
+    ],
+    "context_required": [
+      "docs/WEB.md end to end",
+      "service.py is the only surface a non-terminal client uses",
+      "Browser op counts are never baselines",
+      "Back up the release key in ~/.config/vibecoder/"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q104",
+      "question": "How is astra-arcana.com served (proxy in the Compose stack or on the host), and from where is SSH allowed?",
+      "owner": "T9",
+      "status": "open"
+    },
+    {
+      "id": "Q105",
+      "question": "Should pip install vibecoder also ship vibecoder web, serving this client over the native engine?",
+      "owner": "T9",
+      "status": "open"
+    },
+    {
+      "id": "Q106",
+      "question": "Publish to Google Play (AAB, developer account, privacy policy), or stay sideload-only?",
+      "owner": "T9",
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "tests_total": 1487,
+    "tests_passing": 1487,
+    "dependencies": 0,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 37,
+    "bosses": 2,
+    "reference_runs_clean": 54
+  }
+}

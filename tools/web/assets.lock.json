@@ -1,0 +1,33 @@
+{
+  "pyodide": {
+    "version": "314.0.7",
+    "python": "3.14.2",
+    "license": "MPL-2.0",
+    "url": "https://registry.npmjs.org/pyodide/-/pyodide-314.0.7.tgz",
+    "sha256": "66b7949e5a0cba2250b586d7e368bf12fb482800748d182c4618254b685ffaa0",
+    "files": {
+      "package/pyodide.mjs": "vendor/pyodide/pyodide.mjs",
+      "package/pyodide.asm.mjs": "vendor/pyodide/pyodide.asm.mjs",
+      "package/pyodide.asm.wasm": "vendor/pyodide/pyodide.asm.wasm",
+      "package/python_stdlib.zip": "vendor/pyodide/python_stdlib.zip",
+      "package/pyodide-lock.json": "vendor/pyodide/pyodide-lock.json"
+    }
+  },
+  "jetbrains_mono": {
+    "version": "2.304",
+    "license": "OFL-1.1",
+    "url": "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip",
+    "sha256": "6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf",
+    "files": {
+      "fonts/webfonts/JetBrainsMono-Regular.woff2": "fonts/JetBrainsMono-Regular.woff2",
+      "fonts/webfonts/JetBrainsMono-Bold.woff2": "fonts/JetBrainsMono-Bold.woff2",
+      "fonts/webfonts/JetBrainsMono-ExtraBold.woff2": "fonts/JetBrainsMono-ExtraBold.woff2"
+    }
+  },
+  "vt323": {
+    "license": "OFL-1.1",
+    "url": "https://fonts.gstatic.com/s/vt323/v18/pxiKyp0ihIEF2isfFJU.woff2",
+    "sha256": "8ddbebcc1048154132e1d78eb9b1f7850bca1b7d857035ccf1cb4318ebc615b6",
+    "file": "fonts/VT323-Regular.woff2"
+  }
+}
