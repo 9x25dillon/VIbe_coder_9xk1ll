@@ -32,7 +32,7 @@ $ vibecoder play w2-l3-join --solution my_join.py
       things up, build a `set` or `dict` first and the lookup drops to O(1).
 ```
 
-**Play it anywhere:** in your terminal (`pipx install vibecoder`), on an
+**Play it anywhere:** in your terminal (installed from GitHub with `pipx`), on an
 Android phone (the APK on the [releases page](https://github.com/9x25dillon/VIbe_coder_9xk1ll/releases)),
 or in a browser at **https://vibecoder.astra-arcana.com**. The phone and browser builds run the *same* Python engine,
 compiled to WebAssembly, entirely on your device — see [Phone and browser](#phone-and-browser).
@@ -58,7 +58,9 @@ World 2, where the example above lives.
 Requires Python 3.10+. Nothing else.
 
 ```bash
-pipx install vibecoder          # or: pip install vibecoder
+pipx install git+https://github.com/9x25dillon/VIbe_coder_9xk1ll   # latest main
+# or a pinned release wheel, no git needed:
+# pipx install https://github.com/9x25dillon/VIbe_coder_9xk1ll/releases/download/v0.2.0/vibecoder-0.2.0-py3-none-any.whl
 vibecoder levels --browse       # the campaign cockpit
 vibecoder play w1-l1-greet      # opens $EDITOR, scores on save
 ```
@@ -109,8 +111,8 @@ reference measured in the same interpreter.
   send, in [`docs/WEB.md`](docs/WEB.md).
 
 Pyodide is a third-party runtime, bundled only in these two builds by an
-explicit exception to the project's no-dependency rule (D242); `pip install
-vibecoder` still installs nothing but VibeCoder.
+explicit exception to the project's no-dependency rule (D242); installing the
+Python package still installs nothing but VibeCoder.
 
 ## How scoring works
 

@@ -1,0 +1,108 @@
+{
+  "id": "S044",
+  "date": "2026-09-28",
+  "trajectory": "T9",
+  "competency_band": "Evaluate",
+  "journal": "journal/2026-09-28-S044-review.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "Every install instruction works without a PyPI account",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "The work of S042-S044 is reviewed: decisions, open assumptions, and where time was lost on both sides",
+      "result": "met"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "README.md",
+      "kind": "doc",
+      "note": "install from GitHub (git or release wheel), no PyPI"
+    },
+    {
+      "path": "Hand_off.md",
+      "kind": "doc",
+      "note": "rewritten for the next session"
+    },
+    {
+      "path": "journal/2026-09-28-S044-review.md",
+      "kind": "doc",
+      "note": "session review with efficiency findings and vocabulary"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "Both documented install commands work",
+      "method": "uv pip install git+https://github.com/9x25dillon/VIbe_coder_9xk1ll and the v0.2.0 release wheel URL, each in a clean venv",
+      "result": "0.2.0 installed; vibecoder levels lists the campaign",
+      "verdict": "verified"
+    },
+    {
+      "claim": "No instruction depends on PyPI",
+      "method": "grep README.md and the v0.2.0 release body",
+      "result": "no pipx install vibecoder remains",
+      "verdict": "verified"
+    },
+    {
+      "claim": "feat/terminal-cockpit holds no unmerged work",
+      "method": "git cherry -v main feat/terminal-cockpit",
+      "result": "its one commit is marked '-': identical patch already on main as 7a5940c",
+      "verdict": "verified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M67",
+      "believed": "A branch listed by git branch --no-merged holds work waiting to be merged",
+      "revealed_by": "git cherry marked its only commit '-', an identical patch already on main under another hash",
+      "corrected_to": "The branch is stale; merging would only add a redundant merge commit",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "'Not merged' compares commit ids; git cherry compares the changes."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D251",
+      "decision": "Distribute the Python package from GitHub, not PyPI",
+      "alternatives": [
+        "Create a PyPI account and upload",
+        "GitHub trusted publishing to PyPI"
+      ],
+      "rationale": "The user does not want the account; git and release-URL installs both work with pipx and need nothing else",
+      "reversible": true,
+      "seam": "README install lines"
+    }
+  ],
+  "friction": [],
+  "handoff": {
+    "state": "T9 W1-W5 landed and released: v0.2.0 APK and wheel on GitHub, web build live at https://vibecoder.astra-arcana.com. PyPI out of scope (D251).",
+    "next_action": "T9 W6: a person plays the phone build through a level and a boss fight; record the observations.",
+    "blockers": [],
+    "context_required": [
+      "Hand_off.md",
+      "docs/WEB.md",
+      "docs/trajectories/T9-mobile-web.md"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q108",
+      "question": "Delete the stale feat/terminal-cockpit branch, local and remote?",
+      "owner": "T9",
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "tests_total": 1487,
+    "tests_passing": 1487,
+    "dependencies": 0,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 37,
+    "bosses": 2,
+    "reference_runs_clean": 54
+  }
+}
