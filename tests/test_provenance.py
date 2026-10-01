@@ -121,8 +121,17 @@ class TestLevelProvenance(unittest.TestCase):
         `reference_benchmark` executes the *level author's* solution, not the
         player's. For a community level that is somebody else's Python, and it
         must not reach the subprocess backend.
+
+        Skipped where no isolating backend exists, because `select()` then
+        raises `SandboxUnavailable` by design (N4): refusing to run a
+        stranger's code with nothing to contain it is the correct behaviour,
+        not a failure of this assertion. A host without bubblewrap or Docker
+        has nothing to assert here.
         """
         from vibecoder import sandbox
+
+        if not any(b.available() for b in sandbox.BACKENDS):
+            self.skipTest("no isolating backend available to select")
 
         hostile = Level(
             id="community-1", world=1, world_title="Community", index=1,

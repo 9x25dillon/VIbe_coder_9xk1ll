@@ -17,6 +17,8 @@ import re
 import unittest
 from pathlib import Path
 
+from vibecoder import sandbox
+
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_DIR = ROOT / "data" / "schema"
 SESSIONS_DIR = ROOT / "data" / "sessions"
@@ -317,10 +319,22 @@ class TestWorkingAgreement(unittest.TestCase):
         backend, so discovery legitimately finds fewer tests. Comparing
         against a document that quotes the full number would make the fast
         inner loop permanently red, which is how a check stops being read.
+
+        The same reasoning covers a machine with *no* isolating backend at
+        all: `test_sandbox_escape.load_tests` clones its attack cases once per
+        available backend, so a host without bubblewrap or Docker discovers
+        fewer tests than CI through no fault of the tree. That case was missed
+        when this guard was written, because the suite had no dynamically
+        generated tests yet -- see M-HANDOFF-1 in HANDOFF.md.
         """
         pinned = os.environ.get("VIBECODER_SANDBOX", "auto").strip().lower()
         if pinned not in ("", "auto"):
             self.skipTest(f"test count is backend-dependent; pinned to {pinned}")
+        if not any(b.available() for b in sandbox.BACKENDS):
+            self.skipTest(
+                "no isolating backend on this host, so the adversarial suite "
+                "is smaller than CI's; the quoted count is CI's"
+            )
         actual = self.actual_test_count()
         for name in self.LIVING:
             text = (ROOT / name).read_text(encoding="utf-8")
