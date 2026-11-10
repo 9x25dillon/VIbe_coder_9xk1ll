@@ -34,7 +34,10 @@ const state = {
 // ------------------------------------------------------------- settings
 
 function loadSettings() {
-  const defaults = { crt: true, motion: "auto", haptics: true, size: "m", speed: 1, seen: false };
+  const defaults = {
+    crt: true, motion: "auto", haptics: true, size: "m", speed: 1, seen: false,
+    learningMode: "start-zero", learningStep: 0, learningMessage: "Hello!",
+  };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem("vibecoder.settings") || "{}") };
   } catch {
@@ -367,6 +370,19 @@ SCREENS.home = async (params, screen) => {
         <p class="small muted" style="margin-top:10px">Correct but wasteful code still gets called out. That's the point.</p>
       </div>` : ""}
 
+      ${state.settings.learningMode === "start-zero" ? html`<div class="panel learning-launch">
+        <span class="tag">guided learning // start from zero</span>
+        <div class="learning-launch-grid">
+          <div>
+            <h2>Never coded before?</h2>
+            <p class="small muted">Make your first little program, one idea at a time. We explain the words, symbols and why the code works.</p>
+            <div class="learning-progress"><span style="width:${Math.min(100, state.settings.learningStep / 4 * 100)}%"></span></div>
+            <p class="small faint">${state.settings.learningStep >= 4 ? "Ready for your first challenge." : `lesson ${state.settings.learningStep + 1} of 4`}</p>
+          </div>
+          <button class="btn primary" data-act="learn">${state.settings.learningStep >= 4 ? "Keep learning" : "Start here"} ▶</button>
+        </div>
+      </div>` : ""}
+
       ${daily ? html`<div class="panel pink"><span class="tag">daily // ${daily.date}</span>
         <div class="daily">
           <div><h3>${daily.title}</h3>
@@ -393,6 +409,98 @@ SCREENS.home = async (params, screen) => {
   screen.actions.open = (data) => go("brief", { id: data.id });
   screen.actions.daily = (data) => go("brief", { id: data.id, daily: true });
   screen.actions.boss = (data) => go("boss", { id: data.id });
+  screen.actions.learn = () => go("learn");
+};
+
+// -------------------------------------------------------- guided learning
+
+const ZERO_LESSON = [
+  {
+    title: "Today's mission",
+    body: "Make the computer say hello. No experience needed. You do not need to memorize anything.",
+    kind: "welcome",
+  },
+  {
+    title: "Three useful ideas",
+    body: "Before we write code, meet the words we will use.",
+    kind: "vocabulary",
+  },
+  {
+    title: "Choose the message",
+    body: "A command is an instruction. Pick something for the computer to say.",
+    kind: "choose",
+  },
+  {
+    title: "Your first program",
+    body: "You constructed an instruction without having to type the syntax yourself.",
+    kind: "program",
+  },
+];
+
+SCREENS.learn = (params, screen) => {
+  let step = Math.max(0, Math.min(ZERO_LESSON.length - 1, Number(state.settings.learningStep) || 0));
+  let message = state.settings.learningMessage || "Hello!";
+  let explained = false;
+  const lesson = () => ZERO_LESSON[step];
+  const saveStep = () => {
+    state.settings.learningStep = Math.max(state.settings.learningStep, step + 1);
+    saveSettings();
+  };
+  const next = () => {
+    if (step < ZERO_LESSON.length - 1) { step += 1; saveStep(); render(); }
+  };
+  const choice = (value) => {
+    message = value;
+    state.settings.learningMessage = value;
+    step = 3;
+    saveStep();
+    render();
+  };
+
+  const lessonBody = () => {
+    if (lesson().kind === "welcome") return html`
+      <div class="zero-mission"><div class="zero-icon">✦</div><div><b>Estimated time: 2 minutes</b><p class="small muted">We will learn one idea, try it, and then send you into the real game.</p></div></div>
+      <div class="panel cyan"><span class="tag">promise</span><p>We will explain everything as it becomes useful. You can switch learning modes at any time.</p></div>`;
+    if (lesson().kind === "vocabulary") return html`
+      <div class="vocab-grid">
+        <div class="vocab-card"><b>Text</b><p class="small muted">Words are information the computer can work with.</p><code>"Hello!"</code></div>
+        <div class="vocab-card"><b>Command</b><p class="small muted">An instruction telling the computer to do something.</p><code>print(...)</code></div>
+        <div class="vocab-card"><b>Run</b><p class="small muted">Execute your instructions and see what happens.</p><span class="sticker acid">try it</span></div>
+      </div>`;
+    if (lesson().kind === "choose") return html`
+      <div class="choice-grid">${["Hello!", "Goodbye!", "I like pizza!"].map((value) => html`<button class="choice-card ${message === value ? "selected" : ""}" data-act="choose" data-value="${value}"><span>“${value}”</span><small>choose this message</small></button>`)}</div>`;
+    return html`
+      <div class="first-program"><span class="program-label">YOUR FIRST PROGRAM</span><code>print("${message}")</code><div class="program-output">${message}</div></div>
+      <button class="text-btn" data-act="explain">${explained ? "Hide explanation" : "Explain my first program"}</button>
+      ${explained ? html`<div class="panel cyan explanation"><p><code>print</code> is the command that shows text.</p><p><code>( )</code> hold the information we give to the command.</p><p><code>"${message}"</code> marks these words as text. The quotation marks are not printed.</p></div>` : ""}`;
+  };
+  const footer = () => lesson().kind === "choose"
+    ? html`<p class="small faint center">Pick one to build your program.</p>`
+    : step === 3
+      ? html`<div class="row"><button class="btn quiet" data-act="stuck">I’m stuck</button><button class="btn primary" data-act="challenge">Try the first challenge ▶</button></div>`
+      : html`<button class="btn primary wide" data-act="next">Next step ▶</button>`;
+
+  mount(app, html`<section class="screen learning-screen">
+    ${topBar({ title: "Start From Zero", small: `lesson ${step + 1} / ${ZERO_LESSON.length}` })}
+    <div class="scroll">
+      <div class="small pink-t">GUIDED LEARNING // NO EXPERIENCE NEEDED</div>
+      <h1 class="brief-title">${lesson().title}</h1>
+      <p class="brief-text">${lesson().body}</p>
+      <div class="learning-steps" aria-label="lesson progress">${ZERO_LESSON.map((_, i) => html`<span class="${i <= step ? "on" : ""}">${i + 1}</span>`)}</div>
+      ${lessonBody()}
+    </div>
+    <div class="actions">${footer()}</div>
+  </section>`);
+
+  screen.actions.next = next;
+  screen.actions.choose = (data) => choice(data.value);
+  screen.actions.explain = () => { explained = !explained; render(); };
+  screen.actions.challenge = () => {
+    state.settings.learningStep = 4;
+    saveSettings();
+    go("brief", { id: "w1-l1-greet" });
+  };
+  screen.actions.stuck = () => toast("Look for the command, the parentheses, and the words inside quotes.", 4200);
 };
 
 // ---------------------------------------------------------------- brief
@@ -1139,6 +1247,18 @@ SCREENS.settings = (params, screen) => {
         <div class="setting"><div>Code size</div>${seg("size", [["s", "S"], ["m", "M"], ["l", "L"]])}</div>
         <div class="setting"><div>Haptics<small>buzz on pass, fail and hits</small></div>${seg("haptics", [[true, "on"], [false, "off"]])}</div>
       </div>
+      <div class="panel cyan"><span class="tag">learning path</span>
+        <p class="small muted">Choose how much help VibeCoder gives you. You can change this without losing campaign progress.</p>
+        <div class="mode-list">
+          ${[
+            ["start-zero", "Start From Zero", "Explain every word and symbol. No assumptions."],
+            ["beginner", "Beginner", "Guided exercises, vocabulary and hints."],
+            ["assisted", "Assisted", "Partial solutions and fill-in-the-blank help."],
+            ["standard", "Standard", "Normal challenges with optional help."],
+            ["expert", "Expert", "Minimal guidance, hidden tests and time challenges."],
+          ].map(([value, label, description]) => html`<button class="mode-option ${s.learningMode === value ? "selected" : ""}" data-act="mode" data-value="${value}" aria-pressed="${s.learningMode === value}"><span><b>${label}</b><small>${description}</small></span><i>${s.learningMode === value ? "✓" : ""}</i></button>`)}
+        </div>
+      </div>
       <div class="panel cyan"><span class="tag">privacy</span>
         <p class="small">The game, the Python interpreter and your code all run on this device.
         No accounts, no analytics, and nothing you write is ever sent anywhere. Progress is
@@ -1170,6 +1290,11 @@ SCREENS.settings = (params, screen) => {
   screen.actions.set = (data) => {
     const raw_ = data.value;
     state.settings[data.key] = raw_ === "true" ? true : raw_ === "false" ? false : raw_;
+    saveSettings();
+    render();
+  };
+  screen.actions.mode = (data) => {
+    state.settings.learningMode = data.value;
     saveSettings();
     render();
   };
