@@ -20,6 +20,7 @@ let dispatch = null;
 let sequence = 0;
 const executing = new Map();
 let flushing = Promise.resolve();
+let persistent = false;
 
 function status(text) {
   postMessage({ type: "status", text });
@@ -37,6 +38,7 @@ self.vcExecute = (payload, commands) =>
 // Called from Python after every save. Serialised, because two overlapping
 // syncs of one mount race each other.
 self.vcPersist = () => {
+  if (!persistent) return;
   flushing = flushing.then(
     () =>
       new Promise((resolve) => {
@@ -48,16 +50,36 @@ self.vcPersist = () => {
   );
 };
 
+// A page embedded in another site's frame (itch.io's player is one) can be
+// refused IndexedDB: a browser that blocks third-party cookies blocks
+// third-party storage with them. The game is fully playable without a save
+// file, so fall back to memory and say so once, rather than failing to boot
+// over a missing convenience. Nothing else changes: `Session` still writes
+// `profile.json`, it just does not outlive the tab.
+async function mountSaves() {
+  try {
+    py.FS.mount(py.FS.filesystems.IDBFS, {}, HOME);
+    await new Promise((resolve, reject) =>
+      py.FS.syncfs(true, (error) => (error ? reject(error) : resolve())),
+    );
+    return true;
+  } catch {
+    try { py.FS.unmount(HOME); } catch { /* the mount itself was refused */ }
+    postMessage({
+      type: "warn",
+      text: "this browser won't let the game save here · progress lasts until you close the tab",
+    });
+    return false;
+  }
+}
+
 async function boot() {
   status("loading python runtime");
   py = await loadPyodide({ indexURL: new URL("../vendor/pyodide/", import.meta.url).href });
 
   status("mounting save file");
   py.FS.mkdirTree(HOME);
-  py.FS.mount(py.FS.filesystems.IDBFS, {}, HOME);
-  await new Promise((resolve, reject) =>
-    py.FS.syncfs(true, (error) => (error ? reject(error) : resolve())),
-  );
+  persistent = await mountSaves();
 
   status("unpacking engine");
   const archive = await fetch(new URL("../py/vibecoder.zip", import.meta.url));

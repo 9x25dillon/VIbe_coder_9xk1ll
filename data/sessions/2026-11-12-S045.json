@@ -1,0 +1,170 @@
+{
+  "id": "S045",
+  "date": "2026-11-12",
+  "trajectory": "T9",
+  "competency_band": "Apply",
+  "journal": "journal/2026-11-12-S045-itch-package.md",
+  "objectives": [
+    {
+      "id": 1,
+      "statement": "One command produces a zip itch.io accepts as an HTML5 upload, with every documented limit checked before it is written",
+      "result": "met"
+    },
+    {
+      "id": 2,
+      "statement": "Nothing in the package depends on a header itch.io's CDN may not send",
+      "result": "partial",
+      "note": "loader checked in Node, not in a browser"
+    },
+    {
+      "id": 3,
+      "statement": "The game still boots in a frame that is refused IndexedDB",
+      "result": "partial",
+      "note": "source-checked only; no browser in the session"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "tools/itch/package.py",
+      "kind": "module",
+      "note": "itch.io HTML5 packager"
+    },
+    {
+      "path": "tests/test_itch.py",
+      "kind": "test",
+      "note": "15 tests, half of them refusals"
+    },
+    {
+      "path": "web/workers/engine.js",
+      "kind": "module",
+      "note": "mountSaves: memory fallback when IndexedDB is refused"
+    },
+    {
+      "path": "docs/WEB.md",
+      "kind": "doc",
+      "note": "itch.io section"
+    },
+    {
+      "path": "tools/itch/cover.png",
+      "kind": "data",
+      "note": "630x500 itch.io store cover"
+    }
+  ],
+  "evidence": [
+    {
+      "claim": "The zip has index.html at its root, 32 files, no .mjs, no sw.js",
+      "method": "python3.11 tools/itch/package.py; unzip -l",
+      "result": "32 files, 6.9 MB zipped",
+      "verdict": "verified"
+    },
+    {
+      "claim": "One build gives one zip",
+      "method": "package twice from build/web, sha256sum",
+      "result": "identical hashes",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The renamed loader finds pyodide.asm.js and the engine imports",
+      "method": "Node 22: loadPyodide from the unzipped package, unpack py/vibecoder.zip, import vibecoder.service",
+      "result": "python 3.14.2; engine 0.2.0 imported",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The four suite failures are this host, not this change",
+      "method": "python3.11 -m unittest discover -s tests on main before any edit",
+      "result": "same 3 failures and 1 error: no isolating sandbox in the container",
+      "verdict": "verified"
+    },
+    {
+      "claim": "The game runs inside itch.io's iframe",
+      "method": "none: no browser in the session",
+      "result": null,
+      "verdict": "unverified"
+    },
+    {
+      "claim": "The memory fallback boots when IndexedDB is refused",
+      "method": "source check only (tests/test_itch.py)",
+      "result": null,
+      "verdict": "unverified"
+    }
+  ],
+  "misconceptions": [
+    {
+      "id": "M68",
+      "believed": "Renaming pyodide.asm.mjs meant rewriting the loader's one reference to it",
+      "revealed_by": "a search of both Pyodide files for .mjs",
+      "corrected_to": "pyodide.asm.mjs also names itself in its stack-frame filter; both strings are rewritten with exact counts",
+      "caught_before_shipping": true,
+      "generalisable_lesson": "Before renaming a vendored file, search every vendored file for its name, including the file itself."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D252",
+      "decision": "Ship Pyodide's .mjs files as .js in the itch.io package",
+      "alternatives": [
+        "Trust itch's CDN to type .mjs",
+        "Ask itch support"
+      ],
+      "rationale": "Nothing documents the type; .js is typed correctly by every host, and the rewrite is checked",
+      "reversible": true,
+      "seam": "tools/itch/package.py RENAMES and PATCHES"
+    },
+    {
+      "id": "D253",
+      "decision": "Leave the offline worker out of the itch.io package",
+      "alternatives": [
+        "Ship it",
+        "Patch app.js not to register when framed"
+      ],
+      "rationale": "Offline play is not a feature of an embed; leaving the file out changes no shared code",
+      "reversible": true,
+      "seam": "tools/itch/package.py DROP"
+    },
+    {
+      "id": "D254",
+      "decision": "A refused IndexedDB costs the save, not the game",
+      "alternatives": [
+        "Keep the fatal error",
+        "Detect itch.io specifically"
+      ],
+      "rationale": "A playable game without saves beats an error screen, on any host",
+      "reversible": true,
+      "seam": "mountSaves in web/workers/engine.js"
+    }
+  ],
+  "friction": [
+    {
+      "description": "No Chromium in the container, so smoke.py could not run against the package; Node stood in for the loader check only",
+      "impact": "medium",
+      "resolved": false
+    }
+  ],
+  "handoff": {
+    "state": "tools/itch/package.py builds an itch.io zip of 0.2.0; not yet uploaded or played on itch.io.",
+    "next_action": "The user uploads the zip to an itch.io draft and plays one level in the preview; record what happens.",
+    "blockers": [],
+    "context_required": [
+      "docs/WEB.md",
+      "journal/2026-11-12-S045-itch-package.md"
+    ]
+  },
+  "open_questions": [
+    {
+      "id": "Q109",
+      "question": "What type does itch.io's CDN send for .mjs? If JavaScript, D252 can be dropped.",
+      "owner": "T9",
+      "status": "open"
+    }
+  ],
+  "metrics": {
+    "tests_total": 1502,
+    "tests_passing": 1478,
+    "dependencies": 0,
+    "levels": 12,
+    "worlds": 3,
+    "modules": 37,
+    "bosses": 2,
+    "reference_runs_clean": 54
+  }
+}

@@ -25,7 +25,7 @@ down.
    there. Work is scoped to a waypoint, never to "improve the thing".
 3. **Confirm the baseline is green:**
    ```bash
-   python3 -m unittest discover -s tests      # 1487 tests, 1.5-2.5 min
+   python3 -m unittest discover -s tests      # 1502 tests, 1.5-2.5 min
 
    The escape suite is most of that time: unpinned, it runs every attack
    against every isolating backend, and a Docker attempt is a cold container.
@@ -106,6 +106,7 @@ python3 -m unittest tests.test_sandbox_escape
 python3.11 tools/web/build.py                     # -> build/web
 python3.11 tools/web/smoke.py                     # engine checks, headless Chromium
 python3.11 tools/web/smoke.py --shots /tmp/shots  # screenshot every screen
+python3.11 tools/itch/package.py                  # -> dist/vibecoder-itch-<v>.zip (docs/WEB.md)
 python3.11 tools/android/build_apk.py --debug --install   # phone, debuggable
 python3.11 tools/android/device_smoke.py          # engine checks on the phone
 
