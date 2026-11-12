@@ -147,3 +147,43 @@ curl -sI https://vibecoder.astra-arcana.com/ | grep -i content-security
 curl -s -o /dev/null -w '%{content_type}\n' https://vibecoder.astra-arcana.com/vendor/pyodide/pyodide.asm.wasm
 python3.11 tools/web/smoke.py --url https://vibecoder.astra-arcana.com/
 ```
+
+## itch.io
+
+```bash
+python3.11 tools/itch/package.py      # builds, then dist/vibecoder-itch-<version>.zip
+python3.11 tools/itch/package.py --from build/web   # package a build you already have
+```
+
+[`tools/itch/package.py`](../tools/itch/package.py) turns the static site into
+a zip itch.io accepts as an HTML5 upload: `index.html` at the root, every path
+relative, and itch's documented limits (1,000 files, 500 MB in total, 200 MB a
+file, 240-character paths) checked before anything is written. The build is
+about 14 MB unzipped and 7 MB zipped, Pyodide included; nothing is fetched from
+a CDN at runtime, so the page's `'self'`-only policy holds on itch's host too.
+
+itch.io serves the upload from a subdirectory of its own CDN, inside an iframe
+on the game's page, and sends its own headers. Three differences from a host
+we run, and what the packager does about each:
+
+| On itch.io | What the package does |
+| --- | --- |
+| We cannot choose the type sent for `.mjs`, and module workers refuse anything but JavaScript. Nothing documents what itch sends. | Pyodide's two `.mjs` files ship as `.js`, which every host types as JavaScript, and the four strings naming them are rewritten. Each rewrite must match an exact count, so a Pyodide upgrade that moves a name fails the packager, not the upload. |
+| The game is a third-party frame. A browser that blocks third-party cookies blocks its IndexedDB too. | The engine falls back to memory and says once that progress lasts until the tab closes (`mountSaves` in `workers/engine.js`). This also covers any host that refuses storage. |
+| Offline play is not a feature of an embed, and a cache-first worker in a partitioned frame can serve an old build. | `sw.js` is left out. The page already ignores a failed registration. |
+
+The store cover, 630 × 500 and drawn from the game's own logo, palette and
+fonts, is [`tools/itch/cover.png`](../tools/itch/cover.png).
+
+`build-info.json` in the zip lists exactly the files shipped and carries
+`"target": "itch.io"`. `.wasm` needs no rename: if a host sends the wrong type,
+Emscripten falls back from streaming compilation to an `ArrayBuffer`, which is
+slower to start but works.
+
+itch.io only takes donations for a game whose kind is HTML; selling access
+needs the kind set to Downloadable. Upload the zip as the HTML5 file and tick
+"This file will be played in the browser". The layout already fits a phone,
+so the embed size is a matter of taste; offer the fullscreen button and look
+at it in the preview. **Play it once in itch's draft
+preview before publishing**: `smoke.py` drives Chromium against our own server,
+and nothing in this repository can stand in for itch's iframe.

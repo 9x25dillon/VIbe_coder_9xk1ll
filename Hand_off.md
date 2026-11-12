@@ -28,7 +28,7 @@ says what is true now, how to do the common things, and what to do next.
 
 ```bash
 VIBECODER_SANDBOX=bwrap python3.11 -m unittest discover -s tests   # inner loop, ~60s
-python3.11 -m unittest discover -s tests                           # before commit (N8): 1487
+python3.11 -m unittest discover -s tests                           # before commit (N8): 1502
 python3.11 -m vibecoder.cli verify --seeds 3                       # 54/54
 ```
 

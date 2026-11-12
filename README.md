@@ -37,7 +37,7 @@ Android phone (the APK on the [releases page](https://github.com/9x25dillon/VIbe
 or in a browser at **https://vibecoder.astra-arcana.com**. The phone and browser builds run the *same* Python engine,
 compiled to WebAssembly, entirely on your device — see [Phone and browser](#phone-and-browser).
 
-**Status:** Phase 0 complete. Playable, scored, 1487 tests, **zero third-party
+**Status:** Phase 0 complete. Playable, scored, 1502 tests, **zero third-party
 dependencies** in the Python package. Phase 2's boss engine is five waypoints in and playable: a
 fight runs one line at a time under a real interpreter, pauses *on* the line
 that raised, and lets you **type a fix into the paused fight** and carry on —
@@ -298,8 +298,9 @@ vibecoder/            The game. No dependencies.
 web/                  Browser client: no framework, no build step, no CDN
 android/              The Android shell: one Java activity, no network permission
 tools/web/            Build (pinned Pyodide), serve, smoke-test and deploy the browser build
+tools/itch/           Package the browser build as an itch.io HTML5 upload
 tools/android/        Build and sign the APK; run the engine checks on a device
-tests/                1487 tests, stdlib unittest
+tests/                1502 tests, stdlib unittest
 docs/                 Architecture, scoring, profiler, level authoring, glossary, web
 └── trajectories/     Forward plan — T1..T9
 journal/              Chronological session reviews, with handoffs
